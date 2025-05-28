@@ -42,7 +42,7 @@ here in Norway.
 
 ## Links and resources
 
-* [Help & Support](https://zentransfer.io/blog/zentransfer-app-help)
+* [Help & Support](https://zentransfer.io/blog/help-with-the-app)
 * [Roadmap - give feedback and vote for features](https://zentransfer.io/blog/roadmap)
 * [Changelog - new features, bugfixes and history](https://zentransfer.io/blog/changelog)
 * [SubReddit for ZenTransfer](https://www.reddit.com/r/zentransfer/)
