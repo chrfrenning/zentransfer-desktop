@@ -45,6 +45,7 @@ here in Norway.
 * [Help & Support](https://zentransfer.io/blog/zentransfer-app-help)
 * [Roadmap - give feedback and vote for features](https://zentransfer.io/blog/roadmap)
 * [Changelog - new features, bugfixes and history](https://zentransfer.io/blog/changelog)
+* [SubReddit for ZenTransfer](https://www.reddit.com/r/zentransfer/)
 * [Privacy Policy](https://zentransfer.io/privacy-policy)
 * [Terms of Service](https://zentransfer.io/terms-of-service)
 * [Donate](https://livewall.no/blog/supporting-the-zentransfer-app)
