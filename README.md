@@ -48,4 +48,5 @@ them synced instantly to your laptop.
 * [SubReddit for ZenTransfer](https://www.reddit.com/r/zentransfer/)
 * [Privacy Policy](https://zentransfer.io/privacy-policy)
 * [Terms of Service](https://zentransfer.io/terms-of-service)
+* [Contribute](https://zentransfer.io/blog/contribute-to-zentransfer)
 * [Donate](https://livewall.no/blog/supporting-the-zentransfer-app)
