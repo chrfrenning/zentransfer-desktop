@@ -14,13 +14,6 @@ It can:
 
 The ZenTransfer app is free to use and works with or without an account on ZenTransfer.io.
 
-## How to send files from your camera with FTP
-
-If you have a professional camera that supports FTP transfers, you can set up an 
-account on https://zentransfer.io/ to get a cloud FTP server. When the camera
-sends files you can relay them one or more destinations, and use this app to have
-them synced instantly to your laptop.
-
 ## Current state
 
 ZenTransfer is working, but in beta. It performs very well on the days when the
@@ -31,14 +24,21 @@ it also works reliably when thunder and hail are sent by forces outside of our c
 
 Plus there's a ton of features I would like to see, and I guess you can come up with some too.
 
-## Support our work
+## Support my work
 
-I, Chris, am just an average photographer, but a pretty good software engineer 
-(by training and trade). ZenTransfer is a hobby project to help a community I love.
+I, Chris, am just an average photographer, but a (pretty good?) software engineer 
+by training and trade. ZenTransfer is a hobby project to help a community I love.
 You can support it by sharing and letting others know of ZenTransfer, by donating,
 or by subscribing to the zentransfer.io service. This way I can ensure there's
-coffee on the shelf to keep me going through weekends and long, dark, winter nights
-here in Norway.
+coffee in my cup to keep me going through weekends and long, dark, winter nights
+here in Norway. Then more and better code will be coming your way!
+
+## How to send files from your camera with FTP
+
+If you have a professional camera that supports FTP transfers, you can set up an 
+account on https://zentransfer.io/ to get a cloud FTP server. When the camera
+sends files you can relay them one or more destinations, and use this app to have
+them synced instantly to your laptop.
 
 ## Links and resources
 
