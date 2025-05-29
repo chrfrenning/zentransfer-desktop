@@ -72,3 +72,12 @@ them synced instantly to your laptop.
 * [Terms of Service](https://zentransfer.io/terms-of-service)
 * [Contribute](https://zentransfer.io/blog/contribute-to-zentransfer)
 * [Donate](https://livewall.no/blog/supporting-the-zentransfer-app)
+
+## Contributing
+
+This app is changing a lot as I am implementing the features on the current backlog, and
+the codebase is not stable enough to facilitate wide collaboration quite yet. Electron
+developers know how to find the code - have fun with it. Others may contribute by
+sharing, testing and filing issues, and helping in the reddit community. I'll open
+up for more collaboration as things get a bit more stable. [See the blog on contribution
+for more information]}(https://zentransfer.io/blog/contribute-to-zentransfer).
