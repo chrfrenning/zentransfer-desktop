@@ -14,10 +14,27 @@ It can:
 
 The ZenTransfer app is free to use and works with or without an account on ZenTransfer.io.
 
+* [Download for Mac](https://github.com/chrfrenning/zentransfer-desktop/releases/latest/)
+* [Download for Windows](https://github.com/chrfrenning/zentransfer-desktop/releases/latest/)
+
 ## Screenshots
 
-<img src="https://ztapp.blob.core.windows.net/imgs/mac/04-import.png" alt="ZenTransfer Import on Mac" width="200"/>
-<img src="https://ztapp.blob.core.windows.net/imgs/win/04-settings.webp" alt="Settings on Windows" width="200"/>
+<p>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/01-new-version.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/01-new-version.png" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/02-login.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/02-login.png" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/03-upload.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/03-upload.png" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/04-import.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/04-import.png" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/05-organize.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/05-organize.png" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/06-download.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/06-download.png" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/mac/07-settings.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/07-settings.png" width="200"/></a>
+</p>
+
+<p>
+  <a href="https://ztapp.blob.core.windows.net/imgs/win/01-upload.webp"><img src="https://ztapp.blob.core.windows.net/imgs/win/01-upload.webp" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/win/02-import.webp"><img src="https://ztapp.blob.core.windows.net/imgs/win/02-import.webp" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/win/03-download.webp"><img src="https://ztapp.blob.core.windows.net/imgs/win/03-download.webp" width="200"/></a>
+  <a href="https://ztapp.blob.core.windows.net/imgs/win/04-settings.webp"><img src="https://ztapp.blob.core.windows.net/imgs/win/04-settings.webp" width="200"/></a>
+</p>
 
 ## Current state
 
