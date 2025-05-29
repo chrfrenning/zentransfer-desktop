@@ -14,6 +14,11 @@ It can:
 
 The ZenTransfer app is free to use and works with or without an account on ZenTransfer.io.
 
+## Screenshots
+
+<img src="https://ztapp.blob.core.windows.net/imgs/mac/04-import.png" alt="ZenTransfer Import on Mac" width="200"/>
+<img src="https://ztapp.blob.core.windows.net/imgs/win/04-settings.webp" alt="Settings on Windows" width="200"/>
+
 ## Current state
 
 ZenTransfer is working, but in beta. It performs very well on the days when the
