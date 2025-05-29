@@ -80,4 +80,4 @@ the codebase is not stable enough to facilitate wide collaboration quite yet. El
 developers know how to find the code - have fun with it. Others may contribute by
 sharing, testing and filing issues, and helping in the reddit community. I'll open
 up for more collaboration as things get a bit more stable. [See the blog on contribution
-for more information]}(https://zentransfer.io/blog/contribute-to-zentransfer).
+for more information](https://zentransfer.io/blog/contribute-to-zentransfer).
