@@ -21,8 +21,6 @@ The ZenTransfer app is free to use and works with or without an account on ZenTr
 ## Screenshots (MacOS)
 
 <p>
-  <a href="https://ztapp.blob.core.windows.net/imgs/mac/01-new-version.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/01-new-version.png" width="200"/></a>
-  <a href="https://ztapp.blob.core.windows.net/imgs/mac/02-login.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/02-login.png" width="200"/></a>
   <a href="https://ztapp.blob.core.windows.net/imgs/mac/03-upload.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/03-upload.png" width="200"/></a>
   <a href="https://ztapp.blob.core.windows.net/imgs/mac/04-import.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/04-import.png" width="200"/></a>
   <a href="https://ztapp.blob.core.windows.net/imgs/mac/05-organize.png"><img src="https://ztapp.blob.core.windows.net/imgs/mac/05-organize.png" width="200"/></a>
