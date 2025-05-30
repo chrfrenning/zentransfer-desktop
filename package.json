@@ -1,6 +1,6 @@
 {
   "name": "ZenTransfer",
-  "version": "0.1.18",
+  "version": "0.1.19",
   "description": "File transfer for professional photographers",
   "main": "main.js",
   "scripts": {
@@ -64,7 +64,9 @@
       "target": "nsis",
       "icon": "./icon.ico",
       "sign": "./azure-sign.js",
-      "signingHashAlgorithms": ["sha256"]
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
     },
     "directories": {
       "buildResources": "build",
