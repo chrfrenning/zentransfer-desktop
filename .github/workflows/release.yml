@@ -1,0 +1,86 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+        
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: latest
+          cache: npm
+          cache-dependency-path: package-lock.json
+        
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG_NAME#v}
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG_NAME, Version: $VERSION"
+        shell: bash
+
+      # macOS-specific steps for code signing and notarization
+      - name: Setup macOS certificate and keychain
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Create certificates directory
+          mkdir -p ~/certificates
+          
+          # Decode the certificate
+          echo "${{ secrets.APPLE_CERTIFICATE }}" | base64 --decode > ~/certificates/certificate.p12
+          
+          # Create a temporary keychain
+          security create-keychain -p temp_password temp.keychain
+          security default-keychain -s temp.keychain
+          security unlock-keychain -p temp_password temp.keychain
+          
+          # Import the certificate into the keychain
+          security import ~/certificates/certificate.p12 -k temp.keychain -P "${{ secrets.APPLE_CERTIFICATE_PWD }}" -T /usr/bin/codesign -T /usr/bin/security
+          
+          # Set the partition list to allow access to the private key
+          security set-key-partition-list -S apple-tool:,apple: -s -k temp_password temp.keychain
+          
+          # Clean up the certificate file
+          rm ~/certificates/certificate.p12
+        shell: bash
+
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build and publish
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          # macOS signing and notarization environment variables
+          CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PWD }}
+        run: npm run publish
+
+      # notarize
+      - name: Notarize the release
+        if: matrix.os == 'macos-latest'
+        run: |
+          xcrun notarytool submit ./dist/ZenTransfer-${{ steps.version.outputs.version }}-universal.dmg --wait --apple-id ${{ secrets.APPLE_ID }} --password ${{ secrets.APPLE_PASSWORD }} --team-id ${{ secrets.APPLE_TEAM_ID }}
+        shell: bash
+
+      # Clean up keychain on macOS
+      - name: Cleanup keychain
+        if: matrix.os == 'macos-latest' && always()
+        run: |
+          security delete-keychain temp.keychain || true
+        shell: bash 
