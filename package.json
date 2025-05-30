@@ -72,6 +72,7 @@
     },
     "files": [
       "main.js",
+      "config.js",
       "src/**/*",
       "main/**/*",
       "workers/**/*",

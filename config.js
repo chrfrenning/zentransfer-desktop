@@ -57,7 +57,7 @@ const sharedConfig = {
     CLIENT_ID: '4a276465-fbc2-4874-833d-966bd48c3ace',
 
     // Server settings
-    serverBaseUrl: getIsDevelopment() ? SERVER_URLS.development : SERVER_URLS.production,
+    serverBaseUrl: getIsDevelopment().isDev ? SERVER_URLS.development : SERVER_URLS.production,
     
     // Development mode flag (for backward compatibility)
     isDevelopment: getIsDevelopment().isDev
