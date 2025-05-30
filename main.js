@@ -440,7 +440,7 @@ class ImportWorkerManager {
 let importWorkerPool;
 
 // Upload Service Manager
-const { UploadServiceManager } = require(path.join(__dirname, 'main', 'upload-service-manager.js'));
+const { UploadServiceManager } = require(path.join(__dirname, 'workers', 'upload-service-manager.js'));
 let uploadServiceManager;
 
 // Download Worker Manager
