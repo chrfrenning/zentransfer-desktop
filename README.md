@@ -3,6 +3,7 @@
 ZenTransfer is a *free* file transfer utility for professional photographers.
 
 It runs on Mac OS (Apple Silicon) and Windows.
+(It may run on Intel Mac's, but I don't have one to test.)
 
 It can:
 
@@ -10,7 +11,7 @@ It can:
 * Organize files into folders by date
 * Upload files to AWS S3, Azure, Google Cloud Platform (OVH and Hetzner coming)
 * Monitor for new files on zentransfer.io and sync to your laptop
-* Relay to FTP Servers, Email, Webhooks and Zapier.com via ZenTransfer.io
+* Relay to multiple FTP Servers, Email, Webhooks and Zapier.com via ZenTransfer.io
 
 The ZenTransfer app is free to use and works with or without an account on ZenTransfer.io.
 
