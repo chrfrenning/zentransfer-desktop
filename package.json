@@ -1,0 +1,111 @@
+{
+  "name": "ZenTransfer",
+  "version": "0.1.16",
+  "description": "File transfer for professional photographers",
+  "main": "main.js",
+  "scripts": {
+    "start": "cross-env NODE_ENV=production electron .",
+    "dev": "cross-env NODE_ENV=development concurrently \"npm run build-css\" \"electron . --dev\"",
+    "start:dev": "cross-env NODE_ENV=development electron .",
+    "start:prod": "cross-env NODE_ENV=production electron .",
+    "dev:no-reload": "cross-env NODE_ENV=development electron .",
+    "build-css": "tailwindcss -i ./src/input.css -o ./src/output.css --watch",
+    "build-css-prod": "tailwindcss -i ./src/input.css -o ./src/output.css --minify",
+    "build": "npm run build-css-prod && electron-builder",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "publish": "npm run build-css-prod && electron-builder --publish=always",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "keywords": [
+    "electron",
+    "zentransfer",
+    "photography",
+    "ftp",
+    "cloud",
+    "file transfer"
+  ],
+  "author": "Perceptron AS",
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^27.0.0",
+    "electron-builder": "^24.13.3",
+    "electron-reload": "^2.0.0-alpha.1",
+    "glob": "^11.0.2",
+    "tailwindcss": "^3.3.5"
+  },
+  "build": {
+    "appId": "com.perceptron.zentransfer",
+    "productName": "ZenTransfer",
+    "publish": {
+      "provider": "github",
+      "owner": "chrfrenning",
+      "repo": "zentransfer-desktop"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.utilities",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "./entitlements.mac.plist",
+      "entitlementsInherit": "./entitlements.mac.plist",
+      "icon": "./icon.icns"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "./icon.ico"
+    },
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "src/**/*",
+      "main/**/*",
+      "workers/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "node_modules/@aws-sdk",
+        "to": "node_modules/@aws-sdk",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "node_modules/@azure",
+        "to": "node_modules/@azure",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "node_modules/@google-cloud",
+        "to": "node_modules/@google-cloud",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.817.0",
+    "@azure/storage-blob": "^12.27.0",
+    "@google-cloud/storage": "^7.16.0",
+    "@headlessui/react": "^2.2.4",
+    "@heroicons/react": "^2.2.0",
+    "electron-updater": "^6.6.2"
+  }
+}
