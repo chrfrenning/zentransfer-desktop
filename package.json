@@ -62,7 +62,9 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "./icon.ico"
+      "icon": "./icon.ico",
+      "sign": "./azure-sign.js",
+      "signingHashAlgorithms": ["sha256"]
     },
     "directories": {
       "buildResources": "build",

@@ -60,6 +60,13 @@ jobs:
           rm ~/certificates/certificate.p12
         shell: bash
 
+      # Windows-specific steps for code signing with Azure SignTool
+      - name: Install Azure SignTool
+        if: matrix.os == 'windows-latest'
+        run: |
+          dotnet tool install --global AzureSignTool
+        shell: pwsh
+
       - name: Install dependencies
         run: npm ci
         
@@ -69,6 +76,12 @@ jobs:
           # macOS signing and notarization environment variables
           CSC_LINK: ${{ secrets.APPLE_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PWD }}
+          # Windows Azure Key Vault signing environment variables
+          AZURE_KEY_VAULT_URI: ${{ secrets.AZURE_KEY_VAULT_URL }}
+          AZURE_KEY_VAULT_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_KEY_VAULT_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_KEY_VAULT_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_KEY_VAULT_CERTIFICATE: ${{ secrets.AZURE_CERT_NAME }}
         run: npm run publish
 
       # notarize
