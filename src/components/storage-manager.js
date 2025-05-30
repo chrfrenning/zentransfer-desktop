@@ -17,6 +17,7 @@ export class StorageManager {
         IMPORT_UPLOAD_TO_AWS_S3: 'zentransfer_import_upload_to_aws_s3',
         IMPORT_UPLOAD_TO_AZURE: 'zentransfer_import_upload_to_azure',
         IMPORT_UPLOAD_TO_GCP: 'zentransfer_import_upload_to_gcp',
+        IMPORT_ENABLE_CLOUD_UPLOAD: 'zentransfer_import_enable_cloud_upload',
         IMPORT_INCLUDE_SUBDIRECTORIES: 'zentransfer_import_include_subdirectories',
         IMPORT_ORGANIZE_INTO_FOLDERS: 'zentransfer_import_organize_into_folders',
         IMPORT_FOLDER_ORGANIZATION_TYPE: 'zentransfer_import_folder_organization_type',
@@ -324,6 +325,23 @@ export class StorageManager {
      */
     static setImportSkipDuplicates(enabled) {
         localStorage.setItem(this.KEYS.IMPORT_SKIP_DUPLICATES, enabled.toString());
+    }
+
+    /**
+     * Get import enable cloud upload setting from storage
+     * @returns {boolean} Whether cloud upload is enabled
+     */
+    static getImportEnableCloudUpload() {
+        const stored = localStorage.getItem(this.KEYS.IMPORT_ENABLE_CLOUD_UPLOAD);
+        return stored === 'true';
+    }
+
+    /**
+     * Set import enable cloud upload setting in storage
+     * @param {boolean} enabled - Whether cloud upload is enabled
+     */
+    static setImportEnableCloudUpload(enabled) {
+        localStorage.setItem(this.KEYS.IMPORT_ENABLE_CLOUD_UPLOAD, enabled.toString());
     }
 
     /**

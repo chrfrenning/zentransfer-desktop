@@ -135,7 +135,7 @@ export class LoaderScreen {
             console.log('Performing version check with payload:', payload);
 
             // Make API call to version check endpoint
-            const response = await fetch(`${config.SERVER_BASE_URL}/api/upload/versioncheck`, {
+            const response = await fetch(`${config.SERVER_BASE_URL}/api/versioncheck`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

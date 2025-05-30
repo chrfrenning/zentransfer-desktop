@@ -980,13 +980,10 @@ export class UploadScreen {
         if (this.availableServices.length === 0) {
             return `
                 <div class="text-center p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div class="text-yellow-800 font-medium mb-2">No Upload Services Available</div>
-                    <div class="text-sm text-yellow-700 mb-3">
-                        Please log in to use ZenTransfer or configure cloud storage services in Settings.
+                    <div class="text-gray-900 font-medium mb-2">No Upload Services Available</div>
+                    <div class="text-sm text-gray-800 mb-3">
+                        Please configure cloud storage services in Settings.
                     </div>
-                    <button onclick="switchTab('settings')" class="text-sm text-yellow-800 hover:text-yellow-900 underline">
-                        Go to Settings
-                    </button>
                 </div>
             `;
         }

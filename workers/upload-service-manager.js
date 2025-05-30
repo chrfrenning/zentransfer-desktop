@@ -3,10 +3,10 @@
  * Manages upload services and exposes functionality to renderer via IPC
  */
 
-const { ZenTransferService } = require('../workers/services/zentransfer-service.js');
-const { AwsS3Service } = require('../workers/services/aws-s3-service.js');
-const { AzureBlobService } = require('../workers/services/azure-blob-service.js');
-const { GcpStorageService } = require('../workers/services/gcp-storage-service.js');
+const { ZenTransferService } = require('./services/zentransfer-service.js');
+const { AwsS3Service } = require('./services/aws-s3-service.js');
+const { AzureBlobService } = require('./services/azure-blob-service.js');
+const { GcpStorageService } = require('./services/gcp-storage-service.js');
 
 class UploadServiceManager {
     constructor() {

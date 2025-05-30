@@ -249,8 +249,16 @@ export class ImportScreen {
 
                     <!-- Upload Options -->
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-3">Cloud upload</label>
-                        <div class="space-y-3">
+                        <div class="flex items-center space-x-3 mb-3">
+                            <input 
+                                type="checkbox" 
+                                id="enableCloudUploadCheckbox" 
+                                class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                            >
+                            <label for="enableCloudUploadCheckbox" class="text-sm font-medium text-gray-700 cursor-pointer">Upload to cloud</label>
+                        </div>
+                        
+                        <div id="cloudServicesContainer" class="hidden ml-7 space-y-3">
                             <!-- Upload to ZenTransfer -->
                             <div class="flex items-center space-x-3 cursor-pointer">
                                 <input 
@@ -259,7 +267,7 @@ export class ImportScreen {
                                     class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                 <label for="uploadToZenTransferCheckbox" class="text-sm font-medium text-gray-700 cursor-pointer">
-                                    🚀 Upload to ZenTransfer
+                                    🚀 Relay with ZenTransfer
                                 </label>
                             </div>
                             
@@ -527,6 +535,14 @@ export class ImportScreen {
                 this.saveAllSettings();
             });
         }
+
+        // Enable cloud upload checkbox
+        if (this.elements.enableCloudUploadCheckbox) {
+            this.elements.enableCloudUploadCheckbox.addEventListener('change', () => {
+                this.toggleCloudServices();
+                this.saveAllSettings();
+            });
+        }
     }
 
     /**
@@ -566,6 +582,10 @@ export class ImportScreen {
         this.elements.completedFilesCount = document.getElementById('completedFilesCount');
         this.elements.failedFilesCount = document.getElementById('failedFilesCount');
         this.elements.importLog = document.getElementById('importLog');
+        
+        // Enable cloud upload checkbox
+        this.elements.enableCloudUploadCheckbox = document.getElementById('enableCloudUploadCheckbox');
+        this.elements.cloudServicesContainer = document.getElementById('cloudServicesContainer');
     }
 
     /**
@@ -650,6 +670,13 @@ export class ImportScreen {
 
         if (this.elements.uploadToGcpCheckbox) {
             this.elements.uploadToGcpCheckbox.checked = uploadToGcp || false;
+        }
+
+        // Load enable cloud upload setting
+        const enableCloudUpload = StorageManager.getImportEnableCloudUpload();
+        if (this.elements.enableCloudUploadCheckbox) {
+            this.elements.enableCloudUploadCheckbox.checked = enableCloudUpload || false;
+            this.toggleCloudServices();
         }
 
         // Update service availability after loading settings
@@ -812,6 +839,11 @@ export class ImportScreen {
 
         if (this.elements.uploadToGcpCheckbox) {
             StorageManager.setImportUploadToGcp(this.elements.uploadToGcpCheckbox.checked);
+        }
+
+        // Save enable cloud upload setting
+        if (this.elements.enableCloudUploadCheckbox) {
+            StorageManager.setImportEnableCloudUpload(this.elements.enableCloudUploadCheckbox.checked);
         }
     }
 
@@ -1197,16 +1229,19 @@ export class ImportScreen {
         const skipDuplicates = StorageManager.getImportSkipDuplicates();
         console.log('Import screen: collectImportSettings - skipDuplicates from StorageManager:', skipDuplicates);
         
+        // Check if cloud upload is enabled
+        const enableCloudUpload = this.elements.enableCloudUploadCheckbox?.checked || false;
+        
         return {
             sourcePath: this.elements.importFromInput?.value?.trim(),
             destinationPath: this.elements.destinationInput?.value?.trim(),
             includeSubdirectories: this.elements.includeSubdirectoriesCheckbox?.checked !== false,
             backupEnabled: this.elements.enableBackupCheckbox?.checked || false,
             backupPath: this.elements.backupPathInput?.value?.trim(),
-            uploadToZenTransfer: this.elements.uploadToZenTransferCheckbox?.checked || false,
-            uploadToAwsS3: this.elements.uploadToAwsS3Checkbox?.checked || false,
-            uploadToAzure: this.elements.uploadToAzureCheckbox?.checked || false,
-            uploadToGcp: this.elements.uploadToGcpCheckbox?.checked || false,
+            uploadToZenTransfer: enableCloudUpload && (this.elements.uploadToZenTransferCheckbox?.checked || false),
+            uploadToAwsS3: enableCloudUpload && (this.elements.uploadToAwsS3Checkbox?.checked || false),
+            uploadToAzure: enableCloudUpload && (this.elements.uploadToAzureCheckbox?.checked || false),
+            uploadToGcp: enableCloudUpload && (this.elements.uploadToGcpCheckbox?.checked || false),
             organizeIntoFolders: this.elements.organizeIntoFoldersCheckbox?.checked !== false,
             folderOrganizationType: this.elements.dateFolderRadio?.checked ? 'date' : 'custom',
             customFolderName: this.elements.customFolderNameInput?.value?.trim(),
@@ -1544,5 +1579,36 @@ export class ImportScreen {
         }
         
         this.isVisible = false;
+    }
+
+    /**
+     * Toggle cloud services visibility
+     */
+    toggleCloudServices() {
+        if (this.elements.cloudServicesContainer && this.elements.enableCloudUploadCheckbox) {
+            const isEnabled = this.elements.enableCloudUploadCheckbox.checked;
+            
+            if (isEnabled) {
+                this.elements.cloudServicesContainer.classList.remove('hidden');
+            } else {
+                this.elements.cloudServicesContainer.classList.add('hidden');
+                
+                // Disable and uncheck all cloud service checkboxes when cloud upload is disabled
+                const cloudServiceCheckboxes = [
+                    this.elements.uploadToZenTransferCheckbox,
+                    this.elements.uploadToAwsS3Checkbox,
+                    this.elements.uploadToAzureCheckbox,
+                    this.elements.uploadToGcpCheckbox
+                ];
+                
+                cloudServiceCheckboxes.forEach(checkbox => {
+                    if (checkbox) {
+                        checkbox.checked = false;
+                    }
+                });
+            }
+
+            this.validateInputs();
+        }
     }
 } 

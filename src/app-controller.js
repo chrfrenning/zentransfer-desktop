@@ -8,6 +8,7 @@ import { UploadManager } from './upload/upload-manager.js';
 import { UIComponents } from './components/ui-components.js';
 import { config } from './config/app-config.js';
 import { ScreenManager } from './screens/screen-manager.js';
+const { ipcRenderer } = require('electron');
 
 // Import UpdateManager if in Electron environment
 let UpdateManager = null;
@@ -19,16 +20,20 @@ if (typeof require !== 'undefined') {
     }
 }
 
+// Logging via main process
+function logToStdout(message) {
+    ipcRenderer.send('log-to-stdout', message);
+}
+
+logToStdout('Hello from renderer');
+
 export class AppController {
     constructor() {
         this.authManager = new AuthManager();
         this.uploadManager = new UploadManager();
         this.updateManager = null;
-        this.currentTab = 'upload';
+        this.currentTab = 'import';
         this.isInitialized = false;
-        
-        // Initialize screen manager
-        this.screenManager = new ScreenManager(this.authManager, this.uploadManager, this);
         
         this.initializeApp();
     }
@@ -38,13 +43,28 @@ export class AppController {
      */
     async initializeApp() {
         try {
+            // Initialize version from main process BEFORE version check
             console.log('Initializing ZenTransfer app...');
+            const result = await ipcRenderer.invoke('get-app-version');
+            console.log(`ZenTransfer renderer initialized with version: ${result}`);
+            config.setVersion(result);
+
+            // Get the configuration from the main process
+            const inheritedConfig = await ipcRenderer.invoke('get-config');
+            console.log('AppController: Configuration received from main process:', config);
+            config.APP_NAME = inheritedConfig.APP_NAME;
+            config.CLIENT_ID = inheritedConfig.CLIENT_ID;
+            config.SERVER_BASE_URL = inheritedConfig.serverBaseUrl;
+            config.IS_DEVELOPMENT = inheritedConfig.isDevelopment;
+            
+            // Initialize screen manager
+            this.screenManager = new ScreenManager(this.authManager, this.uploadManager, this);
             
             // Show loader screen and perform version check
             const shouldProceed = await this.screenManager.showLoaderAndCheckVersion();
             
             if (!shouldProceed) {
-                console.log('App initialization stopped due to version check');
+                console.log('App initialization stopped due to version check failure');
                 // Exit the app if in Electron environment
                 if (typeof require !== 'undefined') {
                     try {
@@ -60,7 +80,9 @@ export class AppController {
             }
             
             // Set up authentication state change handler
+            console.log('AppController: Setting up auth state change callback');
             this.authManager.setAuthStateChangeCallback((state) => {
+                console.log('AppController: Auth state change callback triggered with state:', state);
                 this.handleAuthStateChange(state);
             });
 
@@ -92,7 +114,7 @@ export class AppController {
      * @param {Object} state - Authentication state
      */
     handleAuthStateChange(state) {
-        console.log('Auth state changed:', state);
+        console.log('AppController: handleAuthStateChange called with state:', state);
 
         // Show notifications for certain states
         if (state.status === 'otp_required' && state.message) {
@@ -105,6 +127,7 @@ export class AppController {
         this.uploadManager.handleAuthStateChange(state);
 
         // Delegate to screen manager
+        console.log('AppController: Delegating to screen manager...');
         this.screenManager.handleAuthStateChange(state);
     }
 
@@ -128,8 +151,6 @@ export class AppController {
             await this.switchTab(tabName);
         };
     }
-
-
 
     /**
      * Setup external link handling
@@ -175,8 +196,6 @@ export class AppController {
         });
     }
 
-
-
     /**
      * Initialize main app features after authentication
      */
@@ -194,8 +213,6 @@ export class AppController {
         console.log('Main app initialized');
     }
 
-
-
     /**
      * Switch between app tabs
      * @param {string} tabName - Tab name to switch to
@@ -204,8 +221,6 @@ export class AppController {
         await this.screenManager.switchTab(tabName);
         this.currentTab = tabName;
     }
-
-
 }
 
 // Initialize app when DOM is ready

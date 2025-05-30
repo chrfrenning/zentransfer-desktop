@@ -519,6 +519,7 @@ export class UploadManager {
                 let fileBuffer;
                 
                 if (fileItem.filePath) {
+                    
                     // File path upload (from import system)
                     const fs = require('fs');
                     fileBuffer = fs.readFileSync(fileItem.filePath);
@@ -547,6 +548,7 @@ export class UploadManager {
                     fileSize: fileItem.size,
                     fileType: fileItem.type,
                     fileBuffer: fileBuffer,
+                    filePath: fileItem.filePath,
                     source: fileItem.source,
                     serviceType: fileItem.serviceType || this.selectedService,
                     serviceName: fileItem.serviceName,
