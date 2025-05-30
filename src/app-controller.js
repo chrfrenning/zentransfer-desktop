@@ -24,7 +24,7 @@ export class AppController {
         this.authManager = new AuthManager();
         this.uploadManager = new UploadManager();
         this.updateManager = null;
-        this.currentTab = 'upload';
+        this.currentTab = 'import';
         this.isInitialized = false;
         
         // Initialize screen manager

@@ -248,9 +248,9 @@ export class ScreenManager {
             mainAppScreen.classList.remove('hidden');
         }
 
-        // Start with upload screen
-        await this.showScreen('upload');
-        this.updateTabButtons('upload');
+        // Start with import screen
+        await this.showScreen('import');
+        this.updateTabButtons('import');
     }
 
     /**
@@ -267,7 +267,7 @@ export class ScreenManager {
      * @param {string} activeTab - Currently active tab
      */
     updateTabButtons(activeTab) {
-        const tabs = ['upload', 'download', 'import', 'settings'];
+        const tabs = ['import', 'upload', 'download', 'settings'];
         const isOffline = !this.authManager.isLoggedIn();
         
         tabs.forEach(tab => {
@@ -323,7 +323,7 @@ export class ScreenManager {
         }
         
         // Update tab buttons to reflect offline state
-        this.updateTabButtons(this.currentScreen || 'upload');
+        this.updateTabButtons(this.currentScreen || 'import');
     }
 
     /**
