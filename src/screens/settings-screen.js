@@ -717,12 +717,12 @@ export class SettingsScreen {
             
             if (loginBtn) {
                 loginBtn.addEventListener('click', () => {
-                    // Navigate to login screen
+                    // Navigate to login screen using the new trigger method
                     if (this.onNavigateToLogin) {
                         this.onNavigateToLogin();
                     } else {
-                        // Fallback: logout to trigger login screen
-                        this.authManager.logout();
+                        // Use the new triggerLogin method instead of logout
+                        this.authManager.triggerLogin();
                     }
                 });
             }

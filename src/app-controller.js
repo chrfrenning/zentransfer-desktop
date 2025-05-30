@@ -60,7 +60,9 @@ export class AppController {
             }
             
             // Set up authentication state change handler
+            console.log('AppController: Setting up auth state change callback');
             this.authManager.setAuthStateChangeCallback((state) => {
+                console.log('AppController: Auth state change callback triggered with state:', state);
                 this.handleAuthStateChange(state);
             });
 
@@ -92,7 +94,7 @@ export class AppController {
      * @param {Object} state - Authentication state
      */
     handleAuthStateChange(state) {
-        console.log('Auth state changed:', state);
+        console.log('AppController: handleAuthStateChange called with state:', state);
 
         // Show notifications for certain states
         if (state.status === 'otp_required' && state.message) {
@@ -105,6 +107,7 @@ export class AppController {
         this.uploadManager.handleAuthStateChange(state);
 
         // Delegate to screen manager
+        console.log('AppController: Delegating to screen manager...');
         this.screenManager.handleAuthStateChange(state);
     }
 

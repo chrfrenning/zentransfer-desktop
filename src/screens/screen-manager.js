@@ -134,12 +134,16 @@ export class ScreenManager {
      * @param {Object} state - Authentication state
      */
     handleAuthStateChange(state) {
+        console.log('ScreenManager: handleAuthStateChange called with state:', state);
+        
         switch (state.status) {
             case 'checking':
+                console.log('ScreenManager: Handling checking state');
                 this.screens.login.showLoading(state.message);
                 break;
 
             case 'unauthenticated':
+                console.log('ScreenManager: Handling unauthenticated state');
                 this.screens.login.hideLoading();
                 this.showLoginScreen();
                 // Refresh import screen service availability when user logs out
@@ -147,11 +151,13 @@ export class ScreenManager {
                 break;
 
             case 'otp_required':
+                console.log('ScreenManager: Handling otp_required state');
                 this.screens.login.hideLoading();
                 this.screens.login.switchToOTPStep(state.email);
                 break;
 
             case 'authenticated':
+                console.log('ScreenManager: Handling authenticated state');
                 this.screens.login.hideLoading();
                 this.hideLoginScreen();
                 setTimeout(async () => {
@@ -165,9 +171,12 @@ export class ScreenManager {
                 break;
 
             case 'offline':
+                console.log('ScreenManager: Handling offline state');
                 this.screens.login.hideLoading();
                 this.hideLoginScreen();
+                console.log('ScreenManager: About to show main app in offline mode');
                 setTimeout(async () => {
+                    console.log('ScreenManager: Showing main app after timeout');
                     await this.showMainApp();
                     if (this.appController && this.appController.initializeMainApp) {
                         this.appController.initializeMainApp();
@@ -180,7 +189,7 @@ export class ScreenManager {
                 break;
 
             default:
-                console.warn('Unknown auth state:', state.status);
+                console.warn('ScreenManager: Unknown auth state:', state.status);
         }
     }
 

@@ -17,16 +17,17 @@ export class AuthManager {
         this.tokenRefreshTimer = null;
         this.onAuthStateChange = null;
         
-        // Check for existing valid token before showing login form
-        this.checkExistingToken();
+        // Don't check token in constructor - wait for callback to be set
     }
 
     /**
-     * Set callback for authentication state changes
+     * Set callback for authentication state changes and start auth check
      * @param {Function} callback - Called when auth state changes
      */
     setAuthStateChangeCallback(callback) {
         this.onAuthStateChange = callback;
+        // Now that callback is set, start the authentication check
+        this.checkExistingToken();
     }
 
     /**
@@ -34,8 +35,13 @@ export class AuthManager {
      * @param {Object} state - Current auth state
      */
     notifyAuthStateChange(state) {
+        console.log('AuthManager: notifyAuthStateChange called with state:', state);
+        console.log('AuthManager: onAuthStateChange callback exists:', !!this.onAuthStateChange);
         if (this.onAuthStateChange) {
+            console.log('AuthManager: Calling auth state change callback');
             this.onAuthStateChange(state);
+        } else {
+            console.log('AuthManager: No callback set, state change ignored');
         }
     }
 
@@ -49,8 +55,11 @@ export class AuthManager {
         });
         
         try {
-            // Check if we have a valid token locally
-            if (TokenManager.isTokenValid()) {
+            // Check if we have a token locally
+            const hasToken = TokenManager.getToken();
+            console.log('hasToken', hasToken);
+            
+            if (hasToken && TokenManager.isTokenValid()) {
                 const token = TokenManager.getToken();
                 const metadata = TokenManager.getTokenMetadata();
                 
@@ -66,20 +75,52 @@ export class AuthManager {
                     this.proceedToMainApp(TokenManager.getToken(), updatedMetadata);
                     return;
                 } else {
-                    console.log('Token validation/refresh failed, clearing local token');
+                    console.log('Token validation/refresh failed, showing login screen');
                     TokenManager.clearToken();
+                    // Token exists but can't be refreshed - show login screen
+                    this.isCheckingToken = false;
+                    this.notifyAuthStateChange({ 
+                        status: 'unauthenticated',
+                        message: 'Your session has expired. Please log in again.'
+                    });
+                    return;
                 }
+            } else if (hasToken && !TokenManager.isTokenValid()) {
+                console.log('Found expired token, showing login screen');
+                TokenManager.clearToken();
+                // Token exists but is expired - show login screen
+                this.isCheckingToken = false;
+                this.notifyAuthStateChange({ 
+                    status: 'unauthenticated',
+                    message: 'Your session has expired. Please log in again.'
+                });
+                return;
             } else {
-                console.log('No valid local token found');
+                console.log('No token found, proceeding to offline mode');
             }
         } catch (error) {
             console.error('Token validation error:', error);
+            // If there was a token but validation failed, show login screen
+            const hadToken = TokenManager.getToken();
             TokenManager.clearToken();
+            
+            if (hadToken) {
+                this.isCheckingToken = false;
+                this.notifyAuthStateChange({ 
+                    status: 'unauthenticated',
+                    message: 'Authentication failed. Please log in again.'
+                });
+                return;
+            }
         }
         
-        // No valid token found, show login form
+        // No token found or first time startup - proceed to offline mode
         this.isCheckingToken = false;
-        this.notifyAuthStateChange({ status: 'unauthenticated' });
+        console.log('Starting in offline mode...');
+        this.notifyAuthStateChange({ 
+            status: 'offline', 
+            message: 'Using offline mode - log in to access all features'
+        });
     }
     
     proceedToMainApp(token, metadata) {
@@ -240,6 +281,25 @@ export class AuthManager {
         });
         
         console.log('Offline mode activated');
+    }
+
+    /**
+     * Trigger login flow from settings screen
+     */
+    triggerLogin() {
+        console.log('Triggering login flow from settings...');
+        
+        // Clear any existing session data
+        this.sessionId = null;
+        this.isEmailSubmitted = false;
+        
+        // Notify that we want to show login screen
+        this.notifyAuthStateChange({ 
+            status: 'unauthenticated',
+            message: 'Please log in to access all features'
+        });
+        
+        console.log('Login flow triggered');
     }
 
     logout() {
