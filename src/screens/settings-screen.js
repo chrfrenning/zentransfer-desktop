@@ -256,7 +256,7 @@ export class SettingsScreen {
 
                 <!-- Account Section -->
                 <div class="bg-white rounded-lg p-4 shadow-sm">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-3">Account</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3">ZenTransfer.io account</h3>
                     <div id="accountContent" class="space-y-3">
                         <!-- Content will be dynamically updated based on auth state -->
                     </div>

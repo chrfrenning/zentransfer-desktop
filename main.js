@@ -929,7 +929,7 @@ let downloadWorkerPool;
 function createWindow() {
   // Calculate window dimensions for 9:16 aspect ratio
   const width = 400;
-  const height = Math.round(width * (16 / 9));
+  const height = 780;
 
   const mainWindow = new BrowserWindow({
     width: width,
