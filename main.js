@@ -4,7 +4,9 @@ const path = require('path');
 const { autoUpdater } = require('electron-updater');
 
 // Import shared configuration
-const sharedConfig = require('./src/config/shared-config.js');
+const sharedConfig = require('./config.js');
+
+console.log(`Starting ZenTransfer app version ${app.getVersion()}`);
 
 // Configure auto-updater
 autoUpdater.checkForUpdatesAndNotify();
@@ -996,6 +998,11 @@ app.on('activate', () => {
 
 // IPC handlers
 function setupIpcHandlers() {
+  // Handle log messages from renderer
+  ipcMain.on('log-to-stdout', (event, message) => {
+    console.log(`[Renderer] ${message}`);
+  });
+  
   // Handle directory dialog requests
   ipcMain.handle('show-directory-dialog', async () => {
     const result = await dialog.showOpenDialog({
@@ -1276,5 +1283,15 @@ function setupIpcHandlers() {
        console.error('Failed to quit and install:', error);
        return { success: false, error: error.message };
      }
+   });
+   
+   // App version handler
+   ipcMain.handle('get-app-version', async () => {
+     return app.getVersion();
+   });
+
+   // Configuration handler
+   ipcMain.handle('get-config', async () => {
+     return sharedConfig;
    });
 } 

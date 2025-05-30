@@ -210,7 +210,7 @@ async function uploadFile(fileData, sessionData, jobId) {
     
     // Determine correct MIME type from file extension
     const correctMimeType = getMimeTypeFromExtension(fileName);
-    console.log(`Worker ${workerId}: File ${fileName} - Browser type: ${fileType}, Detected type: ${correctMimeType}`);
+    console.log(`Upload Worker ${workerId}: File ${fileName} - Browser type: ${fileType}, Detected type: ${correctMimeType}`);
     
     // Determine which service to use based on file's service type or selected service
     const targetService = serviceType || selectedService || 'zentransfer';
@@ -315,7 +315,8 @@ async function uploadFile(fileData, sessionData, jobId) {
       fs.writeFileSync(tempFilePath, fileBuffer);
       
       // Generate remote name with folder organization if needed
-      const remoteName = generateRemoteName(fileName, importSettings);
+      //const remoteName = generateRemoteName(fileData.filePath, importSettings);
+      const remoteName = fileData.filePath.substr(importSettings.destinationPath.length+1).replaceAll('\\', '/');
       
       // Extract skipDuplicates setting from importSettings (default to true if not specified)
       const skipDuplicates = importSettings && importSettings.skipDuplicates !== undefined ? importSettings.skipDuplicates : true;
@@ -351,7 +352,6 @@ async function uploadFile(fileData, sessionData, jobId) {
           skipDuplicates: skipDuplicates // Pass skipDuplicates setting to service
         }
       );
-      
       // Restore original progress method
       uploadService._updateProgress = originalUpdateProgress;
       
