@@ -47,6 +47,14 @@ it also works reliably when thunder and hail are sent by forces outside of our c
 
 Plus there's a ton of features I would like to see, and I guess you can come up with some too.
 
+## SharkTank: Should this exist?
+
+Is this something you need? Something you will use? Let me know if this utility
+is something you appreciate and will use. Simply send an email to hello@zentransfer.io
+and say Hi (maybe also where you're from). Or find ZenTransfer on Instagram and
+follow there. If I know there's users out there, it will be so much easier to find
+the time and energy to continue improving and developing this.
+
 ## Support my work
 
 I, Chris, am just an average photographer, but a (pretty good?) software engineer 
