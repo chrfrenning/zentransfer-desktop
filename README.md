@@ -9,9 +9,9 @@ It can:
 
 * Empty SD-Cards and ensure 3-2-1 Backup
 * Organize files into folders by date
-* Upload files to AWS S3, Azure, Google Cloud Platform (OVH and Hetzner coming)
-* Monitor for new files on zentransfer.io and sync to your laptop
-* Relay to multiple FTP Servers, Email, Webhooks and Zapier.com via ZenTransfer.io
+* Upload files to AWS S3, Azure, Google Cloud Platform
+* Relay to multiple FTP or cloud services via zentransfer.io
+* Coming: Upload to OVH and Hetzner
 
 The ZenTransfer app is free to use and works with or without an account on ZenTransfer.io.
 
@@ -46,6 +46,14 @@ if so, I will continue working to add all the industry-grade features needed to 
 it also works reliably when thunder and hail are sent by forces outside of our control. ;)
 
 Plus there's a ton of features I would like to see, and I guess you can come up with some too.
+
+## SharkTank: Should this exist?
+
+Is this something you need? Something you will use? Let me know if this utility
+is something you appreciate and will use. Simply send an email to hello@zentransfer.io
+and say Hi (maybe also where you're from). Or find ZenTransfer on Instagram and
+follow there. If I know there's users out there, it will be so much easier to find
+the time and energy to continue improving and developing this.
 
 ## Support my work
 
