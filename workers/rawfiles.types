@@ -1,0 +1,22 @@
+###############################################################################
+#
+#  MIME media types and the extensions that represent them.
+#
+#  File types we recognize as RAW camera files
+#  This list is a subset of mime.types
+#
+###############################################################################
+
+image/x-canon-cr2
+image/x-canon-cr3
+image/x-nikon-nef
+image/x-sony-arw
+image/x-panasonic-rw2
+image/x-olympus-orf
+image/x-fuji-raf
+image/x-pentax-pef
+image/dng
+image/x-adobe-dng
+image/x-hasselblad-3fr
+image/x-phaseone-iiq
+image/x-sigma-x3f
