@@ -223,16 +223,14 @@ async function scanSourceDirectory(importSettings) {
                 
                 if (itemStats.isFile()) {
                     const ext = path.extname(item).toLowerCase();
-                    if (supportedExtensions.includes(ext)) {
-                        files.push({
-                            name: item,
-                            path: fullPath,
-                            relativePath: itemRelativePath,
-                            size: itemStats.size,
-                            created: itemStats.birthtime,
-                            modified: itemStats.mtime
-                        });
-                    }
+                    files.push({
+                        name: item,
+                        path: fullPath,
+                        relativePath: itemRelativePath,
+                        size: itemStats.size,
+                        created: itemStats.birthtime,
+                        modified: itemStats.mtime
+                    });
                 } else if (itemStats.isDirectory() && includeSubdirectories) {
                     scanDir(fullPath, itemRelativePath);
                 }

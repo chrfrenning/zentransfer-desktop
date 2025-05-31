@@ -34,21 +34,19 @@ export class FileScanner {
                             if (stats.isFile()) {
                                 const ext = path.extname(item).toLowerCase();
                                 
-                                // Check if file extension is supported
-                                if (supportedExtensions.includes(ext)) {
-                                    const fileInfo = {
-                                        name: item,
-                                        path: fullPath,
-                                        relativePath: itemRelativePath,
-                                        size: stats.size,
-                                        type: getFileType(ext),
-                                        extension: ext,
-                                        created: stats.birthtime,
-                                        modified: stats.mtime
-                                    };
-                                    
-                                    files.push(fileInfo);
-                                }
+                                const fileInfo = {
+                                    name: item,
+                                    path: fullPath,
+                                    relativePath: itemRelativePath,
+                                    size: stats.size,
+                                    type: getFileType(ext),
+                                    extension: ext,
+                                    created: stats.birthtime,
+                                    modified: stats.mtime
+                                };
+                                
+                                files.push(fileInfo);
+                                
                             } else if (stats.isDirectory() && options.includeSubdirectories) {
                                 // Recursively scan subdirectories if enabled
                                 scanDir(fullPath, itemRelativePath);

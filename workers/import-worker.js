@@ -274,22 +274,20 @@ async function scanSourceDirectory() {
                 if (itemStats.isFile()) {
                     const ext = path.extname(item).toLowerCase();
                     
-                    // Check if file extension is supported
-                    if (supportedExtensions.includes(ext)) {
-                        const fileInfo = {
-                            name: item,
-                            path: fullPath,
-                            relativePath: itemRelativePath,
-                            size: itemStats.size,
-                            type: getFileType(ext),
-                            extension: ext,
-                            created: itemStats.birthtime,
-                            modified: itemStats.mtime
-                        };
-                        
-                        files.push(fileInfo);
-                    }
-                } else if (itemStats.isDirectory() && options.includeSubdirectories) {
+                    const fileInfo = {
+                        name: item,
+                        path: fullPath,
+                        relativePath: itemRelativePath,
+                        size: itemStats.size,
+                        type: getFileType(ext),
+                        extension: ext,
+                        created: itemStats.birthtime,
+                        modified: itemStats.mtime
+                    };
+                    
+                    files.push(fileInfo);
+
+                    } else if (itemStats.isDirectory() && options.includeSubdirectories) {
                     // Recursively scan subdirectories if enabled
                     scanDir(fullPath, itemRelativePath);
                 }
