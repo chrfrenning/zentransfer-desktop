@@ -1,6 +1,6 @@
 {
   "name": "ZenTransfer",
-  "version": "0.1.20",
+  "version": "0.1.21",
   "description": "File transfer for professional photographers",
   "main": "main.js",
   "scripts": {
