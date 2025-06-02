@@ -75,7 +75,7 @@ export class DownloadScreen {
                 </div>
                 <div class="flex-1 min-w-0">
                     <h2 class="text-lg font-semibold text-gray-900 leading-tight">Download</h2>
-                    <p class="text-sm text-gray-600 leading-tight">Monitor and download from ZenTransfer</p>
+                    <p class="text-sm text-gray-600 leading-tight">Monitor and download from ZenTransfer.io</p>
                 </div>
             </div>
 
@@ -529,6 +529,8 @@ export class DownloadScreen {
             
             // Get last sync time from storage
             const lastSyncTime = StorageManager.getLastSyncTime();
+            //const lastSyncTime = new Date().toISOString();
+
             
             // Get authentication token
             const tokenResult = await TokenManager.ensureValidToken();

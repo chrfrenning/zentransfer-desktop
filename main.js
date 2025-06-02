@@ -686,7 +686,7 @@ class DownloadWorkerManager {
       }
       
       // Make actual API call to ZenTransfer server
-      const response = await fetch(`${config.SERVER_BASE_URL}/api/sync?since=${encodeURIComponent(syncTime)}`, {
+      const response = await fetch(`${config.serverBaseUrl}/api/sync?since=${encodeURIComponent(syncTime)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',

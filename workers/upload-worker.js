@@ -315,8 +315,10 @@ async function uploadFile(fileData, sessionData, jobId) {
       fs.writeFileSync(tempFilePath, fileBuffer);
       
       // Generate remote name with folder organization if needed
-      //const remoteName = generateRemoteName(fileData.filePath, importSettings);
-      const remoteName = fileData.filePath.substr(importSettings.destinationPath.length+1).replaceAll('\\', '/');
+      //remoteName = generateRemoteName(fileData.filePath, importSettings);
+      let remoteName = fileName;
+      if (importSettings.destinationPath && importSettings.destinationPath.length > 0)
+        remoteName = fileData.filePath.substr(importSettings.destinationPath.length+1).replaceAll('\\', '/');
       
       // Extract skipDuplicates setting from importSettings (default to true if not specified)
       const skipDuplicates = importSettings && importSettings.skipDuplicates !== undefined ? importSettings.skipDuplicates : true;
