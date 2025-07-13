@@ -14,6 +14,9 @@ const { AutoUpdaterManager } = require('./src/main/services/auto-updater-manager
 // Import Upload Service Manager
 const { UploadServiceManager } = require(path.join(__dirname, 'src/workers', 'upload-service-manager.js'));
 
+// Import Configuration Manager
+const { initializeConfigManager } = require('./src/main/app/main-config-setup.js');
+
 // Enable live reload for Electron in development
 if (sharedConfig.isDevelopment || process.argv.includes('--dev')) {
   require('electron-reload')(__dirname, {
@@ -74,6 +77,10 @@ function createWindow() {
 app.disableHardwareAcceleration();
 
 app.whenReady().then(() => {
+  // Initialize configuration manager first
+  console.log('Initializing configuration manager...');
+  initializeConfigManager();
+  
   // Initialize auto-updater manager
   autoUpdaterManager = new AutoUpdaterManager();
   autoUpdaterManager.initialize();

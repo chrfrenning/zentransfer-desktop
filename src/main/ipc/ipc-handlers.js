@@ -10,6 +10,23 @@ const { autoUpdater } = require('electron-updater');
 // Import shared configuration
 const sharedConfig = require('../../shared/config.js');
 
+// Import configuration management
+const {
+  getConfig,
+  setConfig,
+  getCloudService,
+  updateCloudService,
+  getEnabledCloudServices,
+  getCloudServicesDisplayInfo,
+  validateCloudServices,
+  migrateFromLocalStorage,
+  needsMigration,
+  getConfigPath,
+  getHostname,
+  getServerUrl,
+  exportConfig
+} = require('../app/main-config-setup.js');
+
 function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager) {
   // Handle log messages from renderer
   ipcMain.on('log-to-stdout', (event, message) => {
@@ -620,6 +637,128 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
        req.on('error', reject);
        req.setTimeout(30000, () => reject(new Error('Request timeout')));
      });
+   });
+
+   // Configuration management handlers
+   ipcMain.handle('config-get', async (event, section) => {
+     try {
+       return getConfig(section);
+     } catch (error) {
+       console.error('Failed to get config:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-set', async (event, section, value) => {
+     try {
+       setConfig(section, value);
+       return true;
+     } catch (error) {
+       console.error('Failed to set config:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-get-cloud-service', async (event, serviceType) => {
+     try {
+       const service = getCloudService(serviceType);
+       return service ? service.getDisplayInfo() : null;
+     } catch (error) {
+       console.error('Failed to get cloud service:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-update-cloud-service', async (event, serviceType, serviceConfig) => {
+     try {
+       updateCloudService(serviceType, serviceConfig);
+       return true;
+     } catch (error) {
+       console.error('Failed to update cloud service:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-get-enabled-cloud-services', async (event) => {
+     try {
+       return getEnabledCloudServices();
+     } catch (error) {
+       console.error('Failed to get enabled cloud services:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-get-cloud-services-display-info', async (event) => {
+     try {
+       return getCloudServicesDisplayInfo();
+     } catch (error) {
+       console.error('Failed to get cloud services display info:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-validate-cloud-services', async (event) => {
+     try {
+       return validateCloudServices();
+     } catch (error) {
+       console.error('Failed to validate cloud services:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-migrate-from-localstorage', async (event, localStorageData) => {
+     try {
+       await migrateFromLocalStorage(localStorageData);
+       return true;
+     } catch (error) {
+       console.error('Failed to migrate from localStorage:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-needs-migration', async (event) => {
+     try {
+       return needsMigration();
+     } catch (error) {
+       console.error('Failed to check migration status:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-get-path', async (event) => {
+     try {
+       return getConfigPath();
+     } catch (error) {
+       console.error('Failed to get config path:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-get-hostname', async (event) => {
+     try {
+       return getHostname();
+     } catch (error) {
+       console.error('Failed to get hostname:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-get-server-url', async (event) => {
+     try {
+       return getServerUrl();
+     } catch (error) {
+       console.error('Failed to get server URL:', error);
+       throw error;
+     }
+   });
+
+   ipcMain.handle('config-export', async (event) => {
+     try {
+       return exportConfig();
+     } catch (error) {
+       console.error('Failed to export config:', error);
+       throw error;
+     }
    });
 }
 

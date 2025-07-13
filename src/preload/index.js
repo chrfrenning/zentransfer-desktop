@@ -160,6 +160,23 @@ const electronAPI = {
     openExternal: (url) => ipcRenderer.invoke('shell-openExternal', url),
     openPath: (path) => ipcRenderer.invoke('shell-openPath', path),
     showItemInFolder: (fullPath) => ipcRenderer.invoke('shell-showItemInFolder', fullPath)
+  },
+
+  // Configuration management APIs
+  config: {
+    get: (section) => ipcRenderer.invoke('config-get', section),
+    set: (section, value) => ipcRenderer.invoke('config-set', section, value),
+    getCloudService: (serviceType) => ipcRenderer.invoke('config-get-cloud-service', serviceType),
+    updateCloudService: (serviceType, serviceConfig) => ipcRenderer.invoke('config-update-cloud-service', serviceType, serviceConfig),
+    getEnabledCloudServices: () => ipcRenderer.invoke('config-get-enabled-cloud-services'),
+    getCloudServicesDisplayInfo: () => ipcRenderer.invoke('config-get-cloud-services-display-info'),
+    validateCloudServices: () => ipcRenderer.invoke('config-validate-cloud-services'),
+    migrateFromLocalStorage: (localStorageData) => ipcRenderer.invoke('config-migrate-from-localstorage', localStorageData),
+    needsMigration: () => ipcRenderer.invoke('config-needs-migration'),
+    getConfigPath: () => ipcRenderer.invoke('config-get-path'),
+    getHostname: () => ipcRenderer.invoke('config-get-hostname'),
+    getServerUrl: () => ipcRenderer.invoke('config-get-server-url'),
+    exportConfig: () => ipcRenderer.invoke('config-export')
   }
 };
 
