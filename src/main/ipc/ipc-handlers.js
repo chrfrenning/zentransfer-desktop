@@ -669,6 +669,16 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
      }
    });
 
+   ipcMain.handle('config-get-cloud-service-full', async (event, serviceType) => {
+     try {
+       const service = getCloudService(serviceType);
+       return service ? service.toConfig() : null;
+     } catch (error) {
+       console.error('Failed to get full cloud service config:', error);
+       throw error;
+     }
+   });
+
    ipcMain.handle('config-update-cloud-service', async (event, serviceType, serviceConfig) => {
      try {
        updateCloudService(serviceType, serviceConfig);

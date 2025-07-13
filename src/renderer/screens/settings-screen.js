@@ -404,14 +404,14 @@ export class SettingsScreen {
 
         if (disableNotificationsToggle) {
             disableNotificationsToggle.addEventListener('change', (e) => {
-                this.updatePreference('disableNotifications', e.target.checked);
+                this.updateGeneralPreference('disableNotifications', e.target.checked);
             });
         }
 
         if (skipDuplicatesToggle) {
-            skipDuplicatesToggle.addEventListener('change', (e) => {
-                // Use StorageManager instead of preferences for consistency with import screen
-                StorageManager.setImportSkipDuplicates(e.target.checked);
+            skipDuplicatesToggle.addEventListener('change', async (e) => {
+                // Save skip duplicates setting to config system
+                await window.electronAPI.config.set('preferences.skipDuplicates', e.target.checked);
                 console.log(`Skip duplicates setting updated: ${e.target.checked}`);
             });
         }
@@ -419,7 +419,7 @@ export class SettingsScreen {
         if (azureEnableToggle) {
             azureEnableToggle.addEventListener('change', (e) => {
                 const isEnabled = e.target.checked;
-                this.updatePreference('azureEnabled', isEnabled);
+                this.updateCloudServiceSetting('azure-blob', 'enabled', isEnabled);
                 this.resetAzureTestButton();
                 
                 if (azureSettings) {
@@ -434,7 +434,7 @@ export class SettingsScreen {
 
         if (azureContainer) {
             azureContainer.addEventListener('input', (e) => {
-                this.updatePreference('azureContainer', e.target.value);
+                this.updateCloudServiceSetting('azure-blob', 'containerName', e.target.value);
                 this.resetAzureTestButton();
             });
         }
@@ -457,7 +457,7 @@ export class SettingsScreen {
         if (gcpEnableToggle) {
             gcpEnableToggle.addEventListener('change', (e) => {
                 const isEnabled = e.target.checked;
-                this.updatePreference('gcpEnabled', isEnabled);
+                this.updateCloudServiceSetting('gcp-storage', 'enabled', isEnabled);
                 this.resetGcpTestButton();
                 
                 if (gcpSettings) {
@@ -472,7 +472,7 @@ export class SettingsScreen {
 
         if (gcpBucket) {
             gcpBucket.addEventListener('input', (e) => {
-                this.updatePreference('gcpBucket', e.target.value);
+                this.updateCloudServiceSetting('gcp-storage', 'bucketName', e.target.value);
                 this.resetGcpTestButton();
             });
         }
@@ -497,7 +497,7 @@ export class SettingsScreen {
         if (awsS3EnableToggle) {
             awsS3EnableToggle.addEventListener('change', (e) => {
                 const isEnabled = e.target.checked;
-                this.updatePreference('awsS3Enabled', isEnabled);
+                this.updateCloudServiceSetting('aws-s3', 'enabled', isEnabled);
                 this.resetS3TestButton();
                 
                 if (awsS3Settings) {
@@ -512,21 +512,21 @@ export class SettingsScreen {
 
         if (awsS3Region) {
             awsS3Region.addEventListener('change', (e) => {
-                this.updatePreference('awsS3Region', e.target.value);
+                this.updateCloudServiceSetting('aws-s3', 'region', e.target.value);
                 this.resetS3TestButton();
             });
         }
 
         if (awsS3Bucket) {
             awsS3Bucket.addEventListener('input', (e) => {
-                this.updatePreference('awsS3Bucket', e.target.value);
+                this.updateCloudServiceSetting('aws-s3', 'bucket', e.target.value);
                 this.resetS3TestButton();
             });
         }
 
         if (awsS3StorageTier) {
             awsS3StorageTier.addEventListener('change', (e) => {
-                this.updatePreference('awsS3StorageTier', e.target.value);
+                this.updateCloudServiceSetting('aws-s3', 'storageClass', e.target.value);
                 this.resetS3TestButton();
             });
         }
@@ -631,7 +631,10 @@ export class SettingsScreen {
             await this.updateUserInfo();
             
             // Load preferences
-            this.loadPreferences();
+            await this.loadPreferences();
+            
+            // Debug secure fields (can be removed after testing)
+            setTimeout(() => this.debugSecureFields(), 200);
         }
     }
 
@@ -824,15 +827,13 @@ export class SettingsScreen {
     }
 
     /**
-     * Update user preference
+     * Update general preference (non-cloud service settings)
      * @param {string} key - Preference key
      * @param {any} value - Preference value
      */
-    updatePreference(key, value) {
+    async updateGeneralPreference(key, value) {
         try {
-            const preferences = this.getPreferences();
-            preferences[key] = value;
-            localStorage.setItem('zentransfer_preferences', JSON.stringify(preferences));
+            await window.electronAPI.config.set(`preferences.${key}`, value);
             
             // Special handling for notification preference changes - no notification needed!
             if (key === 'disableNotifications') {
@@ -842,146 +843,226 @@ export class SettingsScreen {
                 UIComponents.Notification.show(`Preference "${key}" updated.`, 'success');
             }
             
-            console.log(`Preference updated: ${key} = ${value}`);
-            
-            // Call settings change callback if it's a cloud service setting
-            const cloudServiceKeys = ['awsS3Enabled', 'awsS3Region', 'awsS3Bucket', 'awsS3AccessKey', 'awsS3SecretKey',
-                                     'azureEnabled', 'azureConnectionString', 'azureContainer',
-                                     'gcpEnabled', 'gcpBucket', 'gcpServiceAccountKey'];
-            
-            if (cloudServiceKeys.includes(key) && this.onSettingsChangeCallback) {
-                this.onSettingsChangeCallback();
-            }
+            console.log(`General preference updated: ${key} = ${value}`);
         } catch (error) {
-            console.error('Failed to update preference:', error);
+            console.error('Failed to update general preference:', error);
             UIComponents.Notification.forceShow('Failed to update preference.', 'error');
         }
     }
 
     /**
-     * Get user preferences
+     * Update cloud service configuration
+     * @param {string} serviceType - Cloud service type (aws-s3, azure-blob, gcp-storage)
+     * @param {string} property - Property to update (enabled, region, bucket, etc.)
+     * @param {any} value - Value to set
+     */
+    async updateCloudServiceSetting(serviceType, property, value) {
+        try {
+            // Get the current cloud service configuration
+            const currentService = await window.electronAPI.config.getCloudService(serviceType);
+            
+            if (currentService) {
+                // Update the specific property
+                currentService[property] = value;
+                
+                // Save the updated configuration
+                await window.electronAPI.config.updateCloudService(serviceType, currentService);
+                
+                console.log(`Cloud service ${serviceType} updated: ${property} = ${value}`);
+                
+                // Call settings change callback for cloud service settings
+                if (this.onSettingsChangeCallback) {
+                    this.onSettingsChangeCallback();
+                }
+                
+                UIComponents.Notification.show(`${serviceType.toUpperCase()} setting updated.`, 'success');
+            } else {
+                throw new Error(`Cloud service ${serviceType} not found`);
+            }
+        } catch (error) {
+            console.error(`Failed to update cloud service ${serviceType}:`, error);
+            UIComponents.Notification.forceShow(`Failed to update ${serviceType} setting.`, 'error');
+        }
+    }
+
+    /**
+     * Update user preference (deprecated - use updateGeneralPreference or updateCloudServiceSetting)
+     * @param {string} key - Preference key
+     * @param {any} value - Preference value
+     * @deprecated Use updateGeneralPreference or updateCloudServiceSetting instead
+     */
+    updatePreference(key, value) {
+        console.warn('updatePreference is deprecated. Use updateGeneralPreference or updateCloudServiceSetting instead.');
+        
+        // For backward compatibility, handle some common cases
+        if (key === 'disableNotifications') {
+            this.updateGeneralPreference(key, value);
+        } else {
+            console.error(`Unsupported preference key for updatePreference: ${key}`);
+        }
+    }
+
+    /**
+     * Get user preferences (deprecated - settings now loaded from config system)
      * @returns {Object} User preferences
+     * @deprecated Settings are now loaded directly from config system
      */
     getPreferences() {
-        try {
-            const preferences = localStorage.getItem('zentransfer_preferences');
-            return preferences ? JSON.parse(preferences) : {
-                disableNotifications: true,
-                azureEnabled: false,
-                azureContainer: '',
-                azureConnectionString: '',
-                gcpEnabled: false,
-                gcpBucket: '',
-                gcpServiceAccountKey: '',
-                awsS3Enabled: false,
-                awsS3Region: '',
-                awsS3Bucket: '',
-                awsS3StorageTier: 'STANDARD',
-                awsS3AccessKey: '',
-                awsS3SecretKey: ''
-            };
-        } catch (error) {
-            console.error('Failed to load preferences:', error);
-            return {
-                disableNotifications: true,
-                azureEnabled: false,
-                azureContainer: '',
-                azureConnectionString: '',
-                gcpEnabled: false,
-                gcpBucket: '',
-                gcpServiceAccountKey: '',
-                awsS3Enabled: false,
-                awsS3Region: '',
-                awsS3Bucket: '',
-                awsS3StorageTier: 'STANDARD',
-                awsS3AccessKey: '',
-                awsS3SecretKey: ''
-            };
-        }
+        console.warn('getPreferences is deprecated. Settings are now loaded directly from config system.');
+        
+        // Return empty object for backward compatibility
+        return {
+            disableNotifications: true,
+            azureEnabled: false,
+            azureContainer: '',
+            azureConnectionString: '',
+            gcpEnabled: false,
+            gcpBucket: '',
+            gcpServiceAccountKey: '',
+            awsS3Enabled: false,
+            awsS3Region: '',
+            awsS3Bucket: '',
+            awsS3StorageTier: 'STANDARD',
+            awsS3AccessKey: '',
+            awsS3SecretKey: ''
+        };
     }
 
     /**
      * Load preferences into UI
      */
-    loadPreferences() {
-        const preferences = this.getPreferences();
-        
-        const disableNotificationsToggle = document.getElementById('disableNotificationsToggle');
-        const skipDuplicatesToggle = document.getElementById('skipDuplicatesToggle');
-        const azureEnableToggle = document.getElementById('azureEnableToggle');
-        const azureSettings = document.getElementById('azureSettings');
-        const azureContainer = document.getElementById('azureContainer');
-        const azureConnectionString = document.getElementById('azureConnectionString');
-        const gcpEnableToggle = document.getElementById('gcpEnableToggle');
-        const gcpSettings = document.getElementById('gcpSettings');
-        const gcpBucket = document.getElementById('gcpBucket');
-        const awsS3EnableToggle = document.getElementById('awsS3EnableToggle');
-        const awsS3Settings = document.getElementById('awsS3Settings');
-        const awsS3Region = document.getElementById('awsS3Region');
-        const awsS3Bucket = document.getElementById('awsS3Bucket');
-        const awsS3StorageTier = document.getElementById('awsS3StorageTier');
-        const awsS3AccessKey = document.getElementById('awsS3AccessKey');
-        const awsS3SecretKey = document.getElementById('awsS3SecretKey');
+    async loadPreferences() {
+        try {
+            // Load general preferences from config
+            const disableNotifications = await window.electronAPI.config.get('preferences.disableNotifications');
+            
+            // Load cloud service configurations from config (full config including credentials)
+            const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
+            const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
+            const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+            
+            // Wait a bit to ensure DOM elements are ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Get UI elements
+            const disableNotificationsToggle = document.getElementById('disableNotificationsToggle');
+            const skipDuplicatesToggle = document.getElementById('skipDuplicatesToggle');
+            const azureEnableToggle = document.getElementById('azureEnableToggle');
+            const azureSettings = document.getElementById('azureSettings');
+            const azureContainer = document.getElementById('azureContainer');
+            const azureConnectionString = document.getElementById('azureConnectionString');
+            const gcpEnableToggle = document.getElementById('gcpEnableToggle');
+            const gcpSettings = document.getElementById('gcpSettings');
+            const gcpBucket = document.getElementById('gcpBucket');
+            const awsS3EnableToggle = document.getElementById('awsS3EnableToggle');
+            const awsS3Settings = document.getElementById('awsS3Settings');
+            const awsS3Region = document.getElementById('awsS3Region');
+            const awsS3Bucket = document.getElementById('awsS3Bucket');
+            const awsS3StorageTier = document.getElementById('awsS3StorageTier');
+            const awsS3AccessKey = document.getElementById('awsS3AccessKey');
+            const awsS3SecretKey = document.getElementById('awsS3SecretKey');
 
-        if (disableNotificationsToggle) disableNotificationsToggle.checked = preferences.disableNotifications;
-        
-        // Load skipDuplicates from StorageManager (not preferences) for consistency
-        if (skipDuplicatesToggle) skipDuplicatesToggle.checked = StorageManager.getImportSkipDuplicates();
-        
-        if (azureEnableToggle) {
-            azureEnableToggle.checked = preferences.azureEnabled;
+            // Load general preferences
+            if (disableNotificationsToggle) {
+                disableNotificationsToggle.checked = disableNotifications !== false; // Default to true
+            }
             
-            // Show/hide Azure settings based on toggle state
-            if (azureSettings) {
-                if (preferences.azureEnabled) {
-                    azureSettings.classList.remove('hidden');
-                } else {
-                    azureSettings.classList.add('hidden');
+            // Load skipDuplicates from configuration (importSettings.skipDuplicates for consistency)
+            if (skipDuplicatesToggle) {
+                const skipDuplicates = await window.electronAPI.config.get('preferences.skipDuplicates');
+                skipDuplicatesToggle.checked = skipDuplicates || false;
+            }
+            
+            // Load AWS S3 settings
+            if (awsS3EnableToggle && awsS3Service) {
+                awsS3EnableToggle.checked = awsS3Service.enabled || false;
+                
+                // Show/hide AWS S3 settings based on toggle state
+                if (awsS3Settings) {
+                    if (awsS3Service.enabled) {
+                        awsS3Settings.classList.remove('hidden');
+                    } else {
+                        awsS3Settings.classList.add('hidden');
+                    }
+                }
+                
+                // Load AWS S3 configuration values
+                if (awsS3Region) awsS3Region.value = awsS3Service.region || '';
+                if (awsS3Bucket) awsS3Bucket.value = awsS3Service.bucket || '';
+                if (awsS3StorageTier) awsS3StorageTier.value = awsS3Service.storageClass || 'STANDARD';
+                
+                // Load secure fields with proper timing
+                if (awsS3AccessKey && awsS3Service.accessKey) {
+                    awsS3AccessKey.value = awsS3Service.accessKey;
+                    console.log('AWS S3 Access Key loaded from config');
+                }
+                if (awsS3SecretKey && awsS3Service.secretKey) {
+                    awsS3SecretKey.value = awsS3Service.secretKey;
+                    console.log('AWS S3 Secret Key loaded from config');
                 }
             }
-        }
-        
-        if (azureContainer) azureContainer.value = preferences.azureContainer;
-        if (azureConnectionString) azureConnectionString.value = preferences.azureConnectionString;
-        
-        if (gcpEnableToggle) {
-            gcpEnableToggle.checked = preferences.gcpEnabled;
             
-            // Show/hide GCP settings based on toggle state
-            if (gcpSettings) {
-                if (preferences.gcpEnabled) {
-                    gcpSettings.classList.remove('hidden');
-                } else {
-                    gcpSettings.classList.add('hidden');
+            // Load Azure settings
+            if (azureEnableToggle && azureService) {
+                azureEnableToggle.checked = azureService.enabled || false;
+                
+                // Show/hide Azure settings based on toggle state
+                if (azureSettings) {
+                    if (azureService.enabled) {
+                        azureSettings.classList.remove('hidden');
+                    } else {
+                        azureSettings.classList.add('hidden');
+                    }
+                }
+                
+                // Load Azure configuration values
+                if (azureContainer) azureContainer.value = azureService.containerName || '';
+                
+                // Load secure connection string with proper timing
+                if (azureConnectionString && azureService.connectionString) {
+                    azureConnectionString.value = azureService.connectionString;
+                    console.log('Azure Connection String loaded from config');
                 }
             }
-        }
-        
-        if (gcpBucket) gcpBucket.value = preferences.gcpBucket;
-        
-        // Update GCP file button text if key is already stored
-        if (preferences.gcpServiceAccountKey) {
-            this.updateGcpFileButtonText('✓ Service account key loaded');
-        }
-        
-        if (awsS3EnableToggle) {
-            awsS3EnableToggle.checked = preferences.awsS3Enabled;
             
-            // Show/hide AWS S3 settings based on toggle state
-            if (awsS3Settings) {
-                if (preferences.awsS3Enabled) {
-                    awsS3Settings.classList.remove('hidden');
-                } else {
-                    awsS3Settings.classList.add('hidden');
+            // Load GCP settings
+            if (gcpEnableToggle && gcpService) {
+                gcpEnableToggle.checked = gcpService.enabled || false;
+                
+                // Show/hide GCP settings based on toggle state
+                if (gcpSettings) {
+                    if (gcpService.enabled) {
+                        gcpSettings.classList.remove('hidden');
+                    } else {
+                        gcpSettings.classList.add('hidden');
+                    }
+                }
+                
+                // Load GCP configuration values
+                if (gcpBucket) gcpBucket.value = gcpService.bucketName || '';
+                
+                // Update GCP file button text if key is already stored
+                if (gcpService.serviceAccountKey) {
+                    // Use setTimeout to ensure the button text update happens after DOM is ready
+                    setTimeout(() => {
+                        this.updateGcpFileButtonText('✓ Service account key loaded');
+                        console.log('GCP Service Account Key loaded from config');
+                    }, 50);
                 }
             }
+            
+        } catch (error) {
+            console.error('Failed to load preferences from configuration:', error);
+            
+            // Fallback to default values if loading fails
+            const disableNotificationsToggle = document.getElementById('disableNotificationsToggle');
+            const skipDuplicatesToggle = document.getElementById('skipDuplicatesToggle');
+            
+            if (disableNotificationsToggle) disableNotificationsToggle.checked = true;
+            if (skipDuplicatesToggle) skipDuplicatesToggle.checked = false;
+            
+            UIComponents.Notification.show('Failed to load settings from configuration.', 'warning');
         }
-        
-        if (awsS3Region) awsS3Region.value = preferences.awsS3Region;
-        if (awsS3Bucket) awsS3Bucket.value = preferences.awsS3Bucket;
-        if (awsS3StorageTier) awsS3StorageTier.value = preferences.awsS3StorageTier;
-        if (awsS3AccessKey) awsS3AccessKey.value = preferences.awsS3AccessKey;
-        if (awsS3SecretKey) awsS3SecretKey.value = preferences.awsS3SecretKey;
     }
 
     /**
@@ -1225,12 +1306,21 @@ export class SettingsScreen {
      * Import settings from backup
      * @param {Object} settings - Settings to import
      */
-    importSettings(settings) {
+    async importSettings(settings) {
         try {
             if (settings.preferences) {
-                localStorage.setItem('zentransfer_preferences', JSON.stringify(settings.preferences));
-                this.loadPreferences();
-                UIComponents.Notification.show('Settings imported successfully.', 'success');
+                // Import general preferences to config system
+                for (const [key, value] of Object.entries(settings.preferences)) {
+                    if (key === 'disableNotifications') {
+                        await window.electronAPI.config.set('preferences.disableNotifications', value);
+                    } else if (key === 'skipDuplicates') {
+                        await window.electronAPI.config.set('preferences.skipDuplicates', value);
+                    }
+                    // Note: Cloud service settings are handled separately in the new system
+                }
+                
+                await this.loadPreferences();
+                UIComponents.Notification.show('Settings imported successfully. Cloud service settings need to be configured separately.', 'success');
             } else {
                 throw new Error('Invalid settings format');
             }
@@ -1284,7 +1374,7 @@ export class SettingsScreen {
             const connectionStringField = document.getElementById('azureConnectionString');
             if (connectionStringField) {
                 connectionStringField.addEventListener('input', (e) => {
-                    this.updatePreference('azureConnectionString', e.target.value);
+                    this.updateCloudServiceSetting('azure-blob', 'connectionString', e.target.value);
                     this.resetAzureTestButton();
                 });
             }
@@ -1361,7 +1451,7 @@ export class SettingsScreen {
             }
 
             // Store the key content
-            this.updatePreference('gcpServiceAccountKey', fileContent);
+            this.updateCloudServiceSetting('gcp-storage', 'serviceAccountKey', fileContent);
             
             // Update UI to show successful upload
             this.updateGcpFileButtonText('✓ Service account key loaded');
@@ -1441,7 +1531,7 @@ export class SettingsScreen {
      * Clear GCP service account key
      */
     clearGcpKey() {
-        this.updatePreference('gcpServiceAccountKey', '');
+        this.updateCloudServiceSetting('gcp-storage', 'serviceAccountKey', '');
         this.updateGcpFileButtonText('Choose JSON file...');
         this.resetGcpTestButton();
         
@@ -1461,17 +1551,19 @@ export class SettingsScreen {
         const testBtn = document.getElementById('testGcpConnectionBtn');
         const testIcon = document.getElementById('testGcpIcon');
         const testText = document.getElementById('testGcpText');
-        const preferences = this.getPreferences();
+        
+        // Get current GCP service configuration
+        const gcpService = await window.electronAPI.config.getCloudService('gcp-storage');
 
         // Validate required fields
-        if (!preferences.gcpBucket || !preferences.gcpServiceAccountKey) {
+        if (!gcpService || !gcpService.bucketName || !gcpService.serviceAccountKey) {
             UIComponents.Notification.show('Please fill in all required GCP fields.', 'warning');
             return;
         }
 
         // Validate JSON key format
         try {
-            const keyData = JSON.parse(preferences.gcpServiceAccountKey);
+            const keyData = JSON.parse(gcpService.serviceAccountKey);
             if (!keyData.hasOwnProperty('type') || !keyData.hasOwnProperty('universe_domain')) {
                 throw new Error('Invalid service account key format');
             }
@@ -1500,8 +1592,8 @@ export class SettingsScreen {
             
             // Create service with current settings
             await uploadServiceFactory.createService('gcp-storage', {
-                bucketName: preferences.gcpBucket,
-                serviceAccountKey: preferences.gcpServiceAccountKey
+                bucketName: gcpService.bucketName,
+                serviceAccountKey: gcpService.serviceAccountKey
             });
             
             // Test the connection
@@ -1623,7 +1715,7 @@ export class SettingsScreen {
             const accessKeyField = document.getElementById('awsS3AccessKey');
             if (accessKeyField) {
                 accessKeyField.addEventListener('input', (e) => {
-                    this.updatePreference('awsS3AccessKey', e.target.value);
+                    this.updateCloudServiceSetting('aws-s3', 'accessKey', e.target.value);
                     this.resetS3TestButton();
                 });
             }
@@ -1642,7 +1734,7 @@ export class SettingsScreen {
             const secretKeyField = document.getElementById('awsS3SecretKey');
             if (secretKeyField) {
                 secretKeyField.addEventListener('input', (e) => {
-                    this.updatePreference('awsS3SecretKey', e.target.value);
+                    this.updateCloudServiceSetting('aws-s3', 'secretKey', e.target.value);
                     this.resetS3TestButton();
                 });
             }
@@ -1778,10 +1870,12 @@ export class SettingsScreen {
         const testBtn = document.getElementById('testS3ConnectionBtn');
         const testIcon = document.getElementById('testS3Icon');
         const testText = document.getElementById('testS3Text');
-        const preferences = this.getPreferences();
+        
+        // Get current AWS S3 service configuration
+        const awsS3Service = await window.electronAPI.config.getCloudService('aws-s3');
 
         // Validate required fields
-        if (!preferences.awsS3Region || !preferences.awsS3Bucket || !preferences.awsS3AccessKey || !preferences.awsS3SecretKey) {
+        if (!awsS3Service || !awsS3Service.region || !awsS3Service.bucket || !awsS3Service.accessKey || !awsS3Service.secretKey) {
             UIComponents.Notification.show('Please fill in all required AWS S3 fields.', 'warning');
             return;
         }
@@ -1806,11 +1900,11 @@ export class SettingsScreen {
             
             // Create service with current settings
             await uploadServiceFactory.createService('aws-s3', {
-                region: preferences.awsS3Region,
-                bucket: preferences.awsS3Bucket,
-                accessKey: preferences.awsS3AccessKey,
-                secretKey: preferences.awsS3SecretKey,
-                storageClass: preferences.awsS3StorageTier || 'STANDARD'
+                region: awsS3Service.region,
+                bucket: awsS3Service.bucket,
+                accessKey: awsS3Service.accessKey,
+                secretKey: awsS3Service.secretKey,
+                storageClass: awsS3Service.storageClass || 'STANDARD'
             });
             
             // Test the connection
@@ -1919,10 +2013,12 @@ export class SettingsScreen {
         const testBtn = document.getElementById('testAzureConnectionBtn');
         const testIcon = document.getElementById('testAzureIcon');
         const testText = document.getElementById('testAzureText');
-        const preferences = this.getPreferences();
+        
+        // Get current Azure service configuration
+        const azureService = await window.electronAPI.config.getCloudService('azure-blob');
 
         // Validate required fields
-        if (!preferences.azureContainer || !preferences.azureConnectionString) {
+        if (!azureService || !azureService.containerName || !azureService.connectionString) {
             UIComponents.Notification.show('Please fill in all required Azure fields.', 'warning');
             return;
         }
@@ -1947,8 +2043,8 @@ export class SettingsScreen {
             
             // Create service with current settings
             await uploadServiceFactory.createService('azure-blob', {
-                connectionString: preferences.azureConnectionString,
-                containerName: preferences.azureContainer
+                connectionString: azureService.connectionString,
+                containerName: azureService.containerName
             });
             
             // Test the connection
@@ -2258,5 +2354,31 @@ export class SettingsScreen {
         };
     }
 
+    /**
+     * Debug method to check if secure input fields are properly accessible
+     */
+    debugSecureFields() {
+        console.log('=== Debug Secure Fields ===');
+        
+        const awsS3AccessKey = document.getElementById('awsS3AccessKey');
+        const awsS3SecretKey = document.getElementById('awsS3SecretKey');
+        const azureConnectionString = document.getElementById('azureConnectionString');
+        
+        console.log('AWS S3 Access Key field:', awsS3AccessKey ? 'Found' : 'NOT FOUND');
+        console.log('AWS S3 Secret Key field:', awsS3SecretKey ? 'Found' : 'NOT FOUND');
+        console.log('Azure Connection String field:', azureConnectionString ? 'Found' : 'NOT FOUND');
+        
+        if (awsS3AccessKey) {
+            console.log('AWS S3 Access Key value:', awsS3AccessKey.value ? '[HAS VALUE]' : '[EMPTY]');
+        }
+        if (awsS3SecretKey) {
+            console.log('AWS S3 Secret Key value:', awsS3SecretKey.value ? '[HAS VALUE]' : '[EMPTY]');
+        }
+        if (azureConnectionString) {
+            console.log('Azure Connection String value:', azureConnectionString.value ? '[HAS VALUE]' : '[EMPTY]');
+        }
+        
+        console.log('=== End Debug ===');
+    }
 
 } 

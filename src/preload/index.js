@@ -167,6 +167,7 @@ const electronAPI = {
     get: (section) => ipcRenderer.invoke('config-get', section),
     set: (section, value) => ipcRenderer.invoke('config-set', section, value),
     getCloudService: (serviceType) => ipcRenderer.invoke('config-get-cloud-service', serviceType),
+    getCloudServiceFull: (serviceType) => ipcRenderer.invoke('config-get-cloud-service-full', serviceType),
     updateCloudService: (serviceType, serviceConfig) => ipcRenderer.invoke('config-update-cloud-service', serviceType, serviceConfig),
     getEnabledCloudServices: () => ipcRenderer.invoke('config-get-enabled-cloud-services'),
     getCloudServicesDisplayInfo: () => ipcRenderer.invoke('config-get-cloud-services-display-info'),
