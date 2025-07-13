@@ -692,21 +692,21 @@ export class ImportScreen {
     /**
      * Check if a cloud service is configured and enabled
      * @param {string} serviceType - Service type to check
-     * @returns {boolean} True if service is configured and enabled
+     * @returns {Promise<boolean>} True if service is configured and enabled
      */
-    isServiceConfigured(serviceType) {
+    async isServiceConfigured(serviceType) {
         try {
-            const preferences = localStorage.getItem('zentransfer_preferences');
-            const prefs = preferences ? JSON.parse(preferences) : {};
-            
             switch (serviceType) {
                 case 'aws-s3':
-                    return !!(prefs.awsS3Enabled && prefs.awsS3Region && prefs.awsS3Bucket && 
-                             prefs.awsS3AccessKey && prefs.awsS3SecretKey);
+                    const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
+                    return !!(awsS3Service && awsS3Service.enabled && awsS3Service.region && awsS3Service.bucket && 
+                             awsS3Service.accessKey && awsS3Service.secretKey);
                 case 'azure-blob':
-                    return !!(prefs.azureEnabled && prefs.azureConnectionString && prefs.azureContainer);
+                    const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
+                    return !!(azureService && azureService.enabled && azureService.connectionString && azureService.containerName);
                 case 'gcp-storage':
-                    return !!(prefs.gcpEnabled && prefs.gcpBucket && prefs.gcpServiceAccountKey);
+                    const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+                    return !!(gcpService && gcpService.enabled && gcpService.bucketName && gcpService.serviceAccountKey);
                 case 'zentransfer':
                     // ZenTransfer requires authentication (no enable toggle needed)
                     return TokenManager.isAuthenticated();
@@ -726,10 +726,10 @@ export class ImportScreen {
         // Check ZenTransfer authentication
         const isZenTransferAvailable = await this.checkZenTransferAvailability();
         
-        // Check cloud service configurations
-        const isAwsS3Available = this.isServiceConfigured('aws-s3');
-        const isAzureAvailable = this.isServiceConfigured('azure-blob');
-        const isGcpAvailable = this.isServiceConfigured('gcp-storage');
+        // Check cloud service configurations (now async)
+        const isAwsS3Available = await this.isServiceConfigured('aws-s3');
+        const isAzureAvailable = await this.isServiceConfigured('azure-blob');
+        const isGcpAvailable = await this.isServiceConfigured('gcp-storage');
         
         // Update UI elements
         this.updateServiceUI('zentransfer', isZenTransferAvailable, 'Please log in to enable ZenTransfer uploads');
