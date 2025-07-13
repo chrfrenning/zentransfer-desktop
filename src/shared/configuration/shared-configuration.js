@@ -16,10 +16,6 @@ class SharedConfiguration {
 
         // Application settings
         this.downloadPath = '';
-        this.importPath = '';
-        this.importDestinationPath = '';
-        this.importBackupPath = '';
-        this.importBackupEnabled = false;
         this.lastSyncTime = null;
 
         // Authentication
@@ -34,13 +30,22 @@ class SharedConfiguration {
             'gcp-storage': new GcpStorageService()
         };
 
-        // Import settings
+        // Import settings (consolidated all import-related settings here)
         this.importSettings = {
+            // Path settings
+            importPath: '',
+            importDestinationPath: '',
+            importBackupPath: '',
+            importBackupEnabled: false,
+            
+            // Organization settings
             includeSubdirectories: true,
             organizeIntoFolders: false,
             folderOrganizationType: 'date',
             customFolderName: '',
             dateFormat: 'YYYY-MM-DD',
+            
+            // Upload settings
             uploadEnabled: false,
             uploadToAwsS3: false,
             uploadToAzure: false,
@@ -62,10 +67,6 @@ class SharedConfiguration {
         return {
             preferences: this.preferences,
             downloadPath: this.downloadPath,
-            importPath: this.importPath,
-            importDestinationPath: this.importDestinationPath,
-            importBackupPath: this.importBackupPath,
-            importBackupEnabled: this.importBackupEnabled,
             lastSyncTime: this.lastSyncTime,
             authToken: this.authToken,
             email: this.email,
@@ -83,15 +84,38 @@ class SharedConfiguration {
     fromConfig(config) {
         this.preferences = { ...this.preferences, ...(config.preferences || {}) };
         this.downloadPath = config.downloadPath || '';
-        this.importPath = config.importPath || '';
-        this.importDestinationPath = config.importDestinationPath || '';
-        this.importBackupPath = config.importBackupPath || '';
-        this.importBackupEnabled = config.importBackupEnabled || false;
         this.lastSyncTime = config.lastSyncTime || null;
         this.authToken = config.authToken || '';
         this.email = config.email || '';
         this.deviceId = config.deviceId || '';
-        this.importSettings = { ...this.importSettings, ...(config.importSettings || {}) };
+
+        // Load import settings with migration support
+        let importSettings = { ...this.importSettings };
+        
+        // If importSettings exists in config, use it
+        if (config.importSettings) {
+            importSettings = { ...importSettings, ...config.importSettings };
+        }
+        
+        // Migration: Check for old root-level import settings and move them
+        if (config.importPath !== undefined) {
+            importSettings.importPath = config.importPath;
+            console.log('Migrating importPath from root level to importSettings');
+        }
+        if (config.importDestinationPath !== undefined) {
+            importSettings.importDestinationPath = config.importDestinationPath;
+            console.log('Migrating importDestinationPath from root level to importSettings');
+        }
+        if (config.importBackupPath !== undefined) {
+            importSettings.importBackupPath = config.importBackupPath;
+            console.log('Migrating importBackupPath from root level to importSettings');
+        }
+        if (config.importBackupEnabled !== undefined) {
+            importSettings.importBackupEnabled = config.importBackupEnabled;
+            console.log('Migrating importBackupEnabled from root level to importSettings');
+        }
+        
+        this.importSettings = importSettings;
 
         // Load cloud services
         if (config.cloudServices) {
@@ -113,11 +137,13 @@ class SharedConfiguration {
     }
 
     /**
-     * Get all enabled cloud services
-     * @returns {Array<CloudService>} Array of enabled cloud services
+     * Get enabled cloud services
+     * @returns {Array} Array of enabled cloud services
      */
     getEnabledCloudServices() {
-        return Object.values(this.cloudServices).filter(service => service.enabled);
+        return Object.entries(this.cloudServices)
+            .filter(([key, service]) => service.enabled)
+            .map(([key, service]) => ({ type: key, service }));
     }
 
     /**
@@ -133,30 +159,28 @@ class SharedConfiguration {
     }
 
     /**
-     * Get all cloud services with their display info
-     * @returns {Object} Cloud services with display info
+     * Get display information for all cloud services
+     * @returns {Array} Array of service display info
      */
     getCloudServicesDisplayInfo() {
-        const displayInfo = {};
-        for (const [key, service] of Object.entries(this.cloudServices)) {
-            displayInfo[key] = service.getDisplayInfo();
-        }
-        return displayInfo;
+        return Object.entries(this.cloudServices).map(([type, service]) => ({
+            type,
+            name: service.constructor.name.replace('Service', ''),
+            enabled: service.enabled,
+            configured: service.isConfigured()
+        }));
     }
 
     /**
-     * Validate all cloud service configurations
+     * Validate all cloud services
      * @returns {Object} Validation results
      */
     validateCloudServices() {
-        const validation = {};
-        for (const [key, service] of Object.entries(this.cloudServices)) {
-            validation[key] = {
-                isValid: service.isValid(),
-                enabled: service.enabled
-            };
+        const results = {};
+        for (const [type, service] of Object.entries(this.cloudServices)) {
+            results[type] = service.validate();
         }
-        return validation;
+        return results;
     }
 }
 

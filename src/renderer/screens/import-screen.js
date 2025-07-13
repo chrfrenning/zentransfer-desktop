@@ -594,11 +594,11 @@ export class ImportScreen {
      */
     async loadSettings() {
         try {
-            // Load saved paths and settings from configuration system
-            const importPath = await window.electronAPI.config.get('importPath');
-            const destinationPath = await window.electronAPI.config.get('importDestinationPath');
-            const backupPath = await window.electronAPI.config.get('importBackupPath');
-            const enableBackup = await window.electronAPI.config.get('importBackupEnabled');
+            // Load saved paths and settings from configuration system (now all under importSettings)
+            const importPath = await window.electronAPI.config.get('importSettings.importPath');
+            const destinationPath = await window.electronAPI.config.get('importSettings.importDestinationPath');
+            const backupPath = await window.electronAPI.config.get('importSettings.importBackupPath');
+            const enableBackup = await window.electronAPI.config.get('importSettings.importBackupEnabled');
             const includeSubdirectories = await window.electronAPI.config.get('importSettings.includeSubdirectories');
             const organizeIntoFolders = await window.electronAPI.config.get('importSettings.organizeIntoFolders');
             const folderOrganizationType = await window.electronAPI.config.get('importSettings.folderOrganizationType');
@@ -826,7 +826,7 @@ export class ImportScreen {
             }
 
             if (this.elements.enableBackupCheckbox) {
-                await window.electronAPI.config.set('importBackupEnabled', this.elements.enableBackupCheckbox.checked);
+                await window.electronAPI.config.set('importSettings.importBackupEnabled', this.elements.enableBackupCheckbox.checked);
             }
 
             if (this.elements.uploadToZenTransferCheckbox) {
@@ -996,13 +996,13 @@ export class ImportScreen {
         try {
             switch (type) {
                 case 'import':
-                    await window.electronAPI.config.set('importPath', path);
+                    await window.electronAPI.config.set('importSettings.importPath', path);
                     break;
                 case 'destination':
-                    await window.electronAPI.config.set('importDestinationPath', path);
+                    await window.electronAPI.config.set('importSettings.importDestinationPath', path);
                     break;
                 case 'backup':
-                    await window.electronAPI.config.set('importBackupPath', path);
+                    await window.electronAPI.config.set('importSettings.importBackupPath', path);
                     break;
             }
             console.log(`Import ${type} path saved to configuration: ${path}`);
