@@ -50,8 +50,7 @@ class ConfigManager {
         const directories = [
             this.userDataPath,
             this.configurationPath,
-            this.serverConfigPath,
-            path.join(this.serverConfigPath, 'logs')
+            this.serverConfigPath
         ];
 
         directories.forEach(dir => {
