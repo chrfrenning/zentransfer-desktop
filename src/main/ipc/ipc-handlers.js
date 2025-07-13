@@ -137,8 +137,24 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
   });
   
   // Download handlers
-  ipcMain.handle('start-download-monitoring', async (event, downloadPath, lastSyncTime, authToken) => {
+  ipcMain.handle('start-download-monitoring', async (event) => {
     try {
+      // Get download settings from config
+      const downloadSettings = getConfig('downloadSettings');
+      const downloadPath = downloadSettings?.downloadPath;
+      const lastSyncTime = downloadSettings?.lastSyncTime || '2025-01-01T00:00:00.000Z';
+      
+      // Get authentication token from config
+      const authToken = getConfig('authToken');
+      
+      if (!downloadPath) {
+        throw new Error('Download path not configured');
+      }
+      
+      if (!authToken) {
+        throw new Error('Authentication token not available');
+      }
+      
       const result = await downloadWorkerPool.startMonitoring(downloadPath, lastSyncTime, authToken);
       return { success: true, result };
     } catch (error) {
@@ -182,6 +198,10 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
      try {
        downloadWorkerPool.lastSyncTime = syncTime;
        downloadWorkerPool.latestDownloadedFileTime = null; // Clear the cached latest time
+       
+       // Also save to config system
+       setConfig('downloadSettings.lastSyncTime', syncTime);
+       
        console.log(`Reset sync time to: ${syncTime}, cleared latest downloaded file time`);
        return { success: true };
      } catch (error) {

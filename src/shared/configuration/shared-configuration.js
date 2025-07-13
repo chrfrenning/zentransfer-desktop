@@ -14,9 +14,11 @@ class SharedConfiguration {
             skipDuplicates: false
         };
 
-        // Application settings
-        this.downloadPath = '';
-        this.lastSyncTime = null;
+        // Download settings
+        this.downloadSettings = {
+            downloadPath: '',
+            lastSyncTime: null
+        };
 
         // Authentication
         this.authToken = '';
@@ -71,8 +73,7 @@ class SharedConfiguration {
 
         return {
             preferences: this.preferences,
-            downloadPath: this.downloadPath,
-            lastSyncTime: this.lastSyncTime,
+            downloadSettings: this.downloadSettings,
             authToken: this.authToken,
             email: this.email,
             deviceId: this.deviceId,
@@ -89,8 +90,16 @@ class SharedConfiguration {
      */
     fromConfig(config) {
         this.preferences = { ...this.preferences, ...(config.preferences || {}) };
-        this.downloadPath = config.downloadPath || '';
-        this.lastSyncTime = config.lastSyncTime || null;
+        
+        // Load download settings (with migration from old format)
+        if (config.downloadSettings) {
+            this.downloadSettings = { ...this.downloadSettings, ...config.downloadSettings };
+        } else {
+            // Migration: handle old format
+            this.downloadSettings.downloadPath = config.downloadPath || '';
+            this.downloadSettings.lastSyncTime = config.lastSyncTime || null;
+        }
+        
         this.authToken = config.authToken || '';
         this.email = config.email || '';
         this.deviceId = config.deviceId || '';

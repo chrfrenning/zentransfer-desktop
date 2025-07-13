@@ -64,8 +64,7 @@ const electronAPI = {
 
   // Download APIs
   download: {
-    startMonitoring: (downloadPath, lastSyncTime, authToken) => 
-      ipcRenderer.invoke('start-download-monitoring', downloadPath, lastSyncTime, authToken),
+    startMonitoring: () => ipcRenderer.invoke('start-download-monitoring'),
     stopMonitoring: () => ipcRenderer.invoke('stop-download-monitoring'),
     getStats: () => ipcRenderer.invoke('get-download-stats'),
     resetSyncTime: (resetTime) => ipcRenderer.invoke('reset-sync-time', resetTime),

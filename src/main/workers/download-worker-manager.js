@@ -415,6 +415,15 @@ class DownloadWorkerManager {
             this.latestDownloadedFileTime = fileCreatedTime;
             console.log(`Updated latest downloaded file time to: ${this.latestDownloadedFileTime}`);
             
+            // Save to config system
+            try {
+              const { setConfig } = require('../app/main-config-setup.js');
+              setConfig('downloadSettings.lastSyncTime', this.latestDownloadedFileTime);
+              console.log('Saved updated sync time to config');
+            } catch (error) {
+              console.error('Failed to save sync time to config:', error);
+            }
+            
             // Send sync time update to renderer
             this.sendDownloadUpdate({
               type: 'sync-time-update',

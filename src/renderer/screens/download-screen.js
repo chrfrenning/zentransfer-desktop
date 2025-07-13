@@ -19,7 +19,7 @@ export class DownloadScreen {
         this.queueManager = new DownloadQueueManager();
         this.downloadQueue = new Map(); // Track download progress
         this.maxCompletedItems = 20; // Maximum number of completed items to keep
-        
+
         this.initializeElements();
         this.setupEventListeners();
         this.setupQueueManager();
@@ -50,7 +50,7 @@ export class DownloadScreen {
 
         // Create setup mode (shown when not monitoring)
         this.createSetupMode();
-        
+
         // Create monitoring mode (shown when monitoring)
         this.createMonitoringMode();
     }
@@ -62,7 +62,7 @@ export class DownloadScreen {
         const setupMode = document.createElement('div');
         setupMode.id = 'setupMode';
         setupMode.className = 'w-full';
-        
+
         setupMode.innerHTML = `
             <!-- Compact Header -->
             <div class="flex items-center mt-2 mb-6 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -137,7 +137,7 @@ export class DownloadScreen {
         const monitoringMode = document.createElement('div');
         monitoringMode.id = 'monitoringMode';
         monitoringMode.className = 'hidden w-full';
-        
+
         monitoringMode.innerHTML = `
             <!-- Compact Header with status and stop button -->
             <div class="flex items-center justify-between mt-2 mb-6 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -194,34 +194,36 @@ export class DownloadScreen {
         this.elements.startMonitorBtn = document.getElementById('startMonitorBtn');
         this.elements.lastSyncTime = document.getElementById('lastSyncTime');
         this.elements.resetSyncBtn = document.getElementById('resetSyncBtn');
-        
+
         // Monitoring mode elements
         this.elements.stopMonitorBtn = document.getElementById('stopMonitorBtn');
         this.elements.fileList = document.getElementById('fileList');
         this.elements.emptyFileList = document.getElementById('emptyFileList');
-        
+
 
     }
 
     /**
-     * Load settings from storage
+     * Load settings from config system
      */
-    loadSettings() {
-        const downloadPath = StorageManager.getDownloadPath();
+    async loadSettings() {
+        const downloadSettings = await window.electronAPI.config.get('downloadSettings');
+        const downloadPath = downloadSettings?.downloadPath;
+
         if (downloadPath && this.elements.downloadPathInput) {
             this.elements.downloadPathInput.value = downloadPath;
             this.queueManager.setDownloadPath(downloadPath);
         } else {
             // Set default download path for first-time users
             let defaultPath = 'Browser Default Downloads';
-            
+
             // In Electron, use the system Downloads directory
             if (window.electronAPI) {
                 try {
                     // Use the user's Downloads directory
                     const homedir = window.electronAPI.node.homedir();
                     defaultPath = window.electronAPI.node.join(homedir, 'Downloads', 'ZenTransfer');
-                    
+
                     // Create the directory if it doesn't exist
                     const exists = window.electronAPI.node.existsSync(defaultPath);
                     if (!exists) {
@@ -231,15 +233,15 @@ export class DownloadScreen {
                     console.error('Failed to create default download directory:', error);
                 }
             }
-            
+
             this.elements.downloadPathInput.value = defaultPath;
             this.queueManager.setDownloadPath(defaultPath);
-            StorageManager.setDownloadPath(defaultPath);
+            await window.electronAPI.config.set('downloadSettings.downloadPath', defaultPath);
         }
 
-        const lastSync = StorageManager.getLastSyncTime();
+        const lastSync = downloadSettings?.lastSyncTime || '2025-01-01T00:00:00.000Z';
         this.updateLastSyncDisplay(lastSync);
-        
+
         // Update start button state
         this.updateStartButtonState();
     }
@@ -250,7 +252,7 @@ export class DownloadScreen {
     setupEventListeners() {
         // Cache elements first
         this.cacheElements();
-        
+
         // Browse path button
         if (this.elements.browsePathBtn) {
             this.elements.browsePathBtn.addEventListener('click', () => {
@@ -297,60 +299,60 @@ export class DownloadScreen {
      */
     setupDownloadManager() {
         console.log('Setting up download manager IPC listeners...');
-        
+
         // Listen for download updates from main process
         if (window.electronAPI) {
             try {
                 console.log('IPC renderer available, setting up download-update listener');
-                
+
                 this.downloadUpdateCleanup = window.electronAPI.download.onUpdate((data) => {
                     console.log('IPC listener received download-update:', data.type);
                     this.handleDownloadUpdate(data);
                 });
-                
+
                 console.log('Download IPC listener setup complete');
             } catch (error) {
                 console.error('Failed to setup IPC listeners:', error);
             }
         } else {
-                            console.error('electronAPI not available - cannot setup IPC listeners');
+            console.error('electronAPI not available - cannot setup IPC listeners');
         }
     }
-    
+
     /**
      * Handle download updates from main process
      */
-    handleDownloadUpdate(data) {
+    async handleDownloadUpdate(data) {
         const { type } = data;
-        
+
         console.log('Renderer received download update:', type, data);
-        
+
         switch (type) {
             case 'monitoring-check':
                 console.log('Monitoring check:', data.timestamp);
                 break;
-                
+
             case 'queue-update':
                 console.log('Queue update received in renderer:', data.stats);
                 this.updateQueueFromMain(data.files, data.stats);
                 break;
-                
+
             case 'queue-cleared':
                 console.log('Download queue cleared:', data.message);
                 UIComponents.Notification.show(data.message, 'info');
                 break;
-                
+
             case 'sync-time-update':
                 console.log('Sync time updated:', data.syncTime);
-                StorageManager.setLastSyncTime(data.syncTime);
+                await window.electronAPI.config.set('downloadSettings.lastSyncTime', data.syncTime);
                 this.updateLastSyncDisplay(data.syncTime);
                 break;
-                
+
             case 'monitoring-error':
                 console.error('Monitoring error:', data.error);
                 UIComponents.Notification.show('Monitoring error: ' + data.error, 'error');
                 break;
-                
+
             default:
                 console.log('Unknown download update type:', type, data);
         }
@@ -369,7 +371,7 @@ export class DownloadScreen {
             if (this.elements.monitoringMode) {
                 this.elements.monitoringMode.classList.remove('hidden');
             }
-            
+
             // Re-cache elements now that monitoring mode is visible
             this.cacheElements();
         } else {
@@ -393,29 +395,31 @@ export class DownloadScreen {
                 try {
                     // Send request to main process to show directory dialog
                     const selectedPath = await window.electronAPI.dialog.showDirectoryDialog();
-                    
+
                     if (selectedPath) {
                         this.elements.downloadPathInput.value = selectedPath;
                         this.queueManager.setDownloadPath(selectedPath);
+                        await window.electronAPI.config.set('downloadSettings.downloadPath', selectedPath);
                         this.updateStartButtonState();
                         UIComponents.Notification.show('Download directory selected: ' + selectedPath, 'success');
                     }
                     return;
                 } catch (error) {
                     console.log('IPC not available, trying direct access');
-                    
+
                     // Fallback: try to use a simple prompt for path input
                     const path = prompt('Enter download directory path:', this.elements.downloadPathInput.value || '');
-                    
+
                     if (path && path.trim()) {
                         const trimmedPath = path.trim();
-                        
+
                         // Verify the path exists using Node.js fs
                         try {
                             const exists = window.electronAPI.node.existsSync(trimmedPath);
                             if (exists) {
                                 this.elements.downloadPathInput.value = trimmedPath;
                                 this.queueManager.setDownloadPath(trimmedPath);
+                                await window.electronAPI.config.set('downloadSettings.downloadPath', trimmedPath);
                                 this.updateStartButtonState();
                                 UIComponents.Notification.show('Download directory set: ' + trimmedPath, 'success');
                                 return;
@@ -429,15 +433,16 @@ export class DownloadScreen {
                     }
                 }
             }
-            
+
             // Check if File System Access API is available (modern browsers)
             if ('showDirectoryPicker' in window) {
                 try {
                     const directoryHandle = await window.showDirectoryPicker();
                     const path = directoryHandle.name;
-                    
+
                     this.elements.downloadPathInput.value = path;
                     this.queueManager.setDownloadPath(path);
+                    await window.electronAPI.config.set('downloadSettings.downloadPath', path);
                     this.updateStartButtonState();
                     UIComponents.Notification.show('Download directory selected: ' + path, 'success');
                     return;
@@ -448,22 +453,23 @@ export class DownloadScreen {
                     // Fall through to alternative method
                 }
             }
-            
+
             // Fallback: Use browser's default download directory
             const useDefault = confirm(
                 'Your browser doesn\'t support directory selection.\n\n' +
                 'Would you like to use the browser\'s default download directory?\n\n' +
                 'Files will be downloaded to your browser\'s default download folder.'
             );
-            
+
             if (useDefault) {
                 const defaultPath = 'Browser Default Downloads';
                 this.elements.downloadPathInput.value = defaultPath;
                 this.queueManager.setDownloadPath(defaultPath);
+                await window.electronAPI.config.set('downloadSettings.downloadPath', defaultPath);
                 this.updateStartButtonState();
                 UIComponents.Notification.show('Using browser default download directory', 'success');
             }
-            
+
         } catch (error) {
             console.error('Failed to browse path:', error);
             UIComponents.Notification.show('Failed to set download path', 'error');
@@ -486,19 +492,19 @@ export class DownloadScreen {
     async resetSync() {
         if (confirm('Reset sync time? This will re-download all files from the beginning.')) {
             const resetTime = '2025-01-01T00:00:00.000Z';
-            StorageManager.setLastSyncTime(resetTime);
+            await window.electronAPI.config.set('downloadSettings.lastSyncTime', resetTime);
             this.updateLastSyncDisplay(resetTime);
-            
+
             // Also reset the sync time in the main process (clears both lastSyncTime and latestDownloadedFileTime)
             if (window.electronAPI) {
                 try {
-                                await window.electronAPI.download.resetSyncTime(resetTime);
+                    await window.electronAPI.download.resetSyncTime(resetTime);
                     console.log('Sync time reset in main process');
                 } catch (error) {
                     console.error('Failed to reset sync time in main process:', error);
                 }
             }
-            
+
             UIComponents.Notification.show('Sync time reset', 'success');
         }
     }
@@ -518,29 +524,24 @@ export class DownloadScreen {
         try {
             this.isMonitoring = true;
             this.switchMode(true);
-            
-            // Get last sync time from storage
-            const lastSyncTime = StorageManager.getLastSyncTime();
-            //const lastSyncTime = new Date().toISOString();
 
-            
             // Get authentication token
             const tokenResult = await TokenManager.ensureValidToken();
             if (!tokenResult.valid) {
                 throw new Error('Authentication required. Please log in again.');
             }
-            
-            // Start monitoring via main process
+
+            // Start monitoring via main process (no parameters needed - main process reads from config)
             if (window.electronAPI) {
-                            const result = await window.electronAPI.download.startMonitoring(downloadPath, lastSyncTime, tokenResult.token);
-                
+                const result = await window.electronAPI.download.startMonitoring();
+
                 if (!result.success) {
                     throw new Error(result.error);
                 }
             }
-            
+
             UIComponents.Notification.show('File monitoring started', 'success');
-            
+
         } catch (error) {
             console.error('Failed to start monitoring:', error);
             UIComponents.Notification.show('Failed to start monitoring: ' + error.message, 'error');
@@ -560,8 +561,8 @@ export class DownloadScreen {
 
             // Stop monitoring via main process
             if (window.electronAPI) {
-                            const result = await window.electronAPI.download.stopMonitoring();
-                
+                const result = await window.electronAPI.download.stopMonitoring();
+
                 if (!result.success) {
                     console.error('Failed to stop monitoring:', result.error);
                 }
@@ -580,12 +581,12 @@ export class DownloadScreen {
     updateQueueFromMain(files, stats) {
         // Clear current queue and rebuild from main process data
         this.downloadQueue.clear();
-        
+
         // Add all files to the queue
         files.forEach(file => {
             this.downloadQueue.set(file.id, file);
         });
-        
+
         // Update display
         this.updateFileListWithOrdering();
         this.updateStatsFromData(stats);
@@ -633,7 +634,7 @@ export class DownloadScreen {
     updateQueueDisplay(queue, stats) {
         // Use our own stats calculation instead of the passed stats
         this.updateStats();
-        
+
         // Update file list with proper ordering
         this.updateFileListWithOrdering();
     }
@@ -645,15 +646,15 @@ export class DownloadScreen {
         if (!this.elements.fileList || !this.elements.emptyFileList) return;
 
         const files = Array.from(this.downloadQueue.values());
-        
+
         // Filter to only show downloading files and completed/failed history
         // Hide queued items since they're just waiting
-        const visibleFiles = files.filter(file => 
-            file.status === 'downloading' || 
-            file.status === 'completed' || 
+        const visibleFiles = files.filter(file =>
+            file.status === 'downloading' ||
+            file.status === 'completed' ||
             file.status === 'failed'
         );
-        
+
         // Sort files: downloading first (newest first), then completed/failed (newest first)
         const sortedFiles = visibleFiles.sort((a, b) => {
             // First, group by status priority
@@ -662,14 +663,14 @@ export class DownloadScreen {
                 'completed': 2,
                 'failed': 3
             };
-            
+
             const aPriority = statusPriority[a.status] || 4;
             const bPriority = statusPriority[b.status] || 4;
-            
+
             if (aPriority !== bPriority) {
                 return aPriority - bPriority;
             }
-            
+
             // Within same status group, sort by time (newest first)
             if (a.status === 'downloading') {
                 // For active downloads, sort by when they were added (newest first)
@@ -696,7 +697,7 @@ export class DownloadScreen {
             this.elements.emptyFileList.classList.remove('hidden');
         } else {
             this.elements.emptyFileList.classList.add('hidden');
-            
+
             queue.forEach(file => {
                 const fileElement = this.createFileListItem(file);
                 this.elements.fileList.appendChild(fileElement);
@@ -714,7 +715,7 @@ export class DownloadScreen {
     createFileListItem(file) {
         const element = document.createElement('div');
         element.className = 'p-4 hover:bg-gray-50 cursor-pointer';
-        
+
         const statusClass = this.getStatusClass(file.status);
         const thumbnailUrl = file.thumbnail_url || this.getDefaultThumbnail(file);
 
@@ -761,10 +762,10 @@ export class DownloadScreen {
                 
                 <!-- Status Indicator -->
                 <div class="flex-shrink-0">
-                    ${file.status === 'downloading' ? 
-                        '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>' : 
-                        this.getStatusIcon(file.status)
-                    }
+                    ${file.status === 'downloading' ?
+                '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>' :
+                this.getStatusIcon(file.status)
+            }
                 </div>
             </div>
         `;
@@ -852,28 +853,28 @@ export class DownloadScreen {
      */
     formatFileSize(bytes) {
         if (bytes === 0) return '0 B';
-        
+
         const k = 1024;
         const sizes = ['B', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
-        
+
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
 
     /**
      * Show the download screen
      */
-    show() {
+    async show() {
         if (this.elements.downloadTab) {
             this.elements.downloadTab.classList.remove('hidden');
             this.isVisible = true;
-            
+
             // Load settings and update UI
-            this.loadSettings();
-            
+            await this.loadSettings();
+
             // Update display - stats will be updated when main process sends queue updates
             this.updateFileListWithOrdering();
-            
+
             // Switch to appropriate mode
             this.switchMode(this.isMonitoring);
         }
@@ -887,7 +888,7 @@ export class DownloadScreen {
             this.elements.downloadTab.classList.add('hidden');
             this.isVisible = false;
         }
-        
+
         // Don't stop monitoring when hiding - let it run in background
         // Only stop when user explicitly clicks Stop button
     }

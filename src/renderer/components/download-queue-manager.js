@@ -15,23 +15,27 @@ export class DownloadQueueManager {
         this.onQueueUpdate = null;
         this.onDownloadProgress = null;
         
-        // Load persisted queue
+        // Load persisted queue (now async but called without await for compatibility)
         this.loadQueue();
     }
 
     /**
      * Load queue from storage
      */
-    loadQueue() {
-        this.queue = StorageManager.getDownloadQueue();
-        this.downloadPath = StorageManager.getDownloadPath();
+    async loadQueue() {
+        // Note: Queue is now managed by the main process
+        // Download path is loaded by the download screen from config system
+        // This method is kept for compatibility but doesn't load from localStorage
+        this.queue = [];
+        this.downloadPath = null;
     }
 
     /**
      * Save queue to storage
      */
     saveQueue() {
-        StorageManager.setDownloadQueue(this.queue);
+        // Note: Queue is now managed by the main process
+        // No need to save to localStorage
     }
 
     /**
@@ -183,17 +187,10 @@ export class DownloadQueueManager {
             
             // Mark as completed and update last downloaded file
             this.updateFileStatus(file.id, 'completed');
-            StorageManager.setLastDownloadedFile({
-                id: file.id,
-                name: file.name,
-                created: file.created,
-                downloadedAt: new Date().toISOString()
-            });
-
-            // Update last sync time to this file's creation time
-            if (file.created) {
-                StorageManager.setLastSyncTime(file.created);
-            }
+            
+            // Note: File completion tracking is now handled by the main process
+            // The download worker manager tracks this information and sends updates
+            // to the download screen via IPC
 
         } catch (error) {
             console.error('Download failed for file:', file.name, error);
@@ -317,7 +314,8 @@ export class DownloadQueueManager {
      */
     setDownloadPath(path) {
         this.downloadPath = path;
-        StorageManager.setDownloadPath(path);
+        // Note: Download path is now saved by the download screen to config system
+        // This method just sets the local property
     }
 
     /**
