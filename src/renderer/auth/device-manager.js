@@ -14,18 +14,51 @@ export class DeviceManager {
         });
     }
     
-    static getDeviceId() {
-        let deviceId = localStorage.getItem(this.DEVICE_ID_KEY);
-        if (!deviceId) {
-            deviceId = this.generateGUID();
-            localStorage.setItem(this.DEVICE_ID_KEY, deviceId);
-            console.log('Generated new device ID:', deviceId);
+    static async getDeviceId() {
+        try {
+            // Try to get device ID from configuration system first
+            let deviceId = await window.electronAPI.config.get('deviceId');
+            
+            if (!deviceId) {
+                // Fallback to localStorage for migration
+                deviceId = localStorage.getItem(this.DEVICE_ID_KEY);
+                
+                if (!deviceId) {
+                    // Generate new device ID
+                    deviceId = this.generateGUID();
+                    console.log('Generated new device ID:', deviceId);
+                }
+                
+                // Save to configuration system
+                await window.electronAPI.config.set('deviceId', deviceId);
+                
+                // Clear from localStorage after migration
+                localStorage.removeItem(this.DEVICE_ID_KEY);
+            }
+            
+            return deviceId;
+        } catch (error) {
+            console.error('Failed to get device ID from configuration, falling back to localStorage:', error);
+            // Fallback to localStorage if configuration system fails
+            let deviceId = localStorage.getItem(this.DEVICE_ID_KEY);
+            if (!deviceId) {
+                deviceId = this.generateGUID();
+                localStorage.setItem(this.DEVICE_ID_KEY, deviceId);
+                console.log('Generated new device ID (localStorage fallback):', deviceId);
+            }
+            return deviceId;
         }
-        return deviceId;
     }
     
-    static clearDeviceId() {
-        localStorage.removeItem(this.DEVICE_ID_KEY);
-        console.log('Device ID cleared');
+    static async clearDeviceId() {
+        try {
+            await window.electronAPI.config.set('deviceId', '');
+            localStorage.removeItem(this.DEVICE_ID_KEY);
+            console.log('Device ID cleared from configuration and localStorage');
+        } catch (error) {
+            console.error('Failed to clear device ID from configuration:', error);
+            localStorage.removeItem(this.DEVICE_ID_KEY);
+            console.log('Device ID cleared from localStorage only');
+        }
     }
 } 

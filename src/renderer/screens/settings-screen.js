@@ -694,7 +694,7 @@ export class SettingsScreen {
                     </button>
                     <div class="text-center mt-2">
                         <button onclick="window.appController?.screenManager?.screens?.settings?.openExternal('https://zentransfer.io')" class="text-xs text-gray-400 hover:text-gray-600 transition-colors duration-200 underline bg-transparent border-none cursor-pointer">
-                            Click to learn more about ZenTransfer
+                            Click to learn more about ZenTransfer.io
                         </button>
                     </div>
                 </div>

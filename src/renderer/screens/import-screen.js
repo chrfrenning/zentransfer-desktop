@@ -592,98 +592,101 @@ export class ImportScreen {
     /**
      * Load settings from storage
      */
-    loadSettings() {
-        // Load saved paths and settings
-        const importPath = StorageManager.getImportPath();
-        const destinationPath = StorageManager.getImportDestinationPath();
-        const backupPath = StorageManager.getImportBackupPath();
-        const enableBackup = StorageManager.getImportBackupEnabled();
-        const uploadToZenTransfer = StorageManager.getImportUploadEnabled();
-        const includeSubdirectories = StorageManager.getImportIncludeSubdirectories();
-        const organizeIntoFolders = StorageManager.getImportOrganizeIntoFolders();
-        const folderOrganizationType = StorageManager.getImportFolderOrganizationType();
-        const customFolderName = StorageManager.getImportCustomFolderName();
-        const dateFormat = StorageManager.getImportDateFormat();
+    async loadSettings() {
+        try {
+            // Load saved paths and settings from configuration system
+            const importPath = await window.electronAPI.config.get('importPath');
+            const destinationPath = await window.electronAPI.config.get('importDestinationPath');
+            const backupPath = await window.electronAPI.config.get('importBackupPath');
+            const enableBackup = await window.electronAPI.config.get('importBackupEnabled');
+            const includeSubdirectories = await window.electronAPI.config.get('importSettings.includeSubdirectories');
+            const organizeIntoFolders = await window.electronAPI.config.get('importSettings.organizeIntoFolders');
+            const folderOrganizationType = await window.electronAPI.config.get('importSettings.folderOrganizationType');
+            const customFolderName = await window.electronAPI.config.get('importSettings.customFolderName');
+            const dateFormat = await window.electronAPI.config.get('importSettings.dateFormat');
+            const uploadToZenTransfer = await window.electronAPI.config.get('importSettings.uploadEnabled');
+            const uploadToAwsS3 = await window.electronAPI.config.get('importSettings.uploadToAwsS3');
+            const uploadToAzure = await window.electronAPI.config.get('importSettings.uploadToAzure');
+            const uploadToGcp = await window.electronAPI.config.get('importSettings.uploadToGcp');
+            const enableCloudUpload = await window.electronAPI.config.get('importSettings.enableCloudUpload');
 
-        if (importPath && this.elements.importFromInput) {
-            this.elements.importFromInput.value = importPath;
-        }
-
-        if (destinationPath && this.elements.destinationInput) {
-            this.elements.destinationInput.value = destinationPath;
-        }
-
-        if (this.elements.includeSubdirectoriesCheckbox) {
-            this.elements.includeSubdirectoriesCheckbox.checked = includeSubdirectories !== false; // Default to true
-        }
-
-        if (this.elements.organizeIntoFoldersCheckbox) {
-            this.elements.organizeIntoFoldersCheckbox.checked = organizeIntoFolders !== false; // Default to true
-            this.toggleFolderOrganization();
-        }
-
-        if (this.elements.customFolderRadio && this.elements.dateFolderRadio) {
-            // Default to 'date' organization type
-            if (folderOrganizationType === 'custom') {
-                this.elements.customFolderRadio.checked = true;
-                this.elements.dateFolderRadio.checked = false;
-            } else {
-                this.elements.dateFolderRadio.checked = true;
-                this.elements.customFolderRadio.checked = false;
+            if (importPath && this.elements.importFromInput) {
+                this.elements.importFromInput.value = importPath;
             }
-            this.updateFolderOrganizationInputs();
+
+            if (destinationPath && this.elements.destinationInput) {
+                this.elements.destinationInput.value = destinationPath;
+            }
+
+            if (this.elements.includeSubdirectoriesCheckbox) {
+                this.elements.includeSubdirectoriesCheckbox.checked = includeSubdirectories !== false; // Default to true
+            }
+
+            if (this.elements.organizeIntoFoldersCheckbox) {
+                this.elements.organizeIntoFoldersCheckbox.checked = organizeIntoFolders !== false; // Default to true
+                this.toggleFolderOrganization();
+            }
+
+            if (this.elements.customFolderRadio && this.elements.dateFolderRadio) {
+                // Default to 'date' organization type
+                if (folderOrganizationType === 'custom') {
+                    this.elements.customFolderRadio.checked = true;
+                    this.elements.dateFolderRadio.checked = false;
+                } else {
+                    this.elements.dateFolderRadio.checked = true;
+                    this.elements.customFolderRadio.checked = false;
+                }
+                this.updateFolderOrganizationInputs();
+            }
+
+            if (customFolderName && this.elements.customFolderNameInput) {
+                this.elements.customFolderNameInput.value = customFolderName;
+            }
+
+            if (this.elements.dateFormatSelect) {
+                // Default to YYYY/MM/DD format
+                this.elements.dateFormatSelect.value = dateFormat || '2025/05/26';
+            }
+
+            if (this.elements.enableBackupCheckbox) {
+                this.elements.enableBackupCheckbox.checked = enableBackup || false;
+                this.toggleBackupPath();
+            }
+
+            if (backupPath && this.elements.backupPathInput) {
+                this.elements.backupPathInput.value = backupPath;
+            }
+
+            if (this.elements.uploadToZenTransferCheckbox) {
+                this.elements.uploadToZenTransferCheckbox.checked = uploadToZenTransfer || false;
+            }
+
+            if (this.elements.uploadToAwsS3Checkbox) {
+                this.elements.uploadToAwsS3Checkbox.checked = uploadToAwsS3 || false;
+            }
+
+            if (this.elements.uploadToAzureCheckbox) {
+                this.elements.uploadToAzureCheckbox.checked = uploadToAzure || false;
+            }
+
+            if (this.elements.uploadToGcpCheckbox) {
+                this.elements.uploadToGcpCheckbox.checked = uploadToGcp || false;
+            }
+
+            if (this.elements.enableCloudUploadCheckbox) {
+                this.elements.enableCloudUploadCheckbox.checked = enableCloudUpload || false;
+                this.toggleCloudServices();
+            }
+
+            // Update service availability after loading settings
+            await this.updateServiceAvailability();
+            
+            this.validateInputs();
+        } catch (error) {
+            console.error('Failed to load import settings from configuration:', error);
+            // Fallback to default values if configuration loading fails
+            this.validateInputs();
         }
-
-        if (customFolderName && this.elements.customFolderNameInput) {
-            this.elements.customFolderNameInput.value = customFolderName;
-        }
-
-        if (this.elements.dateFormatSelect) {
-            // Default to YYYY/MM/DD format
-            this.elements.dateFormatSelect.value = dateFormat || '2025/05/26';
-        }
-
-        if (this.elements.enableBackupCheckbox) {
-            this.elements.enableBackupCheckbox.checked = enableBackup || false;
-            this.toggleBackupPath();
-        }
-
-        if (backupPath && this.elements.backupPathInput) {
-            this.elements.backupPathInput.value = backupPath;
-        }
-
-        if (this.elements.uploadToZenTransferCheckbox) {
-            this.elements.uploadToZenTransferCheckbox.checked = uploadToZenTransfer || false;
-        }
-
-        // Load cloud storage upload settings
-        const uploadToAwsS3 = StorageManager.getImportUploadToAwsS3();
-        const uploadToAzure = StorageManager.getImportUploadToAzure();
-        const uploadToGcp = StorageManager.getImportUploadToGcp();
-
-        if (this.elements.uploadToAwsS3Checkbox) {
-            this.elements.uploadToAwsS3Checkbox.checked = uploadToAwsS3 || false;
-        }
-
-        if (this.elements.uploadToAzureCheckbox) {
-            this.elements.uploadToAzureCheckbox.checked = uploadToAzure || false;
-        }
-
-        if (this.elements.uploadToGcpCheckbox) {
-            this.elements.uploadToGcpCheckbox.checked = uploadToGcp || false;
-        }
-
-        // Load enable cloud upload setting
-        const enableCloudUpload = StorageManager.getImportEnableCloudUpload();
-        if (this.elements.enableCloudUploadCheckbox) {
-            this.elements.enableCloudUploadCheckbox.checked = enableCloudUpload || false;
-            this.toggleCloudServices();
-        }
-
-        // Update service availability after loading settings
-        this.updateServiceAvailability();
-        
-        this.validateInputs();
     }
 
     /**
@@ -798,53 +801,59 @@ export class ImportScreen {
     /**
      * Save all current settings to storage
      */
-    saveAllSettings() {
-        // Save all current form values to storage
-        if (this.elements.includeSubdirectoriesCheckbox) {
-            StorageManager.setImportIncludeSubdirectories(this.elements.includeSubdirectoriesCheckbox.checked);
-        }
+    async saveAllSettings() {
+        try {
+            // Save all current form values to configuration system
+            if (this.elements.includeSubdirectoriesCheckbox) {
+                await window.electronAPI.config.set('importSettings.includeSubdirectories', this.elements.includeSubdirectoriesCheckbox.checked);
+            }
 
-        if (this.elements.organizeIntoFoldersCheckbox) {
-            StorageManager.setImportOrganizeIntoFolders(this.elements.organizeIntoFoldersCheckbox.checked);
-        }
+            if (this.elements.organizeIntoFoldersCheckbox) {
+                await window.electronAPI.config.set('importSettings.organizeIntoFolders', this.elements.organizeIntoFoldersCheckbox.checked);
+            }
 
-        if (this.elements.customFolderRadio && this.elements.dateFolderRadio) {
-            const folderOrganizationType = this.elements.dateFolderRadio.checked ? 'date' : 'custom';
-            StorageManager.setImportFolderOrganizationType(folderOrganizationType);
-        }
+            if (this.elements.customFolderRadio && this.elements.dateFolderRadio) {
+                const folderOrganizationType = this.elements.dateFolderRadio.checked ? 'date' : 'custom';
+                await window.electronAPI.config.set('importSettings.folderOrganizationType', folderOrganizationType);
+            }
 
-        if (this.elements.customFolderNameInput && this.elements.customFolderNameInput.value.trim()) {
-            StorageManager.setImportCustomFolderName(this.elements.customFolderNameInput.value.trim());
-        }
+            if (this.elements.customFolderNameInput && this.elements.customFolderNameInput.value.trim()) {
+                await window.electronAPI.config.set('importSettings.customFolderName', this.elements.customFolderNameInput.value.trim());
+            }
 
-        if (this.elements.dateFormatSelect) {
-            StorageManager.setImportDateFormat(this.elements.dateFormatSelect.value);
-        }
+            if (this.elements.dateFormatSelect) {
+                await window.electronAPI.config.set('importSettings.dateFormat', this.elements.dateFormatSelect.value);
+            }
 
-        if (this.elements.enableBackupCheckbox) {
-            StorageManager.setImportBackupEnabled(this.elements.enableBackupCheckbox.checked);
-        }
+            if (this.elements.enableBackupCheckbox) {
+                await window.electronAPI.config.set('importBackupEnabled', this.elements.enableBackupCheckbox.checked);
+            }
 
-        if (this.elements.uploadToZenTransferCheckbox) {
-            StorageManager.setImportUploadEnabled(this.elements.uploadToZenTransferCheckbox.checked);
-        }
+            if (this.elements.uploadToZenTransferCheckbox) {
+                await window.electronAPI.config.set('importSettings.uploadEnabled', this.elements.uploadToZenTransferCheckbox.checked);
+            }
 
-        // Save cloud storage upload settings
-        if (this.elements.uploadToAwsS3Checkbox) {
-            StorageManager.setImportUploadToAwsS3(this.elements.uploadToAwsS3Checkbox.checked);
-        }
+            // Save cloud storage upload settings
+            if (this.elements.uploadToAwsS3Checkbox) {
+                await window.electronAPI.config.set('importSettings.uploadToAwsS3', this.elements.uploadToAwsS3Checkbox.checked);
+            }
 
-        if (this.elements.uploadToAzureCheckbox) {
-            StorageManager.setImportUploadToAzure(this.elements.uploadToAzureCheckbox.checked);
-        }
+            if (this.elements.uploadToAzureCheckbox) {
+                await window.electronAPI.config.set('importSettings.uploadToAzure', this.elements.uploadToAzureCheckbox.checked);
+            }
 
-        if (this.elements.uploadToGcpCheckbox) {
-            StorageManager.setImportUploadToGcp(this.elements.uploadToGcpCheckbox.checked);
-        }
+            if (this.elements.uploadToGcpCheckbox) {
+                await window.electronAPI.config.set('importSettings.uploadToGcp', this.elements.uploadToGcpCheckbox.checked);
+            }
 
-        // Save enable cloud upload setting
-        if (this.elements.enableCloudUploadCheckbox) {
-            StorageManager.setImportEnableCloudUpload(this.elements.enableCloudUploadCheckbox.checked);
+            // Save enable cloud upload setting
+            if (this.elements.enableCloudUploadCheckbox) {
+                await window.electronAPI.config.set('importSettings.enableCloudUpload', this.elements.enableCloudUploadCheckbox.checked);
+            }
+
+            console.log('Import settings saved to configuration system');
+        } catch (error) {
+            console.error('Failed to save import settings to configuration:', error);
         }
     }
 
@@ -983,17 +992,22 @@ export class ImportScreen {
      * @param {string} type - Path type
      * @param {string} path - Path value
      */
-    savePath(type, path) {
-        switch (type) {
-            case 'import':
-                StorageManager.setImportPath(path);
-                break;
-            case 'destination':
-                StorageManager.setImportDestinationPath(path);
-                break;
-            case 'backup':
-                StorageManager.setImportBackupPath(path);
-                break;
+    async savePath(type, path) {
+        try {
+            switch (type) {
+                case 'import':
+                    await window.electronAPI.config.set('importPath', path);
+                    break;
+                case 'destination':
+                    await window.electronAPI.config.set('importDestinationPath', path);
+                    break;
+                case 'backup':
+                    await window.electronAPI.config.set('importBackupPath', path);
+                    break;
+            }
+            console.log(`Import ${type} path saved to configuration: ${path}`);
+        } catch (error) {
+            console.error(`Failed to save import ${type} path to configuration:`, error);
         }
     }
 
@@ -1010,7 +1024,7 @@ export class ImportScreen {
                 this.elements.backupPathContainer.classList.add('hidden');
             }
 
-            StorageManager.setImportBackupEnabled(isEnabled);
+            // Settings will be saved by the event listener calling saveAllSettings()
             this.validateInputs();
         }
     }
@@ -1152,13 +1166,13 @@ export class ImportScreen {
 
         try {
             // Collect import settings from UI
-            const importSettings = this.collectImportSettings();
+            const importSettings = await this.collectImportSettings();
             
             // Validate settings
             this.validateImportSettings(importSettings);
 
             // Save settings to storage
-            this.saveImportSettings(importSettings);
+            await this.saveImportSettings(importSettings);
 
             // Start the import using the import manager
             this.isImporting = true;
@@ -1222,12 +1236,12 @@ export class ImportScreen {
 
     /**
      * Collect import settings from UI
-     * @returns {Object} Import settings
+     * @returns {Promise<Object>} Import settings
      */
-    collectImportSettings() {
-        // Get the current skipDuplicates setting
-        const skipDuplicates = StorageManager.getImportSkipDuplicates();
-        console.log('Import screen: collectImportSettings - skipDuplicates from StorageManager:', skipDuplicates);
+    async collectImportSettings() {
+        // Get the current skipDuplicates setting from configuration
+        const skipDuplicates = await window.electronAPI.config.get('preferences.skipDuplicates');
+        console.log('Import screen: collectImportSettings - skipDuplicates from configuration:', skipDuplicates);
         
         // Check if cloud upload is enabled
         const enableCloudUpload = this.elements.enableCloudUploadCheckbox?.checked || false;
@@ -1278,19 +1292,26 @@ export class ImportScreen {
      * Save import settings to storage
      * @param {Object} settings - Import settings to save
      */
-    saveImportSettings(settings) {
-        StorageManager.setImportUploadEnabled(settings.uploadToZenTransfer);
-        StorageManager.setImportUploadToAwsS3(settings.uploadToAwsS3);
-        StorageManager.setImportUploadToAzure(settings.uploadToAzure);
-        StorageManager.setImportUploadToGcp(settings.uploadToGcp);
-        StorageManager.setImportIncludeSubdirectories(settings.includeSubdirectories);
-        StorageManager.setImportOrganizeIntoFolders(settings.organizeIntoFolders);
-        StorageManager.setImportFolderOrganizationType(settings.folderOrganizationType);
-        if (settings.customFolderName) {
-            StorageManager.setImportCustomFolderName(settings.customFolderName);
-        }
-        if (settings.dateFormat) {
-            StorageManager.setImportDateFormat(settings.dateFormat);
+    async saveImportSettings(settings) {
+        try {
+            await window.electronAPI.config.set('importSettings.uploadEnabled', settings.uploadToZenTransfer);
+            await window.electronAPI.config.set('importSettings.uploadToAwsS3', settings.uploadToAwsS3);
+            await window.electronAPI.config.set('importSettings.uploadToAzure', settings.uploadToAzure);
+            await window.electronAPI.config.set('importSettings.uploadToGcp', settings.uploadToGcp);
+            await window.electronAPI.config.set('importSettings.includeSubdirectories', settings.includeSubdirectories);
+            await window.electronAPI.config.set('importSettings.organizeIntoFolders', settings.organizeIntoFolders);
+            await window.electronAPI.config.set('importSettings.folderOrganizationType', settings.folderOrganizationType);
+            
+            if (settings.customFolderName) {
+                await window.electronAPI.config.set('importSettings.customFolderName', settings.customFolderName);
+            }
+            if (settings.dateFormat) {
+                await window.electronAPI.config.set('importSettings.dateFormat', settings.dateFormat);
+            }
+            
+            console.log('Import settings saved to configuration system');
+        } catch (error) {
+            console.error('Failed to save import settings to configuration:', error);
         }
     }
 

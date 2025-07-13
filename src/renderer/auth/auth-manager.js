@@ -12,7 +12,8 @@ export class AuthManager {
     constructor() {
         this.sessionId = null;
         this.isEmailSubmitted = false;
-        this.deviceId = DeviceManager.getDeviceId();
+        this.deviceId = null; // Will be loaded asynchronously
+        this.deviceIdPromise = null; // Promise for device ID loading
         this.isCheckingToken = false;
         this.tokenRefreshTimer = null;
         this.onAuthStateChange = null;
@@ -28,6 +29,25 @@ export class AuthManager {
         this.onAuthStateChange = callback;
         // Now that callback is set, start the authentication check
         this.checkExistingToken();
+    }
+
+    /**
+     * Get device ID (async)
+     * @returns {Promise<string>} Device ID
+     */
+    async getDeviceId() {
+        if (this.deviceId) {
+            return this.deviceId;
+        }
+        
+        if (!this.deviceIdPromise) {
+            this.deviceIdPromise = DeviceManager.getDeviceId().then(deviceId => {
+                this.deviceId = deviceId;
+                return deviceId;
+            });
+        }
+        
+        return this.deviceIdPromise;
     }
 
     /**
@@ -148,7 +168,8 @@ export class AuthManager {
         }
         
         try {
-            const response = await LoginAPI.initialize(email, this.deviceId);
+            const deviceId = await this.getDeviceId();
+            const response = await LoginAPI.initialize(email, deviceId);
             
             if (response.result === 'ok') {
                 this.sessionId = response.session_id;

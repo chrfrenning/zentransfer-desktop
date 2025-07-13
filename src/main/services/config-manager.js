@@ -200,13 +200,17 @@ class ConfigManager {
                 this.set('lastSyncTime', parseInt(localStorageData.zentransfer_last_sync_time));
             }
             
-            // Migrate auth token
+            // Migrate auth token and device ID
             if (localStorageData.zentransfer_auth_token) {
                 this.set('authToken', localStorageData.zentransfer_auth_token);
             }
             
             if (localStorageData.zentransfer_token_metadata) {
                 this.set('tokenMetadata', JSON.parse(localStorageData.zentransfer_token_metadata));
+            }
+            
+            if (localStorageData.zentransfer_device_id) {
+                this.set('deviceId', localStorageData.zentransfer_device_id);
             }
             
             // Migrate preferences
@@ -260,7 +264,12 @@ class ConfigManager {
                 'zentransfer_import_folder_organization_type',
                 'zentransfer_import_custom_folder_name',
                 'zentransfer_import_date_format',
-                'zentransfer_import_skip_duplicates'
+                'zentransfer_import_skip_duplicates',
+                'zentransfer_import_upload_enabled',
+                'zentransfer_import_upload_to_aws_s3',
+                'zentransfer_import_upload_to_azure',
+                'zentransfer_import_upload_to_gcp',
+                'zentransfer_import_enable_cloud_upload'
             ];
             
             importKeys.forEach(key => {
@@ -275,7 +284,20 @@ class ConfigManager {
                     
                     if (configKey.startsWith('import_')) {
                         const importSettingKey = configKey.replace('import_', '');
-                        this.set(`importSettings.${importSettingKey}`, value);
+                        // Handle specific import upload settings
+                        if (importSettingKey === 'upload_to_aws_s3') {
+                            this.set('importSettings.uploadToAwsS3', value);
+                        } else if (importSettingKey === 'upload_to_azure') {
+                            this.set('importSettings.uploadToAzure', value);
+                        } else if (importSettingKey === 'upload_to_gcp') {
+                            this.set('importSettings.uploadToGcp', value);
+                        } else if (importSettingKey === 'upload_enabled') {
+                            this.set('importSettings.uploadEnabled', value);
+                        } else if (importSettingKey === 'enable_cloud_upload') {
+                            this.set('importSettings.enableCloudUpload', value);
+                        } else {
+                            this.set(`importSettings.${importSettingKey}`, value);
+                        }
                     } else {
                         this.set(configKey, value);
                     }

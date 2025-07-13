@@ -25,6 +25,7 @@ class SharedConfiguration {
         // Authentication
         this.authToken = '';
         this.tokenMetadata = {};
+        this.deviceId = '';
 
         // Cloud services
         this.cloudServices = {
@@ -39,7 +40,12 @@ class SharedConfiguration {
             organizeIntoFolders: false,
             folderOrganizationType: 'date',
             customFolderName: '',
-            dateFormat: 'YYYY-MM-DD'
+            dateFormat: 'YYYY-MM-DD',
+            uploadEnabled: false,
+            uploadToAwsS3: false,
+            uploadToAzure: false,
+            uploadToGcp: false,
+            enableCloudUpload: false
         };
     }
 
@@ -63,6 +69,7 @@ class SharedConfiguration {
             lastSyncTime: this.lastSyncTime,
             authToken: this.authToken,
             tokenMetadata: this.tokenMetadata,
+            deviceId: this.deviceId,
             cloudServices: cloudServicesConfig,
             importSettings: this.importSettings,
             lastUpdated: new Date().toISOString()
@@ -83,6 +90,7 @@ class SharedConfiguration {
         this.lastSyncTime = config.lastSyncTime || null;
         this.authToken = config.authToken || '';
         this.tokenMetadata = config.tokenMetadata || {};
+        this.deviceId = config.deviceId || '';
         this.importSettings = { ...this.importSettings, ...(config.importSettings || {}) };
 
         // Load cloud services
