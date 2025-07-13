@@ -2,17 +2,17 @@ const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
 
 // Import shared configuration
-const sharedConfig = require('./config.js');
+const sharedConfig = require('./src/shared/config.js');
 
 // Import extracted modules
-const { UploadWorkerPool } = require('./upload-worker-pool.js');
-const { ImportWorkerManager } = require('./import-worker-manager.js');
-const { DownloadWorkerManager } = require('./download-worker-manager.js');
-const { setupIpcHandlers } = require('./ipc-handlers.js');
-const { AutoUpdaterManager } = require('./auto-updater-manager.js');
+const { UploadWorkerPool } = require('./src/main/workers/upload-worker-pool.js');
+const { ImportWorkerManager } = require('./src/main/workers/import-worker-manager.js');
+const { DownloadWorkerManager } = require('./src/main/workers/download-worker-manager.js');
+const { setupIpcHandlers } = require('./src/main/ipc/ipc-handlers.js');
+const { AutoUpdaterManager } = require('./src/main/services/auto-updater-manager.js');
 
 // Import Upload Service Manager
-const { UploadServiceManager } = require(path.join(__dirname, 'workers', 'upload-service-manager.js'));
+const { UploadServiceManager } = require(path.join(__dirname, 'src/workers', 'upload-service-manager.js'));
 
 // Enable live reload for Electron in development
 if (sharedConfig.isDevelopment || process.argv.includes('--dev')) {
@@ -54,7 +54,7 @@ function createWindow() {
     show: false
   });
 
-  mainWindow.loadFile('src/index.html');
+  mainWindow.loadFile('src/renderer/index.html');
 
   // Hide the menu completely
   Menu.setApplicationMenu(null);

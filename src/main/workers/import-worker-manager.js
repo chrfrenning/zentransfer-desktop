@@ -25,7 +25,7 @@ class ImportWorkerManager {
     }
     
     console.log('Creating import worker...');
-    const workerPath = path.join(__dirname, 'workers', 'import-worker-main.js');
+    const workerPath = path.join(__dirname, '../../workers/import', 'import-worker-main.js');
     
     this.worker = new Worker(workerPath, {
       workerData: { workerId: 0 }

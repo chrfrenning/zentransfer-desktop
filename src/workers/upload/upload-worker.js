@@ -6,10 +6,10 @@ const { workerId } = workerData;
 console.log(`Upload worker ${workerId} started`);
 
 // Import upload services
-const { ZenTransferService } = require(path.join(__dirname, 'services', 'zentransfer-service.js'));
-const { AwsS3Service } = require(path.join(__dirname, 'services', 'aws-s3-service.js'));
-const { AzureBlobService } = require(path.join(__dirname, 'services', 'azure-blob-service.js'));
-const { GcpStorageService } = require(path.join(__dirname, 'services', 'gcp-storage-service.js'));
+const { ZenTransferService } = require(path.join(__dirname, '..', 'services', 'zentransfer-service.js'));
+const { AwsS3Service } = require(path.join(__dirname, '..', 'services', 'aws-s3-service.js'));
+const { AzureBlobService } = require(path.join(__dirname, '..', 'services', 'azure-blob-service.js'));
+const { GcpStorageService } = require(path.join(__dirname, '..', 'services', 'gcp-storage-service.js'));
 
 // Worker state
 let zenTransferService = null;

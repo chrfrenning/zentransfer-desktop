@@ -8,7 +8,7 @@ const { ipcMain, dialog, app } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 // Import shared configuration
-const sharedConfig = require('./config.js');
+const sharedConfig = require('../../shared/config.js');
 
 function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager) {
   // Handle log messages from renderer

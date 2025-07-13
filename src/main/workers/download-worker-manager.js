@@ -9,7 +9,7 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 
 // Import shared configuration
-const sharedConfig = require('./config.js');
+const sharedConfig = require('../../shared/config.js');
 
 const getConfig = () => sharedConfig;
 
@@ -39,7 +39,7 @@ class DownloadWorkerManager {
   
   createWorker(id) {
     console.log(`Creating download worker ${id}...`);
-    const workerPath = path.join(__dirname, 'workers', 'download-worker-main.js');
+    const workerPath = path.join(__dirname, '../../workers/download', 'download-worker-main.js');
     
     const worker = new Worker(workerPath, {
       workerData: { workerId: id }
