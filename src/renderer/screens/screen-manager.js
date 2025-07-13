@@ -24,7 +24,7 @@ export class ScreenManager {
             import: new ImportScreen(uploadManager),
             upload: new UploadScreen(uploadManager),
             download: new DownloadScreen(),
-            settings: new SettingsScreen(authManager, () => this.showLoginScreen())
+            settings: new SettingsScreen(authManager, async () => await this.showLoginScreen())
         };
 
         this.setupScreenCallbacks();
@@ -133,7 +133,7 @@ export class ScreenManager {
      * Handle authentication state changes
      * @param {Object} state - Authentication state
      */
-    handleAuthStateChange(state) {
+    async handleAuthStateChange(state) {
         console.log('ScreenManager: handleAuthStateChange called with state:', state);
         
         switch (state.status) {
@@ -145,7 +145,7 @@ export class ScreenManager {
             case 'unauthenticated':
                 console.log('ScreenManager: Handling unauthenticated state');
                 this.screens.login.hideLoading();
-                this.showLoginScreen();
+                await this.showLoginScreen();
                 // Refresh import screen service availability when user logs out
                 this.screens.import.refreshServiceAvailability();
                 break;
@@ -196,7 +196,7 @@ export class ScreenManager {
     /**
      * Show login screen
      */
-    showLoginScreen() {
+    async showLoginScreen() {
         console.log('Showing login screen...');
         
         // First hide all main app screens
@@ -221,7 +221,7 @@ export class ScreenManager {
         }
 
         // Show the login screen component
-        this.screens.login.show();
+        await this.screens.login.show();
         console.log('Login screen component shown');
     }
 

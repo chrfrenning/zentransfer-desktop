@@ -104,11 +104,11 @@ export class LoginScreen {
     /**
      * Show the login screen
      */
-    show() {
+    async show() {
         if (this.elements.loginScreen) {
             this.elements.loginScreen.style.display = 'flex';
             this.isVisible = true;
-            this.resetForm();
+            await this.resetForm();
             
             // Ensure button state is updated after showing
             setTimeout(() => {
@@ -215,13 +215,20 @@ export class LoginScreen {
     }
 
     /**
-     * Reset form to initial state
+     * Reset form to initial state and prepopulate saved email
      */
-    resetForm() {
+    async resetForm() {
         const changeEmailLink = document.getElementById('changeEmailLink');
         
         if (this.elements.emailInput) {
-            this.elements.emailInput.value = '';
+            // Try to get saved email from config and prepopulate
+            try {
+                const savedEmail = await window.electronAPI.config.get('email');
+                this.elements.emailInput.value = savedEmail || '';
+            } catch (error) {
+                console.error('Failed to get saved email:', error);
+                this.elements.emailInput.value = '';
+            }
             this.elements.emailInput.disabled = false;
         }
         if (this.elements.otpInput) {

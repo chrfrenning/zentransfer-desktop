@@ -24,7 +24,7 @@ class SharedConfiguration {
 
         // Authentication
         this.authToken = '';
-        this.tokenMetadata = {};
+        this.email = '';
         this.deviceId = '';
 
         // Cloud services
@@ -68,7 +68,7 @@ class SharedConfiguration {
             importBackupEnabled: this.importBackupEnabled,
             lastSyncTime: this.lastSyncTime,
             authToken: this.authToken,
-            tokenMetadata: this.tokenMetadata,
+            email: this.email,
             deviceId: this.deviceId,
             cloudServices: cloudServicesConfig,
             importSettings: this.importSettings,
@@ -89,7 +89,7 @@ class SharedConfiguration {
         this.importBackupEnabled = config.importBackupEnabled || false;
         this.lastSyncTime = config.lastSyncTime || null;
         this.authToken = config.authToken || '';
-        this.tokenMetadata = config.tokenMetadata || {};
+        this.email = config.email || '';
         this.deviceId = config.deviceId || '';
         this.importSettings = { ...this.importSettings, ...(config.importSettings || {}) };
 

@@ -622,13 +622,13 @@ export class SettingsScreen {
     /**
      * Show the settings screen
      */
-    show() {
+    async show() {
         if (this.elements.settingsTab) {
             this.elements.settingsTab.classList.remove('hidden');
             this.isVisible = true;
             
             // Update user info
-            this.updateUserInfo();
+            await this.updateUserInfo();
             
             // Load preferences
             this.loadPreferences();
@@ -648,22 +648,22 @@ export class SettingsScreen {
     /**
      * Update user information display
      */
-    updateUserInfo() {
-        this.updateAccountSection();
+    async updateUserInfo() {
+        await this.updateAccountSection();
     }
 
     /**
      * Update account section based on authentication state
      */
-    updateAccountSection() {
+    async updateAccountSection() {
         const accountContent = document.getElementById('accountContent');
         if (!accountContent) return;
 
-        const isLoggedIn = this.authManager.isLoggedIn();
+        const isLoggedIn = await this.authManager.isLoggedIn();
         
         if (isLoggedIn) {
             // User is logged in - show user info and sign out
-            const user = this.authManager.getCurrentUser();
+            const user = await this.authManager.getCurrentUser();
             accountContent.innerHTML = `
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">Email</span>

@@ -10,20 +10,17 @@ export class TokenManager {
     static TOKEN_KEY = 'zentransfer_auth_token';
     static TOKEN_METADATA_KEY = 'zentransfer_token_metadata';
     
-    static saveToken(token, userEmail = null) {
+    static async saveToken(token, userEmail = null) {
         try {
-            localStorage.setItem(this.TOKEN_KEY, token);
+            // Save token to config system
+            await window.electronAPI.config.set('authToken', token);
             
-            // Save metadata
-            const metadata = {
-                email: userEmail,
-                savedAt: Date.now(),
-                deviceId: localStorage.getItem('zentransfer_device_id')
-            };
+            // Save email if provided
+            if (userEmail) {
+                await window.electronAPI.config.set('email', userEmail);
+            }
             
-            localStorage.setItem(this.TOKEN_METADATA_KEY, JSON.stringify(metadata));
-            
-            console.log('Token saved successfully');
+            console.log('Token saved successfully to config');
             return true;
         } catch (error) {
             console.error('Failed to save token:', error);
@@ -31,57 +28,89 @@ export class TokenManager {
         }
     }
     
-    static getToken() {
-        return localStorage.getItem(this.TOKEN_KEY);
-    }
-    
-    static getTokenMetadata() {
+    static async getToken() {
         try {
-            const metadata = localStorage.getItem(this.TOKEN_METADATA_KEY);
-            return metadata ? JSON.parse(metadata) : null;
+            return await window.electronAPI.config.get('authToken');
         } catch (error) {
-            console.error('Failed to parse token metadata:', error);
+            console.error('Failed to get token from config:', error);
             return null;
         }
     }
     
-    static isTokenValid() {
-        const token = this.getToken();
-        if (!token) {
-            return false;
+    static async getEmail() {
+        try {
+            return await window.electronAPI.config.get('email');
+        } catch (error) {
+            console.error('Failed to get email from config:', error);
+            return null;
         }
-        
-        // Check if token is expired
-        if (JWTUtils.isTokenExpired(token)) {
-            console.log('Token is expired');
-            return false;
-        }
-        
-        return true;
     }
     
-    static isTokenExpiringSoon(minutesThreshold = 5) {
-        const token = this.getToken();
-        if (!token) {
+    static async isTokenValid() {
+        try {
+            const token = await this.getToken();
+            if (!token) {
+                return false;
+            }
+            
+            // Check if token is expired
+            if (JWTUtils.isTokenExpired(token)) {
+                console.log('Token is expired');
+                return false;
+            }
+            
+            return true;
+        } catch (error) {
+            console.error('Failed to validate token:', error);
+            return false;
+        }
+    }
+
+    static async isTokenExpiringSoon(minutesThreshold = 5) {
+        try {
+            const token = await this.getToken();
+            if (!token) {
+                return true;
+            }
+            
+            return JWTUtils.isTokenExpiringSoon(token, minutesThreshold);
+        } catch (error) {
+            console.error('Failed to check token expiration:', error);
             return true;
         }
-        
-        return JWTUtils.isTokenExpiringSoon(token, minutesThreshold);
     }
-    
-    static getTokenTimeRemaining() {
-        const token = this.getToken();
-        if (!token) {
+
+    static async getTokenTimeRemaining() {
+        try {
+            const token = await this.getToken();
+            if (!token) {
+                return 0;
+            }
+            
+            return JWTUtils.getTimeUntilExpiry(token);
+        } catch (error) {
+            console.error('Failed to get token time remaining:', error);
             return 0;
         }
-        
-        return JWTUtils.getTimeUntilExpiry(token);
     }
     
-    static clearToken() {
-        localStorage.removeItem(this.TOKEN_KEY);
-        localStorage.removeItem(this.TOKEN_METADATA_KEY);
-        console.log('Token cleared');
+    static async clearToken() {
+        try {
+            await window.electronAPI.config.set('authToken', '');
+            console.log('Token cleared from config (email preserved)');
+        } catch (error) {
+            console.error('Failed to clear token from config:', error);
+        }
+    }
+    
+    static async clearAll() {
+        try {
+            await window.electronAPI.config.set('authToken', '');
+            await window.electronAPI.config.set('email', '');
+            console.log('Token and email cleared from config');
+        } catch (error) {
+            console.error('Failed to clear token and email from config:', error);
+        }
     }
     
     static async validateTokenWithServer(token) {
@@ -113,7 +142,7 @@ export class TokenManager {
     
     static async refreshToken(currentToken = null) {
         try {
-            const token = currentToken || this.getToken();
+            const token = currentToken || await this.getToken();
             if (!token) {
                 return { success: false, error: 'No token to refresh' };
             }
@@ -122,12 +151,11 @@ export class TokenManager {
             const response = await LoginAPI.refresh(token);
             
             if (response.result === 'ok' && response.token) {
-                // Get current metadata
-                const metadata = this.getTokenMetadata();
-                const userEmail = metadata?.email;
+                // Get current email to preserve it
+                const currentEmail = await this.getEmail();
                 
                 // Save new token
-                this.saveToken(response.token, userEmail);
+                await this.saveToken(response.token, currentEmail);
                 
                 console.log('Token refreshed successfully');
                 return { success: true, token: response.token };
@@ -142,24 +170,31 @@ export class TokenManager {
     }
     
     static async ensureValidToken() {
-        if (!this.isTokenValid()) {
-            return { valid: false, error: 'No valid token' };
-        }
-        
-        const token = this.getToken();
-        
-        // If token is expiring soon, try to refresh it
-        if (this.isTokenExpiringSoon(10)) { // 10 minutes threshold
-            console.log('Token expiring soon, refreshing...');
-            const refreshResult = await this.refreshToken();
-            
-            if (refreshResult.success) {
-                return { valid: true, token: refreshResult.token, refreshed: true };
-            } else {
-                return { valid: false, error: 'Token refresh failed' };
+        try {
+            const isValid = await this.isTokenValid();
+            if (!isValid) {
+                return { valid: false, error: 'No valid token' };
             }
+            
+            const token = await this.getToken();
+            
+            // If token is expiring soon, try to refresh it
+            const expiringSoon = await this.isTokenExpiringSoon(10); // 10 minutes threshold
+            if (expiringSoon) {
+                console.log('Token expiring soon, refreshing...');
+                const refreshResult = await this.refreshToken();
+                
+                if (refreshResult.success) {
+                    return { valid: true, token: refreshResult.token, refreshed: true };
+                } else {
+                    return { valid: false, error: 'Token refresh failed' };
+                }
+            }
+            
+            return { valid: true, token: token, refreshed: false };
+        } catch (error) {
+            console.error('Failed to ensure valid token:', error);
+            return { valid: false, error: error.message };
         }
-        
-        return { valid: true, token: token, refreshed: false };
     }
 } 
