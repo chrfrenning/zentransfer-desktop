@@ -1,0 +1,5 @@
+---
+alwaysApply: true
+---
+
+* Do not use "npm start" for this project. If you need to run the project, use "npm run dev"

@@ -131,7 +131,7 @@ export class SettingsScreen {
                         <!-- Access Key ID -->
                         <div id="awsS3AccessKeyContainer"></div>
                         
-                        <!-- Secret Access Key -->
+                        <!-- Secret Key -->
                         <div id="awsS3SecretKeyContainer"></div>
                         
                         <!-- Test Connection Button -->
@@ -858,8 +858,8 @@ export class SettingsScreen {
      */
     async updateCloudServiceSetting(serviceType, property, value) {
         try {
-            // Get the current cloud service configuration
-            const currentService = await window.electronAPI.config.getCloudService(serviceType);
+            // Get the current cloud service configuration (full config including credentials)
+            const currentService = await window.electronAPI.config.getCloudServiceFull(serviceType);
             
             if (currentService) {
                 // Update the specific property
@@ -1552,8 +1552,8 @@ export class SettingsScreen {
         const testIcon = document.getElementById('testGcpIcon');
         const testText = document.getElementById('testGcpText');
         
-        // Get current GCP service configuration
-        const gcpService = await window.electronAPI.config.getCloudService('gcp-storage');
+        // Get current GCP service configuration (full config including credentials)
+        const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
 
         // Validate required fields
         if (!gcpService || !gcpService.bucketName || !gcpService.serviceAccountKey) {
@@ -1587,17 +1587,24 @@ export class SettingsScreen {
         }
 
         try {
-            // Import upload service factory
-            const { uploadServiceFactory } = await import('../upload/upload-service-factory.js');
-            
-            // Create service with current settings
-            await uploadServiceFactory.createService('gcp-storage', {
+            // Create service with current settings using IPC
+            const createResult = await window.electronAPI.uploadService.create('gcp-storage', {
                 bucketName: gcpService.bucketName,
                 serviceAccountKey: gcpService.serviceAccountKey
             });
             
-            // Test the connection
-            const result = await uploadServiceFactory.testService('gcp-storage');
+            if (!createResult.success) {
+                throw new Error(createResult.error);
+            }
+            
+            // Test the connection using IPC
+            const testResult = await window.electronAPI.uploadService.test('gcp-storage');
+            
+            if (!testResult.success) {
+                throw new Error(testResult.error);
+            }
+            
+            const result = testResult.result;
             
             if (!result.success) {
                 throw new Error(result.message);
@@ -1724,7 +1731,7 @@ export class SettingsScreen {
         if (secretKeyContainer) {
             const secretKeyInput = UIComponents.SecureInput.create({
                 id: 'awsS3SecretKey',
-                label: 'Secret Access Key',
+                label: 'Secret Key',
                 placeholder: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
                 required: true
             });
@@ -1871,8 +1878,8 @@ export class SettingsScreen {
         const testIcon = document.getElementById('testS3Icon');
         const testText = document.getElementById('testS3Text');
         
-        // Get current AWS S3 service configuration
-        const awsS3Service = await window.electronAPI.config.getCloudService('aws-s3');
+        // Get current AWS S3 service configuration (full config including credentials)
+        const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
 
         // Validate required fields
         if (!awsS3Service || !awsS3Service.region || !awsS3Service.bucket || !awsS3Service.accessKey || !awsS3Service.secretKey) {
@@ -1895,11 +1902,8 @@ export class SettingsScreen {
         }
 
         try {
-            // Import upload service factory
-            const { uploadServiceFactory } = await import('../upload/upload-service-factory.js');
-            
-            // Create service with current settings
-            await uploadServiceFactory.createService('aws-s3', {
+            // Create service with current settings using IPC
+            const createResult = await window.electronAPI.uploadService.create('aws-s3', {
                 region: awsS3Service.region,
                 bucket: awsS3Service.bucket,
                 accessKey: awsS3Service.accessKey,
@@ -1907,8 +1911,18 @@ export class SettingsScreen {
                 storageClass: awsS3Service.storageClass || 'STANDARD'
             });
             
-            // Test the connection
-            const result = await uploadServiceFactory.testService('aws-s3');
+            if (!createResult.success) {
+                throw new Error(createResult.error);
+            }
+            
+            // Test the connection using IPC
+            const testResult = await window.electronAPI.uploadService.test('aws-s3');
+            
+            if (!testResult.success) {
+                throw new Error(testResult.error);
+            }
+            
+            const result = testResult.result;
             
             if (!result.success) {
                 throw new Error(result.message);
@@ -2014,8 +2028,8 @@ export class SettingsScreen {
         const testIcon = document.getElementById('testAzureIcon');
         const testText = document.getElementById('testAzureText');
         
-        // Get current Azure service configuration
-        const azureService = await window.electronAPI.config.getCloudService('azure-blob');
+        // Get current Azure service configuration (full config including credentials)
+        const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
 
         // Validate required fields
         if (!azureService || !azureService.containerName || !azureService.connectionString) {
@@ -2038,17 +2052,24 @@ export class SettingsScreen {
         }
 
         try {
-            // Import upload service factory
-            const { uploadServiceFactory } = await import('../upload/upload-service-factory.js');
-            
-            // Create service with current settings
-            await uploadServiceFactory.createService('azure-blob', {
+            // Create service with current settings using IPC
+            const createResult = await window.electronAPI.uploadService.create('azure-blob', {
                 connectionString: azureService.connectionString,
                 containerName: azureService.containerName
             });
             
-            // Test the connection
-            const result = await uploadServiceFactory.testService('azure-blob');
+            if (!createResult.success) {
+                throw new Error(createResult.error);
+            }
+            
+            // Test the connection using IPC
+            const testResult = await window.electronAPI.uploadService.test('azure-blob');
+            
+            if (!testResult.success) {
+                throw new Error(testResult.error);
+            }
+            
+            const result = testResult.result;
             
             if (!result.success) {
                 throw new Error(result.message);
