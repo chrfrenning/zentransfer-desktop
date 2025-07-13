@@ -22,12 +22,13 @@ class DownloadWorkerManager {
     this.failedFiles = []; // Failed downloads
     this.jobIdCounter = 0;
     this.isMonitoring = false;
-    this.monitoringInterval = null;
+    this.pollingTimeout = null;
     this.lastSyncTime = null;
     this.latestDownloadedFileTime = null;
     this.downloadPath = null;
     this.authToken = null;
     this.maxCompletedItems = 20; // Maximum completed items to keep
+    this.pollingInterval = 30000; // 30 seconds default polling interval
     
     // Create 3 download workers
     for (let i = 0; i < 3; i++) {
@@ -91,17 +92,14 @@ class DownloadWorkerManager {
       console.warn('No authentication token provided for download monitoring');
     }
     
-    // Start monitoring interval (check every 30 seconds to be respectful to server)
-    let interval = 30000;
+    // Set polling interval (shorter in development)
     if (sharedConfig.isDevelopment) {
-      interval = 1000;
+      this.pollingInterval = 5000; // 5 seconds in dev
+    } else {
+      this.pollingInterval = 30000; // 30 seconds in production
     }
-
-    this.monitoringInterval = setInterval(() => {
-      this.checkForNewFiles();
-    }, interval);
     
-    // Initial check
+    // Start with immediate check
     await this.checkForNewFiles();
     
     return { success: true };
@@ -111,9 +109,9 @@ class DownloadWorkerManager {
     console.log('Stopping download monitoring...');
     this.isMonitoring = false;
     
-    if (this.monitoringInterval) {
-      clearInterval(this.monitoringInterval);
-      this.monitoringInterval = null;
+    if (this.pollingTimeout) {
+      clearTimeout(this.pollingTimeout);
+      this.pollingTimeout = null;
     }
     
     // Clear pending downloads from queue
@@ -193,8 +191,22 @@ class DownloadWorkerManager {
     });
   }
   
+  /**
+   * Check for new files from server using intelligent polling:
+   * - Don't poll while files are downloading or in queue
+   * - Poll immediately when queue becomes empty
+   * - Poll every 30 seconds when no files are found
+   * - Poll immediately when server indicates more files available
+   */
   async checkForNewFiles() {
     if (!this.isMonitoring) return;
+    
+    // Don't poll for new files if there are files in the download queue (queued or downloading)
+    const hasFilesInQueue = this.downloadQueue.some(f => f.status === 'queued' || f.status === 'downloading');
+    if (hasFilesInQueue) {
+      console.log('Files in download queue, skipping polling for new files');
+      return;
+    }
     
     try {
       console.log('Checking for new files...');
@@ -221,15 +233,16 @@ class DownloadWorkerManager {
         
         // Process queue
         this.processQueue();
-      }
-      
-      // If server indicates more items are available, schedule immediate check
-      if (hasMoreItems) {
-        console.log('Server has more items available - scheduling immediate check');
-        // Use setTimeout to avoid blocking and allow current downloads to start
-        setTimeout(() => {
-          this.checkForNewFiles();
-        }, 1000); // Small delay to allow current batch to start downloading
+        
+        // If server indicates more items are available, schedule immediate check
+        if (hasMoreItems) {
+          console.log('Server has more items available - scheduling immediate check');
+          this.scheduleNextCheck(1000); // Small delay to allow current batch to start downloading
+        }
+        // If we found files but no more items, we'll check again when queue becomes empty
+      } else {
+        console.log('No new files found - scheduling next check');
+        this.scheduleNextCheck(this.pollingInterval); // Regular polling interval when no files found
       }
       
     } catch (error) {
@@ -238,6 +251,45 @@ class DownloadWorkerManager {
         type: 'monitoring-error',
         error: error.message
       });
+      
+      // Schedule retry after error
+      this.scheduleNextCheck(this.pollingInterval);
+    }
+  }
+  
+  /**
+   * Schedule the next check for new files
+   * @param {number} delay - Delay in milliseconds
+   */
+  scheduleNextCheck(delay) {
+    if (!this.isMonitoring) return;
+    
+    // Clear any existing timeout
+    if (this.pollingTimeout) {
+      clearTimeout(this.pollingTimeout);
+    }
+    
+    console.log(`Scheduling next file check in ${delay}ms`);
+    this.pollingTimeout = setTimeout(() => {
+      this.checkForNewFiles();
+    }, delay);
+  }
+  
+  /**
+   * Check if queue is empty and trigger immediate polling if needed
+   */
+  checkQueueAndPoll() {
+    if (!this.isMonitoring) return;
+    
+    const hasFilesInQueue = this.downloadQueue.some(f => f.status === 'queued' || f.status === 'downloading');
+    if (!hasFilesInQueue) {
+      console.log('Download queue is empty - checking for new files immediately');
+      // Clear any scheduled polling timeout since we're checking immediately
+      if (this.pollingTimeout) {
+        clearTimeout(this.pollingTimeout);
+        this.pollingTimeout = null;
+      }
+      this.checkForNewFiles();
     }
   }
   
@@ -349,6 +401,11 @@ class DownloadWorkerManager {
       const file = queuedFiles[i];
       this.startDownload(worker, file);
     }
+    
+    // If no files were started and queue is empty, check for new files
+    if (queuedFiles.length === 0) {
+      this.checkQueueAndPoll();
+    }
   }
   
   startDownload(workerInfo, file) {
@@ -406,14 +463,14 @@ class DownloadWorkerManager {
         this.completedFiles.unshift(file); // Add to beginning
         this.trimCompletedFiles();
         
-        // Update sync time based on file's created timestamp
+        // Update sync time based on file's created timestamp (lastSyncTime = date of last downloaded file)
         if (file.created) {
           const fileCreatedTime = file.created;
           console.log(`Download completed for ${file.name}, created: ${fileCreatedTime}`);
           
           if (!this.latestDownloadedFileTime || fileCreatedTime > this.latestDownloadedFileTime) {
             this.latestDownloadedFileTime = fileCreatedTime;
-            console.log(`Updated latest downloaded file time to: ${this.latestDownloadedFileTime}`);
+            console.log(`Updated latest downloaded file time to: ${this.latestDownloadedFileTime} (lastSyncTime)`);
             
             // Save to config system
             try {
@@ -457,6 +514,9 @@ class DownloadWorkerManager {
       
       // Process next files in queue
       this.processQueue();
+      
+      // Check if queue is empty and poll for new files if needed
+      this.checkQueueAndPoll();
     }
   }
   

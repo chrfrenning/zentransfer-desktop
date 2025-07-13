@@ -15,7 +15,6 @@ export class DownloadScreen {
         this.isVisible = false;
         this.elements = {};
         this.isMonitoring = false;
-        this.monitoringInterval = null;
         this.queueManager = new DownloadQueueManager();
         this.downloadQueue = new Map(); // Track download progress
         this.maxCompletedItems = 20; // Maximum number of completed items to keep
