@@ -52,6 +52,11 @@ class SharedConfiguration {
             uploadToGcp: false,
             enableCloudUpload: false
         };
+
+        // Upload settings (for upload screen preferences)
+        this.uploadSettings = {
+            lastSelectedService: 'zentransfer' // Default to ZenTransfer
+        };
     }
 
     /**
@@ -73,6 +78,7 @@ class SharedConfiguration {
             deviceId: this.deviceId,
             cloudServices: cloudServicesConfig,
             importSettings: this.importSettings,
+            uploadSettings: this.uploadSettings,
             lastUpdated: new Date().toISOString()
         };
     }
@@ -116,6 +122,11 @@ class SharedConfiguration {
         }
         
         this.importSettings = importSettings;
+
+        // Load upload settings
+        if (config.uploadSettings) {
+            this.uploadSettings = { ...this.uploadSettings, ...config.uploadSettings };
+        }
 
         // Load cloud services
         if (config.cloudServices) {

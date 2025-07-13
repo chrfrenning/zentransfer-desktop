@@ -614,7 +614,7 @@ export class SettingsScreen {
         const donateBtn = document.getElementById('donateBtn');
         if (donateBtn) {
             donateBtn.addEventListener('click', () => {
-                this.openExternal('https://livewall.no/blog/supporting-the-zentransfer-app');
+                this.openExternal('https://zentransfer.io/blog/supporting-the-zentransfer-app');
             });
         }
     }

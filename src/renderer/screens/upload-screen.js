@@ -21,7 +21,11 @@ export class UploadScreen {
         this.initializeElements();
         this.setupEventListeners();
         this.createFileInput();
-        this.updateAvailableServices().then(() => {
+        
+        // Load saved service preference and update available services
+        this.loadSavedService().then(() => {
+            return this.updateAvailableServices();
+        }).then(() => {
             // Set initial service in upload manager
             if (this.uploadManager && this.selectedService) {
                 this.uploadManager.setSelectedService(this.selectedService);
@@ -457,6 +461,9 @@ export class UploadScreen {
             this.elements.uploadTab.classList.remove('hidden');
             this.isVisible = true;
             
+            // Load saved service preference
+            await this.loadSavedService();
+            
             // Update available services
             await this.updateAvailableServices();
             
@@ -886,6 +893,34 @@ export class UploadScreen {
     }
 
     /**
+     * Load saved service preference from config
+     */
+    async loadSavedService() {
+        try {
+            const savedService = await window.electronAPI.config.get('uploadSettings.lastSelectedService');
+            if (savedService) {
+                this.selectedService = savedService;
+                console.log('Loaded saved upload service:', savedService);
+            }
+        } catch (error) {
+            console.error('Failed to load saved upload service:', error);
+            // Keep default service if loading fails
+        }
+    }
+
+    /**
+     * Save current service preference to config
+     */
+    async saveSelectedService() {
+        try {
+            await window.electronAPI.config.set('uploadSettings.lastSelectedService', this.selectedService);
+            console.log('Saved upload service preference:', this.selectedService);
+        } catch (error) {
+            console.error('Failed to save upload service preference:', error);
+        }
+    }
+
+    /**
      * Get service preferences from config system
      * @returns {Promise<Object>} Service preferences
      */
@@ -1049,6 +1084,9 @@ export class UploadScreen {
                     if (this.uploadManager) {
                         this.uploadManager.setSelectedService(this.selectedService);
                     }
+                    
+                    // Save the service preference
+                    this.saveSelectedService();
                     
                     console.log('Selected service changed to:', this.selectedService);
                 });
