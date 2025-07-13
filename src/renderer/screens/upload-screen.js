@@ -229,12 +229,10 @@ export class UploadScreen {
             return;
         }
         
-        if (typeof require !== 'undefined') {
+        if (window.electronAPI) {
             try {
-                const { ipcRenderer } = require('electron');
-                
                 // Use native Electron file dialog
-                const result = await ipcRenderer.invoke('show-file-dialog', {
+                const result = await window.electronAPI.dialog.showFileDialog({
                     properties: ['openFile', 'multiSelections'],
                     title: 'Select files to upload',
                     filters: [

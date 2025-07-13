@@ -23,12 +23,9 @@ export class ImportManager {
      */
     initializeIPC() {
         try {
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                this.ipcRenderer = ipcRenderer;
-                
+            if (window.electronAPI) {
                 // Listen for import updates from main process
-                this.ipcRenderer.on('import-update', (event, data) => {
+                this.updateCleanup = window.electronAPI.import.onUpdate((data) => {
                     this.handleImportUpdate(data);
                 });
                 
@@ -105,7 +102,7 @@ export class ImportManager {
 
             this.isImporting = true;
             
-            const result = await this.ipcRenderer.invoke('start-import', importSettings);
+            const result = await window.electronAPI.import.start(importSettings);
             if (!result.success) {
                 this.isImporting = false;
                 throw new Error(result.error);
@@ -127,7 +124,7 @@ export class ImportManager {
         }
 
         try {
-            const result = await this.ipcRenderer.invoke('cancel-import');
+            const result = await window.electronAPI.import.cancel();
             if (!result.success) {
                 throw new Error(result.error);
             }
@@ -237,9 +234,9 @@ export class ImportManager {
      * Cleanup resources
      */
     destroy() {
-        if (this.ipcRenderer) {
-            this.ipcRenderer.removeAllListeners('import-update');
-            this.ipcRenderer = null;
+        if (this.updateCleanup) {
+            this.updateCleanup();
+            this.updateCleanup = null;
         }
         
         this.isImporting = false;

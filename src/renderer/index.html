@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https:;">
     <title>ZenTransfer</title>
     <link href="output.css" rel="stylesheet">
 </head>
@@ -72,7 +73,7 @@
 
             <!-- Sign Up and Skip Login Links -->
             <div class="text-center mt-8 space-y-3 animate-slide-up" style="animation-delay: 0.2s;">
-                <a href="#" onclick="openExternal('https://zentransfer.io/register')" class="block text-primary-600 hover:text-primary-700 text-sm font-semibold transition-colors duration-200 hover:underline">
+                <a href="#" onclick="window.electronAPI?.shell?.openExternal('https://zentransfer.io/register')" class="block text-primary-600 hover:text-primary-700 text-sm font-semibold transition-colors duration-200 hover:underline">
                     Create new account
                 </a>
                 <button id="skipLoginBtn" onclick="window.appController?.authManager?.skipLogin()" class="block w-full text-gray-600 hover:text-gray-700 text-sm font-medium transition-colors duration-200 hover:underline">
@@ -87,11 +88,11 @@
             
             <div class="font-medium">ZenTransfer provided by Perceptron AS © 2025</div>
             <div class="space-x-4">
-                <a href="#" class="hover:text-gray-700 transition-colors duration-200" onclick="openExternal('https://zentransfer.io/terms-of-service')">
+                <a href="#" class="hover:text-gray-700 transition-colors duration-200" onclick="window.electronAPI?.shell?.openExternal('https://zentransfer.io/terms-of-service')">
                     Terms of Service
                 </a>
                 <span>•</span>
-                <a href="#" class="hover:text-gray-700 transition-colors duration-200" onclick="openExternal('https://zentransfer.io/privacy-policy')">
+                <a href="#" class="hover:text-gray-700 transition-colors duration-200" onclick="window.electronAPI?.shell?.openExternal('https://zentransfer.io/privacy-policy')">
                     Privacy Policy
                 </a>
             </div>

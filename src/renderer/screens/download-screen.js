@@ -216,18 +216,16 @@ export class DownloadScreen {
             let defaultPath = 'Browser Default Downloads';
             
             // In Electron, use the system Downloads directory
-            if (typeof require !== 'undefined') {
+            if (window.electronAPI) {
                 try {
-                    const path = require('path');
-                    const os = require('os');
-                    
                     // Use the user's Downloads directory
-                    defaultPath = path.join(os.homedir(), 'Downloads', 'ZenTransfer');
+                    const homedir = window.electronAPI.node.homedir();
+                    defaultPath = window.electronAPI.node.join(homedir, 'Downloads', 'ZenTransfer');
                     
                     // Create the directory if it doesn't exist
-                    const fs = require('fs');
-                    if (!fs.existsSync(defaultPath)) {
-                        fs.mkdirSync(defaultPath, { recursive: true });
+                    const exists = window.electronAPI.node.existsSync(defaultPath);
+                    if (!exists) {
+                        window.electronAPI.node.mkdirSync(defaultPath, { recursive: true });
                     }
                 } catch (error) {
                     console.error('Failed to create default download directory:', error);
@@ -301,13 +299,11 @@ export class DownloadScreen {
         console.log('Setting up download manager IPC listeners...');
         
         // Listen for download updates from main process
-        if (typeof require !== 'undefined') {
+        if (window.electronAPI) {
             try {
-                const { ipcRenderer } = require('electron');
-                
                 console.log('IPC renderer available, setting up download-update listener');
                 
-                ipcRenderer.on('download-update', (event, data) => {
+                this.downloadUpdateCleanup = window.electronAPI.download.onUpdate((data) => {
                     console.log('IPC listener received download-update:', data.type);
                     this.handleDownloadUpdate(data);
                 });
@@ -317,7 +313,7 @@ export class DownloadScreen {
                 console.error('Failed to setup IPC listeners:', error);
             }
         } else {
-            console.error('require() not available - cannot setup IPC listeners');
+                            console.error('electronAPI not available - cannot setup IPC listeners');
         }
     }
     
@@ -393,13 +389,10 @@ export class DownloadScreen {
     async browseDownloadPath() {
         try {
             // Check if we're in Electron environment
-            if (typeof require !== 'undefined') {
+            if (window.electronAPI) {
                 try {
-                    // Try to access electron APIs directly
-                    const { ipcRenderer } = require('electron');
-                    
                     // Send request to main process to show directory dialog
-                    const selectedPath = await ipcRenderer.invoke('show-directory-dialog');
+                    const selectedPath = await window.electronAPI.dialog.showDirectoryDialog();
                     
                     if (selectedPath) {
                         this.elements.downloadPathInput.value = selectedPath;
@@ -419,8 +412,8 @@ export class DownloadScreen {
                         
                         // Verify the path exists using Node.js fs
                         try {
-                            const fs = require('fs');
-                            if (fs.existsSync(trimmedPath)) {
+                            const exists = window.electronAPI.node.existsSync(trimmedPath);
+                            if (exists) {
                                 this.elements.downloadPathInput.value = trimmedPath;
                                 this.queueManager.setDownloadPath(trimmedPath);
                                 this.updateStartButtonState();
@@ -497,10 +490,9 @@ export class DownloadScreen {
             this.updateLastSyncDisplay(resetTime);
             
             // Also reset the sync time in the main process (clears both lastSyncTime and latestDownloadedFileTime)
-            if (typeof require !== 'undefined') {
+            if (window.electronAPI) {
                 try {
-                    const { ipcRenderer } = require('electron');
-                    await ipcRenderer.invoke('reset-sync-time', resetTime);
+                                await window.electronAPI.download.resetSyncTime(resetTime);
                     console.log('Sync time reset in main process');
                 } catch (error) {
                     console.error('Failed to reset sync time in main process:', error);
@@ -539,9 +531,8 @@ export class DownloadScreen {
             }
             
             // Start monitoring via main process
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                const result = await ipcRenderer.invoke('start-download-monitoring', downloadPath, lastSyncTime, tokenResult.token);
+            if (window.electronAPI) {
+                            const result = await window.electronAPI.download.startMonitoring(downloadPath, lastSyncTime, tokenResult.token);
                 
                 if (!result.success) {
                     throw new Error(result.error);
@@ -568,9 +559,8 @@ export class DownloadScreen {
             this.switchMode(false);
 
             // Stop monitoring via main process
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                const result = await ipcRenderer.invoke('stop-download-monitoring');
+            if (window.electronAPI) {
+                            const result = await window.electronAPI.download.stopMonitoring();
                 
                 if (!result.success) {
                     console.error('Failed to stop monitoring:', result.error);

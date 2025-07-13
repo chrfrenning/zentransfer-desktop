@@ -858,10 +858,9 @@ export class ImportScreen {
             let userCancelled = false;
 
             // Check if we're in Electron environment
-            if (typeof require !== 'undefined') {
+                          if (window.electronAPI) {
                 try {
-                    const { ipcRenderer } = require('electron');
-                    selectedPath = await ipcRenderer.invoke('show-directory-dialog');
+                                    selectedPath = await window.electronAPI.dialog.showDirectoryDialog();
                     
                     // If no path returned, user cancelled
                     if (!selectedPath) {
@@ -879,8 +878,8 @@ export class ImportScreen {
                     } else if (path && path.trim()) {
                         const trimmedPath = path.trim();
                         try {
-                            const fs = require('fs');
-                            if (fs.existsSync(trimmedPath)) {
+                            const exists = window.electronAPI.node.existsSync(trimmedPath);
+                            if (exists) {
                                 selectedPath = trimmedPath;
                             } else {
                                 UIComponents.Notification.show('Directory does not exist: ' + trimmedPath, 'error');

@@ -90,10 +90,9 @@ export class LoginScreen {
         // Make openExternal function globally available if not already set
         if (!window.openExternal) {
             window.openExternal = (url) => {
-                if (typeof require !== 'undefined') {
-                    // Electron environment
-                    const { shell } = require('electron');
-                    shell.openExternal(url);
+                if (window.electronAPI) {
+                                    // Electron environment
+                window.electronAPI.shell.openExternal(url);
                 } else {
                     // Web environment
                     window.open(url, '_blank');

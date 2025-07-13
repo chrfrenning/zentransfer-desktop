@@ -301,11 +301,10 @@ export class LoaderScreen {
      * Open the download page
      */
     openDownloadPage() {
-        if (typeof require !== 'undefined') {
+        if (window.electronAPI) {
             // Electron environment
             try {
-                const { shell } = require('electron');
-                shell.openExternal('https://zentransfer.io/download/');
+                window.electronAPI.shell.openExternal('https://zentransfer.io/download/');
             } catch (error) {
                 console.error('Failed to open external URL:', error);
             }
@@ -320,12 +319,11 @@ export class LoaderScreen {
      * @returns {string} Platform identifier
      */
     getPlatformInfo() {
-        if (typeof require !== 'undefined') {
+        if (window.electronAPI) {
             // Electron environment
             try {
-                const os = require('os');
-                const platform = os.platform();
-                const arch = os.arch();
+                const platform = window.electronAPI.node.platform();
+                const arch = window.electronAPI.node.arch();
                 return `${platform}-${arch}`;
             } catch (error) {
                 console.error('Failed to get OS info:', error);

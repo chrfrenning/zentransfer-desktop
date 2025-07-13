@@ -32,11 +32,9 @@ export class UploadManager {
      * Setup progress listener for main process updates
      */
     setupProgressListener() {
-        if (typeof require !== 'undefined') {
+        if (window.electronAPI) {
             try {
-                const { ipcRenderer } = require('electron');
-                
-                ipcRenderer.on('upload-progress', (event, progressData) => {
+                this.progressCleanup = window.electronAPI.upload.onProgress((progressData) => {
                     this.handleProgressUpdate(progressData);
                 });
             } catch (error) {
@@ -85,10 +83,8 @@ export class UploadManager {
                 throw new Error('Authentication required');
             }
 
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                
-                const result = await ipcRenderer.invoke('create-upload-session', {
+            if (window.electronAPI) {
+                const result = await window.electronAPI.upload.createSession({
                     serverBaseUrl: config.SERVER_BASE_URL,
                     token: tokenResult.token,
                     appName: config.APP_NAME,
@@ -312,27 +308,24 @@ export class UploadManager {
      * @returns {Object|null} File item or null if failed
      */
     async createFileItemFromPath(filePath) {
-        if (typeof require === 'undefined') {
+                    if (!window.electronAPI) {
             console.error('File path upload only supported in Electron environment');
             return null;
         }
 
         try {
-            const fs = require('fs');
-            const path = require('path');
-            
             // Get file stats
-            const stats = fs.statSync(filePath);
-            if (!stats.isFile()) {
+            const stats = window.electronAPI.node.statSync(filePath);
+            if (!stats.isFile) {
                 console.error('Path is not a file:', filePath);
                 return null;
             }
 
-            const fileName = path.basename(filePath);
+            const fileName = window.electronAPI.node.basename(filePath);
             const fileSize = stats.size;
             
             // Determine MIME type from extension
-            const ext = path.extname(fileName).toLowerCase();
+            const ext = window.electronAPI.node.extname(fileName).toLowerCase();
             let mimeType = 'application/octet-stream';
             
             // Basic MIME type detection
@@ -512,17 +505,15 @@ export class UploadManager {
      * Upload file via main process worker
      */
     async uploadFileViaMainProcess(fileItem) {
-        if (typeof require !== 'undefined') {
+        if (window.electronAPI) {
             try {
-                const { ipcRenderer } = require('electron');
-                
                 let fileBuffer;
                 
                 if (fileItem.filePath) {
                     
                     // File path upload (from import system)
-                    const fs = require('fs');
-                    fileBuffer = fs.readFileSync(fileItem.filePath);
+                    const fileContent = window.electronAPI.node.readFileSync(fileItem.filePath);
+                    fileBuffer = window.electronAPI.node.bufferFrom(fileContent, 'utf8');
                 } else if (fileItem.file) {
                     // File object upload (from file input/drag-drop)
                     fileBuffer = await this.fileToBuffer(fileItem.file);
@@ -542,7 +533,7 @@ export class UploadManager {
                 // Get service preferences from localStorage
                 const servicePreferences = this.getServicePreferences();
                 
-                const result = await ipcRenderer.invoke('upload-file', {
+                const result = await window.electronAPI.upload.uploadFile({
                     fileId: fileItem.id,
                     fileName: fileItem.name,
                     fileSize: fileItem.size,
@@ -590,7 +581,7 @@ export class UploadManager {
             const reader = new FileReader();
             reader.onload = () => {
                 const arrayBuffer = reader.result;
-                const buffer = Buffer.from(arrayBuffer);
+                const buffer = window.electronAPI.node.bufferFromArrayBuffer(arrayBuffer);
                 resolve(buffer);
             };
             reader.onerror = reject;
@@ -685,9 +676,8 @@ export class UploadManager {
         
         try {
             // Cancel all active uploads via main process
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                await ipcRenderer.invoke('cancel-all-uploads');
+            if (window.electronAPI) {
+                await window.electronAPI.upload.cancelAll();
             }
             
             // Mark all active uploads as cancelled

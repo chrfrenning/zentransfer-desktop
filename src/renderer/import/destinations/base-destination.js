@@ -95,8 +95,8 @@ export class BaseDestination {
      * @returns {string} Combined path
      */
     joinPath(basePath, ...parts) {
-        if (typeof require !== 'undefined') {
-            const path = require('path');
+        if (window.electronAPI) {
+                const path = window.electronAPI.node;
             return path.join(basePath, ...parts);
         } else {
             // Browser fallback
@@ -111,8 +111,8 @@ export class BaseDestination {
      * @returns {Promise<boolean>} Success status
      */
     async ensureDirectory(dirPath) {
-        if (typeof require !== 'undefined') {
-            const fs = require('fs');
+        if (window.electronAPI) {
+                const fs = window.electronAPI.node;
             try {
                 if (!fs.existsSync(dirPath)) {
                     fs.mkdirSync(dirPath, { recursive: true });

@@ -390,20 +390,9 @@ export class SettingsScreen {
                     clearTimeout(clickTimer);
                     clickCount = 0;
                     
-                    // Toggle dev tools directly using require
-                    if (typeof require !== 'undefined') {
-                        try {
-                            const { BrowserWindow } = require('electron');
-                            const currentWindow = BrowserWindow.getFocusedWindow();
-                            if (currentWindow) {
-                                currentWindow.webContents.toggleDevTools();
-                            }
-                        } catch (error) {
-                            console.log('Developer tools can only be opened in the desktop app');
-                        }
-                    } else {
-                        console.log('Developer tools can only be opened in the desktop app');
-                    }
+                    // Dev tools functionality removed for security reasons
+                    // Use F12 or right-click -> Inspect Element to open dev tools
+                    console.log('Developer tools can be opened using F12 or right-click -> Inspect Element');
                 }
             });
         }
@@ -776,12 +765,11 @@ export class SettingsScreen {
                 console.log('Data cleared, signing out...');
                 
                 // Exit the application if in Electron environment
-                if (typeof require !== 'undefined') {
+                if (window.electronAPI) {
                     try {
-                        const { ipcRenderer } = require('electron');
                         // Give a brief moment for cleanup to complete
                         setTimeout(() => {
-                            ipcRenderer.invoke('app-quit');
+                            window.electronAPI.app.quit();
                         }, 500);
                     } catch (error) {
                         console.error('Failed to quit app via IPC:', error);
@@ -798,11 +786,10 @@ export class SettingsScreen {
                 UIComponents.Notification.show('Sign out completed, but some data may not have been cleared.', 'warning');
                 
                 // Still try to exit even if there was an error
-                if (typeof require !== 'undefined') {
+                if (window.electronAPI) {
                     try {
-                        const { ipcRenderer } = require('electron');
                         setTimeout(() => {
-                            ipcRenderer.invoke('app-quit');
+                            window.electronAPI.app.quit();
                         }, 1000);
                     } catch (ipcError) {
                         window.close();
@@ -819,10 +806,9 @@ export class SettingsScreen {
      * @param {string} url - URL to open
      */
     openExternal(url) {
-        if (typeof require !== 'undefined') {
-            // Electron environment
-            const { shell } = require('electron');
-            shell.openExternal(url);
+                        if (window.electronAPI) {
+                            // Electron environment
+                window.electronAPI.shell.openExternal(url);
         } else {
             // Web environment
             window.open(url, '_blank');

@@ -24,12 +24,9 @@ export class DownloadManager {
      */
     initializeIPC() {
         try {
-            if (typeof require !== 'undefined') {
-                const { ipcRenderer } = require('electron');
-                this.ipcRenderer = ipcRenderer;
-                
-                // Listen for download updates
-                this.ipcRenderer.on('download-update', (event, updateData) => {
+            if (window.electronAPI) {
+                // Listen for download updates from main process
+                this.updateCleanup = window.electronAPI.download.onUpdate((updateData) => {
                     this.handleDownloadUpdate(updateData);
                 });
                 
@@ -103,7 +100,7 @@ export class DownloadManager {
      * Start monitoring for downloads
      */
     async startMonitoring(downloadPath, lastSyncTime = null, authToken = null) {
-        if (!this.ipcRenderer) {
+        if (!window.electronAPI) {
             throw new Error('IPC not available');
         }
         
@@ -113,7 +110,7 @@ export class DownloadManager {
         
         try {
             console.log('Download Manager: Starting monitoring...');
-            const result = await this.ipcRenderer.invoke('start-download-monitoring', downloadPath, lastSyncTime, authToken);
+            const result = await window.electronAPI.download.startMonitoring(downloadPath, lastSyncTime, authToken);
             
             if (result.success) {
                 this.isMonitoring = true;
@@ -132,7 +129,7 @@ export class DownloadManager {
      * Stop monitoring
      */
     async stopMonitoring() {
-        if (!this.ipcRenderer) {
+        if (!window.electronAPI) {
             throw new Error('IPC not available');
         }
         
@@ -143,7 +140,7 @@ export class DownloadManager {
         
         try {
             console.log('Download Manager: Stopping monitoring...');
-            const result = await this.ipcRenderer.invoke('stop-download-monitoring');
+            const result = await window.electronAPI.download.stopMonitoring();
             
             if (result.success) {
                 this.isMonitoring = false;
@@ -162,7 +159,7 @@ export class DownloadManager {
      * Get download statistics
      */
     async getStats() {
-        if (!this.ipcRenderer) {
+        if (!window.electronAPI) {
             return {
                 totalWorkers: 0,
                 busyWorkers: 0,
@@ -173,7 +170,7 @@ export class DownloadManager {
         }
         
         try {
-            return await this.ipcRenderer.invoke('get-download-stats');
+            return await window.electronAPI.download.getStats();
         } catch (error) {
             console.error('Download Manager: Failed to get stats:', error);
             return {
@@ -253,8 +250,8 @@ export class DownloadManager {
      * Cleanup resources
      */
     destroy() {
-        if (this.ipcRenderer) {
-            this.ipcRenderer.removeAllListeners('download-update');
+        if (this.updateCleanup) {
+            this.updateCleanup();
         }
         
         this.callbacks = {

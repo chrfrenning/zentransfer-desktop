@@ -46,8 +46,9 @@ function createWindow() {
     minWidth: 350,
     minHeight: Math.round(350 * (16 / 9)),
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,        // Disable for security
+      contextIsolation: true,        // Enable for security
+      preload: path.join(__dirname, 'src/preload/index.js')
     },
     titleBarStyle: 'default',
     resizable: true,

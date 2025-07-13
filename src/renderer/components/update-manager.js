@@ -1,4 +1,4 @@
-const { ipcRenderer } = require('electron');
+// IPC communication now handled through window.electronAPI
 
 class UpdateManager {
   constructor() {
@@ -61,7 +61,7 @@ class UpdateManager {
   
   setupIpcListeners() {
     // Listen for update status from main process
-    ipcRenderer.on('update-status', (event, { status, data }) => {
+            this.statusCleanup = window.electronAPI.updater.onStatus((status, data) => {
       console.log('Update status received:', status, data);
       this.handleUpdateStatus(status, data);
     });
@@ -165,7 +165,7 @@ class UpdateManager {
   
   async checkForUpdates() {
     try {
-      const result = await ipcRenderer.invoke('check-for-updates');
+              const result = await window.electronAPI.updater.checkForUpdates();
       if (!result.success) {
         console.error('Failed to check for updates:', result.error);
       }
@@ -179,7 +179,7 @@ class UpdateManager {
     
     try {
       this.showNotification('Starting download...', 'downloading');
-      const result = await ipcRenderer.invoke('download-update');
+              const result = await window.electronAPI.updater.downloadUpdate();
       if (!result.success) {
         this.showNotification(`Download failed: ${result.error}`, 'error');
       }
@@ -193,7 +193,7 @@ class UpdateManager {
     if (!this.isUpdateReady) return;
     
     try {
-      await ipcRenderer.invoke('quit-and-install');
+              await window.electronAPI.updater.quitAndInstall();
     } catch (error) {
       console.error('Error installing update:', error);
       this.showNotification(`Install failed: ${error.message}`, 'error');
@@ -209,12 +209,10 @@ class UpdateManager {
   }
 }
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = UpdateManager;
-}
+// Export for ES6 modules
+export { UpdateManager };
 
-// Auto-initialize if in browser environment
+// Also make available globally for backwards compatibility
 if (typeof window !== 'undefined') {
   window.UpdateManager = UpdateManager;
 } 

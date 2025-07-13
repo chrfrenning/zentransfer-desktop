@@ -137,9 +137,9 @@ export class ZenTransferDestination extends BaseDestination {
      * @returns {Promise<Array<File>>} Array of File objects
      */
     async createFileObjects(filePaths) {
-        if (typeof require !== 'undefined') {
-            const fs = require('fs');
-            const path = require('path');
+        if (window.electronAPI) {
+                            const fs = window.electronAPI.node;
+                const path = window.electronAPI.node;
             
             const fileObjects = [];
             

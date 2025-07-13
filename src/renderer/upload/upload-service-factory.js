@@ -3,7 +3,7 @@
  * Communicates with the main process upload service manager via IPC
  */
 
-const { ipcRenderer } = require('electron');
+// IPC communication now handled through window.electronAPI
 
 export class UploadServiceFactory {
     constructor() {
@@ -17,7 +17,7 @@ export class UploadServiceFactory {
      * @returns {Promise<Object>} Service info
      */
     async createService(serviceType, settings = {}) {
-        const result = await ipcRenderer.invoke('upload-service-create', serviceType, settings);
+        const result = await window.electronAPI.uploadService.create(serviceType, settings);
         if (!result.success) {
             throw new Error(result.error);
         }
@@ -30,7 +30,7 @@ export class UploadServiceFactory {
      * @returns {Promise<Object>} Test result
      */
     async testService(serviceType) {
-        const result = await ipcRenderer.invoke('upload-service-test', serviceType);
+        const result = await window.electronAPI.uploadService.test(serviceType);
         if (!result.success) {
             throw new Error(result.error);
         }
@@ -44,7 +44,7 @@ export class UploadServiceFactory {
      * @returns {Promise<Object>} Updated service info
      */
     async updateService(serviceType, newSettings) {
-        const result = await ipcRenderer.invoke('upload-service-update', serviceType, newSettings);
+        const result = await window.electronAPI.uploadService.update(serviceType, newSettings);
         if (!result.success) {
             throw new Error(result.error);
         }
@@ -73,7 +73,7 @@ export class UploadServiceFactory {
      * @returns {Promise<Object>} Service display info
      */
     async getServiceDisplayInfo(serviceType) {
-        const result = await ipcRenderer.invoke('upload-service-get-display-info', serviceType);
+        const result = await window.electronAPI.uploadService.getDisplayInfo(serviceType);
         if (!result.success) {
             throw new Error(result.error);
         }
@@ -86,7 +86,7 @@ export class UploadServiceFactory {
      * @returns {Promise<Array<Object>>} Array of created service info
      */
     async createServicesFromPreferences(preferences) {
-        const result = await ipcRenderer.invoke('upload-service-create-from-preferences', preferences);
+        const result = await window.electronAPI.uploadService.createFromPreferences(preferences);
         if (!result.success) {
             throw new Error(result.error);
         }
@@ -98,7 +98,7 @@ export class UploadServiceFactory {
      * @returns {Promise<Array<Object>>} Array of service info objects
      */
     async getAllServices() {
-        const result = await ipcRenderer.invoke('upload-service-get-all');
+        const result = await window.electronAPI.uploadService.getAll();
         if (!result.success) {
             throw new Error(result.error);
         }

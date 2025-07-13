@@ -211,12 +211,12 @@ export class DownloadQueueManager {
         return new Promise(async (resolve, reject) => {
             try {
                 // Check if we're in Electron environment
-                if (typeof require !== 'undefined') {
+                if (window.electronAPI) {
                     // Electron environment - download directly to file system
-                    const fs = require('fs');
-                    const path = require('path');
-                    const https = require('https');
-                    const http = require('http');
+                const fs = window.electronAPI.node;
+                const path = window.electronAPI.node;
+                const https = window.electronAPI.node;
+                const http = window.electronAPI.node;
                     
                     // Determine the full file path
                     const fileName = this.sanitizeFileName(file.name);

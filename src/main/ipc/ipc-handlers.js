@@ -312,6 +312,315 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    ipcMain.handle('get-build-info', async () => {
      return sharedConfig.buildInfo;
    });
+
+   // Node.js operation handlers - secure Node.js access for renderer
+   const fs = require('fs');
+   const path = require('path');
+   const os = require('os');
+   const http = require('http');
+   const https = require('https');
+
+   // Synchronous IPC handlers using sendSync
+   ipcMain.on('node-fs-readFileSync', (event, filePath) => {
+     try {
+       event.returnValue = fs.readFileSync(filePath, 'utf8');
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   ipcMain.on('node-fs-writeFileSync', (event, filePath, data) => {
+     try {
+       fs.writeFileSync(filePath, data, 'utf8');
+       event.returnValue = true;
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   ipcMain.on('node-fs-existsSync', (event, filePath) => {
+     try {
+       event.returnValue = fs.existsSync(filePath);
+     } catch (error) {
+       event.returnValue = false;
+     }
+   });
+
+   ipcMain.on('node-fs-mkdirSync', (event, dirPath, options = {}) => {
+     try {
+       fs.mkdirSync(dirPath, options);
+       event.returnValue = true;
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   ipcMain.on('node-fs-statSync', (event, filePath) => {
+     try {
+       const stats = fs.statSync(filePath);
+       // Convert fs.Stats to plain object with methods as properties
+       event.returnValue = {
+         size: stats.size,
+         mode: stats.mode,
+         mtime: stats.mtime,
+         ctime: stats.ctime,
+         birthtime: stats.birthtime,
+         isFile: stats.isFile(),
+         isDirectory: stats.isDirectory(),
+         isSymbolicLink: stats.isSymbolicLink(),
+         isBlockDevice: stats.isBlockDevice(),
+         isCharacterDevice: stats.isCharacterDevice(),
+         isFIFO: stats.isFIFO(),
+         isSocket: stats.isSocket()
+       };
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   ipcMain.on('node-fs-readdirSync', (event, dirPath) => {
+     try {
+       event.returnValue = fs.readdirSync(dirPath);
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   ipcMain.on('node-fs-copyFileSync', (event, src, dest) => {
+     try {
+       fs.copyFileSync(src, dest);
+       event.returnValue = true;
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   // Path operations
+   ipcMain.on('node-path-join', (event, ...paths) => {
+     event.returnValue = path.join(...paths);
+   });
+
+   ipcMain.on('node-path-dirname', (event, filePath) => {
+     event.returnValue = path.dirname(filePath);
+   });
+
+   ipcMain.on('node-path-basename', (event, filePath, ext) => {
+     event.returnValue = path.basename(filePath, ext);
+   });
+
+   ipcMain.on('node-path-extname', (event, filePath) => {
+     event.returnValue = path.extname(filePath);
+   });
+
+   ipcMain.on('node-path-resolve', (event, ...paths) => {
+     event.returnValue = path.resolve(...paths);
+   });
+
+   // OS operations
+   ipcMain.on('node-os-homedir', (event) => {
+     event.returnValue = os.homedir();
+   });
+
+   ipcMain.on('node-os-tmpdir', (event) => {
+     event.returnValue = os.tmpdir();
+   });
+
+   ipcMain.on('node-os-platform', (event) => {
+     event.returnValue = os.platform();
+   });
+
+   ipcMain.on('node-os-arch', (event) => {
+     event.returnValue = os.arch();
+   });
+
+   // Buffer operations
+   ipcMain.on('node-buffer-from', (event, data, encoding) => {
+     try {
+       if (encoding) {
+         event.returnValue = Buffer.from(data, encoding);
+       } else {
+         event.returnValue = Buffer.from(data);
+       }
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   ipcMain.on('node-buffer-from-arraybuffer', (event, arrayBuffer) => {
+     try {
+       event.returnValue = Buffer.from(arrayBuffer);
+     } catch (error) {
+       event.returnValue = { error: error.message };
+     }
+   });
+
+   // Shell API handlers
+   const { shell } = require('electron');
+   
+   ipcMain.handle('shell-openExternal', async (event, url) => {
+     try {
+       await shell.openExternal(url);
+       return { success: true };
+     } catch (error) {
+       return { success: false, error: error.message };
+     }
+   });
+
+   ipcMain.handle('shell-openPath', async (event, path) => {
+     try {
+       const result = await shell.openPath(path);
+       return { success: true, result };
+     } catch (error) {
+       return { success: false, error: error.message };
+     }
+   });
+
+   ipcMain.handle('shell-showItemInFolder', async (event, fullPath) => {
+     try {
+       shell.showItemInFolder(fullPath);
+       return { success: true };
+     } catch (error) {
+       return { success: false, error: error.message };
+     }
+   });
+
+   // File system operations
+   ipcMain.handle('node-fs-readFile', async (event, filePath) => {
+     try {
+       return fs.readFileSync(filePath, 'utf8');
+     } catch (error) {
+       throw new Error(`Failed to read file: ${error.message}`);
+     }
+   });
+
+   ipcMain.handle('node-fs-writeFile', async (event, filePath, data) => {
+     try {
+       fs.writeFileSync(filePath, data, 'utf8');
+       return true;
+     } catch (error) {
+       throw new Error(`Failed to write file: ${error.message}`);
+     }
+   });
+
+   ipcMain.handle('node-fs-exists', async (event, filePath) => {
+     try {
+       return fs.existsSync(filePath);
+     } catch (error) {
+       return false;
+     }
+   });
+
+   ipcMain.handle('node-fs-mkdir', async (event, dirPath, options = {}) => {
+     try {
+       fs.mkdirSync(dirPath, options);
+       return true;
+     } catch (error) {
+       throw new Error(`Failed to create directory: ${error.message}`);
+     }
+   });
+
+   ipcMain.handle('node-fs-stat', async (event, filePath) => {
+     try {
+       const stats = fs.statSync(filePath);
+       // Convert fs.Stats to plain object with methods as properties
+       return {
+         size: stats.size,
+         mode: stats.mode,
+         mtime: stats.mtime,
+         ctime: stats.ctime,
+         birthtime: stats.birthtime,
+         isFile: stats.isFile(),
+         isDirectory: stats.isDirectory(),
+         isSymbolicLink: stats.isSymbolicLink(),
+         isBlockDevice: stats.isBlockDevice(),
+         isCharacterDevice: stats.isCharacterDevice(),
+         isFIFO: stats.isFIFO(),
+         isSocket: stats.isSocket()
+       };
+     } catch (error) {
+       throw new Error(`Failed to get file stats: ${error.message}`);
+     }
+   });
+
+   ipcMain.handle('node-fs-readdir', async (event, dirPath) => {
+     try {
+       return fs.readdirSync(dirPath);
+     } catch (error) {
+       throw new Error(`Failed to read directory: ${error.message}`);
+     }
+   });
+
+   ipcMain.handle('node-fs-unlink', async (event, filePath) => {
+     try {
+       fs.unlinkSync(filePath);
+       return true;
+     } catch (error) {
+       throw new Error(`Failed to delete file: ${error.message}`);
+     }
+   });
+
+   // Path operations
+   ipcMain.handle('node-path-join', async (event, ...paths) => {
+     return path.join(...paths);
+   });
+
+   ipcMain.handle('node-path-dirname', async (event, filePath) => {
+     return path.dirname(filePath);
+   });
+
+   ipcMain.handle('node-path-basename', async (event, filePath, ext) => {
+     return path.basename(filePath, ext);
+   });
+
+   ipcMain.handle('node-path-extname', async (event, filePath) => {
+     return path.extname(filePath);
+   });
+
+   ipcMain.handle('node-path-resolve', async (event, ...paths) => {
+     return path.resolve(...paths);
+   });
+
+   // OS operations
+   ipcMain.handle('node-os-homedir', async (event) => {
+     return os.homedir();
+   });
+
+   ipcMain.handle('node-os-tmpdir', async (event) => {
+     return os.tmpdir();
+   });
+
+   ipcMain.handle('node-os-platform', async (event) => {
+     return os.platform();
+   });
+
+   ipcMain.handle('node-os-arch', async (event) => {
+     return os.arch();
+   });
+
+   // HTTP operations
+   ipcMain.handle('node-http-get', async (event, url, options = {}) => {
+     return new Promise((resolve, reject) => {
+       const req = http.get(url, options, (res) => {
+         let data = '';
+         res.on('data', chunk => data += chunk);
+         res.on('end', () => resolve({ statusCode: res.statusCode, data, headers: res.headers }));
+       });
+       req.on('error', reject);
+       req.setTimeout(30000, () => reject(new Error('Request timeout')));
+     });
+   });
+
+   ipcMain.handle('node-https-get', async (event, url, options = {}) => {
+     return new Promise((resolve, reject) => {
+       const req = https.get(url, options, (res) => {
+         let data = '';
+         res.on('data', chunk => data += chunk);
+         res.on('end', () => resolve({ statusCode: res.statusCode, data, headers: res.headers }));
+       });
+       req.on('error', reject);
+       req.setTimeout(30000, () => reject(new Error('Request timeout')));
+     });
+   });
 }
 
 module.exports = { setupIpcHandlers }; 

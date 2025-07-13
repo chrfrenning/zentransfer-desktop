@@ -8,21 +8,11 @@ import { UploadManager } from './upload/upload-manager.js';
 import { UIComponents } from './components/ui-components.js';
 import { config } from './config/app-config.js';
 import { ScreenManager } from './screens/screen-manager.js';
-const { ipcRenderer } = require('electron');
-
-// Import UpdateManager if in Electron environment
-let UpdateManager = null;
-if (typeof require !== 'undefined') {
-    try {
-        UpdateManager = require('./components/update-manager.js');
-    } catch (error) {
-        console.log('UpdateManager not available (not in Electron environment)');
-    }
-}
+import { UpdateManager } from './components/update-manager.js';
 
 // Logging via main process
 function logToStdout(message) {
-    ipcRenderer.send('log-to-stdout', message);
+    window.electronAPI.app.log(message);
 }
 
 logToStdout('Hello from renderer');
@@ -45,12 +35,12 @@ export class AppController {
         try {
             // Initialize version from main process BEFORE version check
             console.log('Initializing ZenTransfer app...');
-            const result = await ipcRenderer.invoke('get-app-version');
+            const result = await window.electronAPI.app.getVersion();
             console.log(`ZenTransfer renderer initialized with version: ${result}`);
             config.setVersion(result);
 
             // Get the configuration from the main process
-            const inheritedConfig = await ipcRenderer.invoke('get-config');
+            const inheritedConfig = await window.electronAPI.app.getConfig();
             console.log('AppController: Configuration received from main process:', config);
             config.APP_NAME = inheritedConfig.APP_NAME;
             config.CLIENT_ID = inheritedConfig.CLIENT_ID;
@@ -66,11 +56,10 @@ export class AppController {
             if (!shouldProceed) {
                 console.log('App initialization stopped due to version check failure');
                 // Exit the app if in Electron environment
-                if (typeof require !== 'undefined') {
+                if (window.electronAPI) {
                     try {
-                        const { ipcRenderer } = require('electron');
                         setTimeout(() => {
-                            ipcRenderer.invoke('app-quit');
+                            window.electronAPI.app.quit();
                         }, 1000);
                     } catch (error) {
                         console.error('Failed to quit app:', error);
@@ -88,11 +77,9 @@ export class AppController {
 
             // Screen manager handles upload callbacks automatically
 
-            // Initialize update manager if available
-            if (UpdateManager) {
-                this.updateManager = new UpdateManager();
-                console.log('Update manager initialized');
-            }
+            // Initialize update manager
+            this.updateManager = new UpdateManager();
+            console.log('Update manager initialized');
 
             // Initialize UI event listeners
             this.initializeUIEventListeners();
@@ -158,10 +145,9 @@ export class AppController {
     setupExternalLinks() {
         // Make openExternal function globally available
         window.openExternal = (url) => {
-            if (typeof require !== 'undefined') {
+            if (window.electronAPI) {
                 // Electron environment
-                const { shell } = require('electron');
-                shell.openExternal(url);
+                window.electronAPI.shell.openExternal(url);
             } else {
                 // Web environment
                 window.open(url, '_blank');

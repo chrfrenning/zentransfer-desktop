@@ -95,8 +95,8 @@ export class LocalDestination extends BaseDestination {
      * @returns {Promise<void>}
      */
     async copyFile(sourcePath, destinationPath) {
-        if (typeof require !== 'undefined') {
-            const fs = require('fs');
+        if (window.electronAPI) {
+            const fs = window.electronAPI.node.fs;
             
             // Check if destination file already exists
             if (fs.existsSync(destinationPath)) {
@@ -120,9 +120,9 @@ export class LocalDestination extends BaseDestination {
      * @returns {string} Unique file path
      */
     generateUniqueFilename(filePath) {
-        if (typeof require !== 'undefined') {
-            const fs = require('fs');
-            const path = require('path');
+        if (window.electronAPI) {
+                const fs = window.electronAPI.node;
+                const path = window.electronAPI.node;
             
             const dir = path.dirname(filePath);
             const ext = path.extname(filePath);
