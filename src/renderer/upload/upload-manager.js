@@ -530,8 +530,8 @@ export class UploadManager {
                     }
                 }
                 
-                // Get service preferences from localStorage
-                const servicePreferences = this.getServicePreferences();
+                // Get service preferences from config system
+                const servicePreferences = await this.getServicePreferences();
                 
                 const result = await window.electronAPI.upload.uploadFile({
                     fileId: fileItem.id,
@@ -788,15 +788,46 @@ export class UploadManager {
     }
 
     /**
-     * Get service preferences from localStorage
-     * @returns {Object} Service preferences
+     * Get service preferences from config system
+     * @returns {Promise<Object>} Service preferences
      */
-    getServicePreferences() {
+    async getServicePreferences() {
         try {
-            const preferences = localStorage.getItem('zentransfer_preferences');
-            return preferences ? JSON.parse(preferences) : {};
+            // Get cloud service configurations from config
+            const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
+            const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
+            const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+            
+            // Convert to the format expected by uploadServiceFactory
+            const preferences = {};
+            
+            // AWS S3
+            if (awsS3Service && awsS3Service.enabled) {
+                preferences.awsS3Enabled = awsS3Service.enabled;
+                preferences.awsS3Region = awsS3Service.region;
+                preferences.awsS3Bucket = awsS3Service.bucket;
+                preferences.awsS3AccessKey = awsS3Service.accessKey;
+                preferences.awsS3SecretKey = awsS3Service.secretKey;
+                preferences.awsS3StorageTier = awsS3Service.storageClass;
+            }
+            
+            // Azure Blob Storage
+            if (azureService && azureService.enabled) {
+                preferences.azureEnabled = azureService.enabled;
+                preferences.azureConnectionString = azureService.connectionString;
+                preferences.azureContainer = azureService.containerName;
+            }
+            
+            // GCP Storage
+            if (gcpService && gcpService.enabled) {
+                preferences.gcpEnabled = gcpService.enabled;
+                preferences.gcpBucket = gcpService.bucketName;
+                preferences.gcpServiceAccountKey = gcpService.serviceAccountKey;
+            }
+            
+            return preferences;
         } catch (error) {
-            console.error('Failed to load service preferences:', error);
+            console.error('Failed to load service preferences from config:', error);
             return {};
         }
     }
