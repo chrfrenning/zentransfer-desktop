@@ -67,6 +67,39 @@ export class SettingsScreen {
                             </label>
                         </div>
 
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Create previews</span>
+                                <p class="text-xs text-gray-500">Generate preview and thumbnails for cloud stores</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="createPreviewsToggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Extract Metadata</span>
+                                <p class="text-xs text-gray-500">Extract metadata and save as json in cloud stores</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="extractMetaDataToggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Index files</span>
+                                <p class="text-xs text-gray-500">Generate json indexes of uploaded files</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="createIndexfilesToggle" class="sr-only peer">
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                        </div>
+
                     </div>
                 </div>
 
@@ -439,6 +472,32 @@ export class SettingsScreen {
                 // Save skip duplicates setting to config system
                 await window.electronAPI.config.set('preferences.skipDuplicates', e.target.checked);
                 console.log(`Skip duplicates setting updated: ${e.target.checked}`);
+            });
+        }
+
+        // Upload settings toggles
+        const createPreviewsToggle = document.getElementById('createPreviewsToggle');
+        const extractMetaDataToggle = document.getElementById('extractMetaDataToggle');
+        const createIndexfilesToggle = document.getElementById('createIndexfilesToggle');
+
+        if (createPreviewsToggle) {
+            createPreviewsToggle.addEventListener('change', async (e) => {
+                await window.electronAPI.config.set('uploadSettings.createPreviews', e.target.checked);
+                console.log(`Create previews setting updated: ${e.target.checked}`);
+            });
+        }
+
+        if (extractMetaDataToggle) {
+            extractMetaDataToggle.addEventListener('change', async (e) => {
+                await window.electronAPI.config.set('uploadSettings.extractMetaData', e.target.checked);
+                console.log(`Extract metadata setting updated: ${e.target.checked}`);
+            });
+        }
+
+        if (createIndexfilesToggle) {
+            createIndexfilesToggle.addEventListener('change', async (e) => {
+                await window.electronAPI.config.set('uploadSettings.createIndexfiles', e.target.checked);
+                console.log(`Create index files setting updated: ${e.target.checked}`);
             });
         }
 
@@ -979,6 +1038,26 @@ export class SettingsScreen {
             if (skipDuplicatesToggle) {
                 const skipDuplicates = await window.electronAPI.config.get('preferences.skipDuplicates');
                 skipDuplicatesToggle.checked = skipDuplicates || false;
+            }
+
+            // Load upload settings
+            const createPreviewsToggle = document.getElementById('createPreviewsToggle');
+            const extractMetaDataToggle = document.getElementById('extractMetaDataToggle');
+            const createIndexfilesToggle = document.getElementById('createIndexfilesToggle');
+
+            if (createPreviewsToggle) {
+                const createPreviews = await window.electronAPI.config.get('uploadSettings.createPreviews');
+                createPreviewsToggle.checked = createPreviews || false;
+            }
+
+            if (extractMetaDataToggle) {
+                const extractMetaData = await window.electronAPI.config.get('uploadSettings.extractMetaData');
+                extractMetaDataToggle.checked = extractMetaData || false;
+            }
+
+            if (createIndexfilesToggle) {
+                const createIndexfiles = await window.electronAPI.config.get('uploadSettings.createIndexfiles');
+                createIndexfilesToggle.checked = createIndexfiles || false;
             }
             
             // Load AWS S3 settings

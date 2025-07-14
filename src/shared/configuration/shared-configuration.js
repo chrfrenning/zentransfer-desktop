@@ -72,7 +72,14 @@ class SharedConfiguration {
 
         // Upload settings (for upload screen preferences)
         this.uploadSettings = {
-            lastSelectedService: 'zentransfer' // Default to ZenTransfer
+            lastSelectedService: 'zentransfer', // Default to ZenTransfer
+            createPreviews: false,              // Generate preview and thumbnails for cloud stores
+            extractMetaData: false,             // Extract metadata and save as json in cloud stores
+            createIndexfiles: false,            // Generate json indexes of uploaded files
+            thumbnailSize: 400,                 // Thumbnail size in pixels
+            thumbnailQuality: 90,               // Thumbnail quality (0-100)
+            previewSize: 1920,                  // Preview size in pixels
+            previewQuality: 90                  // Preview quality (0-100)
         };
     }
 
