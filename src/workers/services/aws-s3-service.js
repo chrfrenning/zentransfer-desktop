@@ -550,6 +550,242 @@ class AwsS3Service extends UploadServiceBase {
     }
 
     /**
+     * List files in a given path
+     * @param {string} path - Path to list files from (empty string for root)
+     * @returns {Promise<Object>} List result with files array
+     */
+    async listFiles(path = '') {
+        this._log('info', 'Listing files in AWS S3', { path });
+        
+        try {
+            // Validate configuration
+            if (!this.isServiceConfigured()) {
+                throw new Error('Service not properly configured');
+            }
+
+            // Import AWS SDK
+            const { S3Client, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+
+            // Create S3 client
+            const s3Client = new S3Client({
+                region: this.settings.region,
+                credentials: {
+                    accessKeyId: this.settings.accessKey,
+                    secretAccessKey: this.settings.secretKey
+                }
+            });
+
+            // Prepare list command
+            const listCommand = new ListObjectsV2Command({
+                Bucket: this.settings.bucket,
+                Prefix: path,
+                Delimiter: '/'
+            });
+
+            const response = await s3Client.send(listCommand);
+            const files = [];
+
+            // Add directories (common prefixes)
+            if (response.CommonPrefixes) {
+                response.CommonPrefixes.forEach(prefix => {
+                    files.push({
+                        name: prefix.Prefix.replace(path, '').replace('/', ''),
+                        size: 0,
+                        modified: null,
+                        isDirectory: true
+                    });
+                });
+            }
+
+            // Add files (contents)
+            if (response.Contents) {
+                response.Contents.forEach(object => {
+                    // Skip the path itself if it's a directory
+                    if (object.Key !== path && object.Key !== path + '/') {
+                        files.push({
+                            name: object.Key.replace(path, '').replace(/^\//, ''),
+                            size: object.Size,
+                            modified: object.LastModified,
+                            isDirectory: false
+                        });
+                    }
+                });
+            }
+
+            this._log('info', 'AWS S3 file listing completed', { path, fileCount: files.length });
+            
+            return {
+                success: true,
+                files: files,
+                message: `Listed ${files.length} files/directories`,
+                details: {
+                    path,
+                    bucket: this.settings.bucket,
+                    region: this.settings.region
+                }
+            };
+
+        } catch (error) {
+            this._log('error', 'AWS S3 file listing failed', { error: error.message, path });
+            return {
+                success: false,
+                files: [],
+                message: `Failed to list files: ${error.message}`,
+                details: { error: error.message, path }
+            };
+        }
+    }
+
+    /**
+     * Download a file from AWS S3
+     * @param {string} filename - Name of the file to download
+     * @param {string} localPath - Local path to save the file
+     * @returns {Promise<Object>} Download result
+     */
+    async downloadFile(filename, localPath) {
+        this._log('info', 'Downloading file from AWS S3', { filename, localPath });
+        
+        try {
+            // Validate configuration
+            if (!this.isServiceConfigured()) {
+                throw new Error('Service not properly configured');
+            }
+
+            // Import AWS SDK
+            const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+            const fs = require('fs').promises;
+            const path = require('path');
+
+            // Create S3 client
+            const s3Client = new S3Client({
+                region: this.settings.region,
+                credentials: {
+                    accessKeyId: this.settings.accessKey,
+                    secretAccessKey: this.settings.secretKey
+                }
+            });
+
+            // Get object command
+            const getCommand = new GetObjectCommand({
+                Bucket: this.settings.bucket,
+                Key: filename
+            });
+
+            const response = await s3Client.send(getCommand);
+            
+            // Convert stream to buffer
+            const chunks = [];
+            for await (const chunk of response.Body) {
+                chunks.push(chunk);
+            }
+            const fileBuffer = Buffer.concat(chunks);
+
+            // Ensure directory exists
+            const dir = path.dirname(localPath);
+            await fs.mkdir(dir, { recursive: true });
+
+            // Write file
+            await fs.writeFile(localPath, fileBuffer);
+
+            this._log('info', 'AWS S3 file download completed', { filename, localPath, size: fileBuffer.length });
+            
+            return {
+                success: true,
+                localPath: localPath,
+                message: 'File downloaded successfully',
+                details: {
+                    filename,
+                    localPath,
+                    size: fileBuffer.length,
+                    bucket: this.settings.bucket,
+                    region: this.settings.region
+                }
+            };
+
+        } catch (error) {
+            this._log('error', 'AWS S3 file download failed', { error: error.message, filename });
+            return {
+                success: false,
+                message: `Failed to download file: ${error.message}`,
+                details: { error: error.message, filename, localPath }
+            };
+        }
+    }
+
+    /**
+     * Create a shareable URL with expiration for AWS S3
+     * @param {string} filename - Name of the file to create URL for
+     * @param {Date|number} expiresAt - Expiration date or timestamp
+     * @returns {Promise<Object>} URL result
+     */
+    async createShareableUrl(filename, expiresAt) {
+        this._log('info', 'Creating shareable URL for AWS S3', { filename, expiresAt });
+        
+        try {
+            // Validate configuration
+            if (!this.isServiceConfigured()) {
+                throw new Error('Service not properly configured');
+            }
+
+            // Import AWS SDK
+            const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+            const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
+
+            // Create S3 client
+            const s3Client = new S3Client({
+                region: this.settings.region,
+                credentials: {
+                    accessKeyId: this.settings.accessKey,
+                    secretAccessKey: this.settings.secretKey
+                }
+            });
+
+            // Convert expiresAt to seconds from now
+            const expirationDate = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+            const expiresInSeconds = Math.floor((expirationDate.getTime() - Date.now()) / 1000);
+
+            if (expiresInSeconds <= 0) {
+                throw new Error('Expiration time must be in the future');
+            }
+
+            // Create command
+            const command = new GetObjectCommand({
+                Bucket: this.settings.bucket,
+                Key: filename
+            });
+
+            // Generate presigned URL
+            const presignedUrl = await getSignedUrl(s3Client, command, {
+                expiresIn: expiresInSeconds
+            });
+
+            this._log('info', 'AWS S3 shareable URL created', { filename, expiresAt: expirationDate });
+            
+            return {
+                success: true,
+                url: presignedUrl,
+                expiresAt: expirationDate,
+                message: 'Shareable URL created successfully',
+                details: {
+                    filename,
+                    expiresAt: expirationDate,
+                    expiresInSeconds,
+                    bucket: this.settings.bucket,
+                    region: this.settings.region
+                }
+            };
+
+        } catch (error) {
+            this._log('error', 'AWS S3 shareable URL creation failed', { error: error.message, filename });
+            return {
+                success: false,
+                message: `Failed to create shareable URL: ${error.message}`,
+                details: { error: error.message, filename, expiresAt }
+            };
+        }
+    }
+
+    /**
      * Update upload progress
      * @param {string} uploadId - Upload ID
      * @param {number} progress - Progress percentage (0-100)

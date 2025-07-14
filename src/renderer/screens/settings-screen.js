@@ -80,7 +80,7 @@ export class SettingsScreen {
 
                         <div class="flex items-center justify-between">
                             <div>
-                                <span class="text-sm font-medium text-gray-700">Extract Metadata</span>
+                                <span class="text-sm font-medium text-gray-700">Extract metadata</span>
                                 <p class="text-xs text-gray-500">Extract metadata and save as json in cloud stores</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
@@ -91,7 +91,7 @@ export class SettingsScreen {
 
                         <div class="flex items-center justify-between">
                             <div>
-                                <span class="text-sm font-medium text-gray-700">Index files</span>
+                                <span class="text-sm font-medium text-gray-700">Create indexes</span>
                                 <p class="text-xs text-gray-500">Generate json indexes of uploaded files</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">

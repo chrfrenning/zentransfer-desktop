@@ -74,6 +74,35 @@ class UploadServiceBase {
     }
 
     /**
+     * List files in a given path
+     * @param {string} path - Path to list files from (empty string for root)
+     * @returns {Promise<Object>} List result with { success: boolean, files: Array<{name: string, size: number, modified: Date, isDirectory: boolean}>, message?: string }
+     */
+    async listFiles(path = '') {
+        throw new Error('listFiles() is not implemented for this service');
+    }
+
+    /**
+     * Download a file from the service
+     * @param {string} filename - Name of the file to download
+     * @param {string} localPath - Local path to save the file
+     * @returns {Promise<Object>} Download result with { success: boolean, localPath?: string, message: string, details?: any }
+     */
+    async downloadFile(filename, localPath) {
+        throw new Error('downloadFile() is not implemented for this service');
+    }
+
+    /**
+     * Create a shareable URL with expiration
+     * @param {string} filename - Name of the file to create URL for
+     * @param {Date|number} expiresAt - Expiration date or timestamp
+     * @returns {Promise<Object>} URL result with { success: boolean, url?: string, expiresAt?: Date, message: string, details?: any }
+     */
+    async createShareableUrl(filename, expiresAt) {
+        throw new Error('createShareableUrl() is not implemented for this service');
+    }
+
+    /**
      * Update service settings
      * @param {Object} newSettings - New settings to merge
      */

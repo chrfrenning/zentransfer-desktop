@@ -564,6 +564,220 @@ class GcpStorageService extends UploadServiceBase {
     }
 
     /**
+     * List files in a given path
+     * @param {string} path - Path to list files from (empty string for root)
+     * @returns {Promise<Object>} List result with files array
+     */
+    async listFiles(path = '') {
+        this._log('info', 'Listing files in GCP Cloud Storage', { path });
+        
+        try {
+            // Validate configuration
+            if (!this.isServiceConfigured()) {
+                throw new Error('Service not properly configured');
+            }
+
+            // Ensure service account data is parsed
+            if (!this.serviceAccountData) {
+                this.serviceAccountData = JSON.parse(this.settings.serviceAccountKey);
+            }
+
+            // Import Google Cloud Storage SDK
+            const { Storage } = require('@google-cloud/storage');
+
+            // Create storage client
+            const storage = new Storage({
+                credentials: this.serviceAccountData,
+                projectId: this.serviceAccountData.project_id
+            });
+
+            const bucket = storage.bucket(this.settings.bucketName);
+            const files = [];
+
+            // List files with prefix
+            const [gcsFiles] = await bucket.getFiles({
+                prefix: path,
+                delimiter: '/'
+            });
+
+            // Process files
+            gcsFiles.forEach(file => {
+                // Skip the path itself if it's a directory marker
+                if (file.name !== path && file.name !== path + '/') {
+                    files.push({
+                        name: file.name.replace(path, '').replace(/^\//, ''),
+                        size: parseInt(file.metadata.size),
+                        modified: new Date(file.metadata.timeCreated),
+                        isDirectory: false
+                    });
+                }
+            });
+
+            this._log('info', 'GCP Cloud Storage file listing completed', { path, fileCount: files.length });
+            
+            return {
+                success: true,
+                files: files,
+                message: `Listed ${files.length} files`,
+                details: {
+                    path,
+                    bucketName: this.settings.bucketName,
+                    projectId: this.serviceAccountData.project_id
+                }
+            };
+
+        } catch (error) {
+            this._log('error', 'GCP Cloud Storage file listing failed', { error: error.message, path });
+            return {
+                success: false,
+                files: [],
+                message: `Failed to list files: ${error.message}`,
+                details: { error: error.message, path }
+            };
+        }
+    }
+
+    /**
+     * Download a file from GCP Cloud Storage
+     * @param {string} filename - Name of the file to download
+     * @param {string} localPath - Local path to save the file
+     * @returns {Promise<Object>} Download result
+     */
+    async downloadFile(filename, localPath) {
+        this._log('info', 'Downloading file from GCP Cloud Storage', { filename, localPath });
+        
+        try {
+            // Validate configuration
+            if (!this.isServiceConfigured()) {
+                throw new Error('Service not properly configured');
+            }
+
+            // Ensure service account data is parsed
+            if (!this.serviceAccountData) {
+                this.serviceAccountData = JSON.parse(this.settings.serviceAccountKey);
+            }
+
+            // Import Google Cloud Storage SDK
+            const { Storage } = require('@google-cloud/storage');
+            const fs = require('fs').promises;
+            const path = require('path');
+
+            // Create storage client
+            const storage = new Storage({
+                credentials: this.serviceAccountData,
+                projectId: this.serviceAccountData.project_id
+            });
+
+            const bucket = storage.bucket(this.settings.bucketName);
+            const file = bucket.file(filename);
+
+            // Download file
+            const [fileContent] = await file.download();
+
+            // Ensure directory exists
+            const dir = path.dirname(localPath);
+            await fs.mkdir(dir, { recursive: true });
+
+            // Write file
+            await fs.writeFile(localPath, fileContent);
+
+            this._log('info', 'GCP Cloud Storage file download completed', { filename, localPath, size: fileContent.length });
+            
+            return {
+                success: true,
+                localPath: localPath,
+                message: 'File downloaded successfully',
+                details: {
+                    filename,
+                    localPath,
+                    size: fileContent.length,
+                    bucketName: this.settings.bucketName,
+                    projectId: this.serviceAccountData.project_id
+                }
+            };
+
+        } catch (error) {
+            this._log('error', 'GCP Cloud Storage file download failed', { error: error.message, filename });
+            return {
+                success: false,
+                message: `Failed to download file: ${error.message}`,
+                details: { error: error.message, filename, localPath }
+            };
+        }
+    }
+
+    /**
+     * Create a shareable URL with expiration for GCP Cloud Storage
+     * @param {string} filename - Name of the file to create URL for
+     * @param {Date|number} expiresAt - Expiration date or timestamp
+     * @returns {Promise<Object>} URL result
+     */
+    async createShareableUrl(filename, expiresAt) {
+        this._log('info', 'Creating shareable URL for GCP Cloud Storage', { filename, expiresAt });
+        
+        try {
+            // Validate configuration
+            if (!this.isServiceConfigured()) {
+                throw new Error('Service not properly configured');
+            }
+
+            // Ensure service account data is parsed
+            if (!this.serviceAccountData) {
+                this.serviceAccountData = JSON.parse(this.settings.serviceAccountKey);
+            }
+
+            // Import Google Cloud Storage SDK
+            const { Storage } = require('@google-cloud/storage');
+
+            // Create storage client
+            const storage = new Storage({
+                credentials: this.serviceAccountData,
+                projectId: this.serviceAccountData.project_id
+            });
+
+            const bucket = storage.bucket(this.settings.bucketName);
+            const file = bucket.file(filename);
+
+            // Convert expiresAt to Date
+            const expirationDate = expiresAt instanceof Date ? expiresAt : new Date(expiresAt);
+
+            if (expirationDate.getTime() <= Date.now()) {
+                throw new Error('Expiration time must be in the future');
+            }
+
+            // Generate signed URL
+            const [signedUrl] = await file.getSignedUrl({
+                version: 'v4',
+                action: 'read',
+                expires: expirationDate
+            });
+
+            this._log('info', 'GCP Cloud Storage shareable URL created', { filename, expiresAt: expirationDate });
+            
+            return {
+                success: true,
+                url: signedUrl,
+                expiresAt: expirationDate,
+                message: 'Shareable URL created successfully',
+                details: {
+                    filename,
+                    expiresAt: expirationDate,
+                    bucketName: this.settings.bucketName,
+                    projectId: this.serviceAccountData.project_id
+                }
+            };
+
+        } catch (error) {
+            this._log('error', 'GCP Cloud Storage shareable URL creation failed', { error: error.message, filename });
+            return {
+                success: false,
+                message: `Failed to create shareable URL: ${error.message}`,
+                details: { error: error.message, filename, expiresAt }
+            };
+        }
+    }
+
+    /**
      * Update upload progress
      * @param {string} uploadId - Upload ID
      * @param {number} progress - Progress percentage (0-100)
