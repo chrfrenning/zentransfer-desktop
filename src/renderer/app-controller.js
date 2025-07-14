@@ -8,14 +8,14 @@ import { UploadManager } from './upload/upload-manager.js';
 import { UIComponents } from './components/ui-components.js';
 import { config } from './config/app-config.js';
 import { ScreenManager } from './screens/screen-manager.js';
-import { UpdateManager } from './components/update-manager.js';
+
 import { logger } from './logger.js';
 
 export class AppController {
     constructor() {
         this.authManager = new AuthManager();
         this.uploadManager = new UploadManager();
-        this.updateManager = null;
+
         this.currentTab = 'import';
         this.isInitialized = false;
         
@@ -71,9 +71,7 @@ export class AppController {
 
             // Screen manager handles upload callbacks automatically
 
-            // Initialize update manager
-            this.updateManager = new UpdateManager();
-            logger.info('Update manager initialized');
+
 
             // Initialize UI event listeners
             this.initializeUIEventListeners();
@@ -86,7 +84,7 @@ export class AppController {
 
         } catch (error) {
             logger.error('App initialization failed', { error });
-            UIComponents.Notification.show('Failed to initialize app. Please refresh the page.', 'error');
+                            console.error('Failed to initialize app. Please refresh the page.');
         }
     }
 
@@ -97,11 +95,11 @@ export class AppController {
     handleAuthStateChange(state) {
         logger.info('AppController: handleAuthStateChange called with state', { state });
 
-        // Show notifications for certain states
+        // Log messages for certain states
         if (state.status === 'otp_required' && state.message) {
-            UIComponents.Notification.show(state.message, 'success');
+            console.log(state.message);
         } else if (state.status === 'authenticated' && state.message) {
-            UIComponents.Notification.show(state.message, 'success');
+            console.log(state.message);
         }
 
         // Handle upload manager auth state changes
@@ -194,7 +192,7 @@ export class AppController {
                 lineno: event.lineno,
                 colno: event.colno
             });
-            UIComponents.Notification.show('An unexpected error occurred.', 'error');
+            console.error('An unexpected error occurred.');
         });
 
         window.addEventListener('unhandledrejection', (event) => {
@@ -204,7 +202,7 @@ export class AppController {
                 promise: event.promise,
                 stack: event.reason?.stack
             });
-            UIComponents.Notification.show('An unexpected error occurred.', 'error');
+            console.error('An unexpected error occurred.');
         });
     }
 

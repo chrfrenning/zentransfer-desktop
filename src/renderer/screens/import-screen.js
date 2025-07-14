@@ -891,12 +891,12 @@ export class ImportScreen {
                             if (exists) {
                                 selectedPath = trimmedPath;
                             } else {
-                                UIComponents.Notification.show('Directory does not exist: ' + trimmedPath, 'error');
+                                console.error('Directory does not exist: ' + trimmedPath);
                                 return;
                             }
                         } catch (fsError) {
                             console.error('File system access error:', fsError);
-                            UIComponents.Notification.show('Failed to access directory', 'error');
+                            console.error('Failed to access directory');
                             return;
                         }
                     } else {
@@ -917,7 +917,7 @@ export class ImportScreen {
                         userCancelled = true;
                     } else {
                         console.error('Directory picker failed:', err);
-                        UIComponents.Notification.show('Failed to open directory picker', 'error');
+                        console.error('Failed to open directory picker');
                         return;
                     }
                 }
@@ -944,13 +944,13 @@ export class ImportScreen {
                 this.savePath(type, selectedPath);
                 this.validateInputs();
                 this.saveAllSettings();
-                UIComponents.Notification.show(`${type.charAt(0).toUpperCase() + type.slice(1)} directory selected: ${selectedPath}`, 'success');
+                console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} directory selected: ${selectedPath}`);
             }
             // If user cancelled, do nothing - keep existing path value
 
         } catch (error) {
             console.error('Failed to browse directory:', error);
-            UIComponents.Notification.show(`Failed to select ${type} directory`, 'error');
+                            console.error(`Failed to select ${type} directory`);
         }
     }
 
@@ -1215,7 +1215,7 @@ export class ImportScreen {
         } catch (error) {
             console.error('Failed to start import:', error);
             this.addLogEntry(`Failed to start import: ${error.message}`);
-            UIComponents.Notification.show('Failed to start import: ' + error.message, 'error');
+                            console.error('Failed to start import: ' + error.message);
             
             this.isImporting = false;
             this.switchMode(false);
@@ -1367,10 +1367,10 @@ export class ImportScreen {
             if (results.failedFiles > 0) {
                 this.addLogEntry(`${results.failedFiles} files failed to process`);
             }
-            UIComponents.Notification.show(message, 'success');
+                            console.log(message);
         } else {
             this.addLogEntry('Import process finished');
-            UIComponents.Notification.show('Import completed!', 'success');
+                            console.log('Import completed!');
         }
         
         this.updateProgressDisplay();
@@ -1391,7 +1391,7 @@ export class ImportScreen {
         this.switchMode(false);
 
         this.addLogEntry(`Import failed: ${data.error}`);
-        UIComponents.Notification.show(`Import failed: ${data.error}`, 'error');
+                        console.error(`Import failed: ${data.error}`);
         this.updateProgressDisplay();
         
         // Clear log entries after a delay to allow user to see error message
@@ -1410,7 +1410,7 @@ export class ImportScreen {
         this.switchMode(false);
 
         this.addLogEntry('Import cancelled by user');
-        UIComponents.Notification.show('Import cancelled', 'info');
+                        console.log('Import cancelled');
         this.updateProgressDisplay();
         
         // Clear log entries after a delay to allow user to see cancellation message

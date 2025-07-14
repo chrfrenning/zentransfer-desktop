@@ -66,7 +66,7 @@ export class DownloadQueueManager {
         this.notifyQueueUpdate();
 
         if (newFiles.length > 0) {
-            UIComponents.Notification.show(`Added ${newFiles.length} file(s) to download queue`, 'success');
+            console.log(`Added ${newFiles.length} file(s) to download queue`);
             
             // Start processing if not already processing
             if (!this.isProcessing) {

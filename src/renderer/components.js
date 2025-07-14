@@ -32,44 +32,11 @@ const Modal = {
   }
 };
 
-const Notification = {
-  show: (message, type = 'success') => {
-    console.warn('Notification.show is deprecated. Use UIComponents.Notification.show instead.');
-    const notification = document.createElement('div');
-    const bgColor = type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-    const textColor = type === 'success' ? 'text-green-800' : 'text-red-800';
-    
-    notification.className = `fixed top-4 right-4 max-w-sm w-full ${bgColor} border rounded-lg p-4 shadow-lg animate-slide-up z-50`;
-    notification.innerHTML = `
-      <div class="flex">
-        <div class="flex-1">
-          <p class="${textColor} text-sm font-medium">${message}</p>
-        </div>
-        <button class="ml-3 text-gray-400 hover:text-gray-600" onclick="this.closest('div').remove()">
-          <span class="sr-only">Close</span>
-          <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-          </svg>
-        </button>
-      </div>
-    `;
-    
-    document.body.appendChild(notification);
-    
-    // Auto remove after 5 seconds
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.remove();
-      }
-    }, 5000);
-    
-    return notification;
-  }
-};
+
 
 // Export for backward compatibility
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { Modal, Notification };
+  module.exports = { Modal };
 } else {
-  window.Components = { Modal, Notification };
+  window.Components = { Modal };
 } 

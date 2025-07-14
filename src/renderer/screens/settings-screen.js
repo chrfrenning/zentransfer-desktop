@@ -66,13 +66,7 @@ export class SettingsScreen {
                                 <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
                             </label>
                         </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-sm text-gray-600">Disable notifications</span>
-                            <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="disableNotificationsToggle" class="sr-only peer">
-                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
-                            </label>
-                        </div>
+
                     </div>
                 </div>
 
@@ -435,15 +429,10 @@ export class SettingsScreen {
         }
 
         // Preference toggles
-        const disableNotificationsToggle = document.getElementById('disableNotificationsToggle');
         const skipDuplicatesToggle = document.getElementById('skipDuplicatesToggle');
         const azureEnableToggle = document.getElementById('azureEnableToggle');
 
-        if (disableNotificationsToggle) {
-            disableNotificationsToggle.addEventListener('change', (e) => {
-                this.updateGeneralPreference('disableNotifications', e.target.checked);
-            });
-        }
+
 
         if (skipDuplicatesToggle) {
             skipDuplicatesToggle.addEventListener('change', async (e) => {
@@ -823,7 +812,7 @@ export class SettingsScreen {
                 
             } catch (error) {
                 console.error('Error during sign out:', error);
-                UIComponents.Notification.show('Sign out completed, but some data may not have been cleared.', 'warning');
+                console.warn('Sign out completed, but some data may not have been cleared.');
                 
                 // Still try to exit even if there was an error
                 if (window.electronAPI) {
@@ -872,18 +861,11 @@ export class SettingsScreen {
         try {
             await window.electronAPI.config.set(`preferences.${key}`, value);
             
-            // Special handling for notification preference changes - no notification needed!
-            if (key === 'disableNotifications') {
-                // Just log the change, don't show a notification (that would be ironic!)
-                console.log(`Notifications ${value ? 'disabled' : 'enabled'}`);
-            } else {
-                UIComponents.Notification.show(`Preference "${key}" updated.`, 'success');
-            }
+            console.log(`Preference "${key}" updated.`);
             
             console.log(`General preference updated: ${key} = ${value}`);
         } catch (error) {
             console.error('Failed to update general preference:', error);
-            UIComponents.Notification.forceShow('Failed to update preference.', 'error');
         }
     }
 
@@ -912,13 +894,12 @@ export class SettingsScreen {
                     this.onSettingsChangeCallback();
                 }
                 
-                UIComponents.Notification.show(`${serviceType.toUpperCase()} setting updated.`, 'success');
+                console.log(`${serviceType.toUpperCase()} setting updated.`);
             } else {
                 throw new Error(`Cloud service ${serviceType} not found`);
             }
         } catch (error) {
             console.error(`Failed to update cloud service ${serviceType}:`, error);
-            UIComponents.Notification.forceShow(`Failed to update ${serviceType} setting.`, 'error');
         }
     }
 
@@ -932,11 +913,7 @@ export class SettingsScreen {
         console.warn('updatePreference is deprecated. Use updateGeneralPreference or updateCloudServiceSetting instead.');
         
         // For backward compatibility, handle some common cases
-        if (key === 'disableNotifications') {
-            this.updateGeneralPreference(key, value);
-        } else {
-            console.error(`Unsupported preference key for updatePreference: ${key}`);
-        }
+        console.error(`Unsupported preference key for updatePreference: ${key}`);
     }
 
     /**
@@ -949,7 +926,6 @@ export class SettingsScreen {
         
         // Return empty object for backward compatibility
         return {
-            disableNotifications: true,
             azureEnabled: false,
             azureContainer: '',
             azureConnectionString: '',
@@ -971,7 +947,6 @@ export class SettingsScreen {
     async loadPreferences() {
         try {
             // Load general preferences from config
-            const disableNotifications = await window.electronAPI.config.get('preferences.disableNotifications');
             
             // Load cloud service configurations from config (full config including credentials)
             const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
@@ -982,7 +957,6 @@ export class SettingsScreen {
             await new Promise(resolve => setTimeout(resolve, 100));
             
             // Get UI elements
-            const disableNotificationsToggle = document.getElementById('disableNotificationsToggle');
             const skipDuplicatesToggle = document.getElementById('skipDuplicatesToggle');
             const azureEnableToggle = document.getElementById('azureEnableToggle');
             const azureSettings = document.getElementById('azureSettings');
@@ -1000,9 +974,6 @@ export class SettingsScreen {
             const awsS3SecretKey = document.getElementById('awsS3SecretKey');
 
             // Load general preferences
-            if (disableNotificationsToggle) {
-                disableNotificationsToggle.checked = disableNotifications !== false; // Default to true
-            }
             
             // Load skipDuplicates from configuration (importSettings.skipDuplicates for consistency)
             if (skipDuplicatesToggle) {
@@ -1092,13 +1063,11 @@ export class SettingsScreen {
             console.error('Failed to load preferences from configuration:', error);
             
             // Fallback to default values if loading fails
-            const disableNotificationsToggle = document.getElementById('disableNotificationsToggle');
             const skipDuplicatesToggle = document.getElementById('skipDuplicatesToggle');
             
-            if (disableNotificationsToggle) disableNotificationsToggle.checked = true;
             if (skipDuplicatesToggle) skipDuplicatesToggle.checked = false;
             
-            UIComponents.Notification.show('Failed to load settings from configuration.', 'warning');
+            console.warn('Failed to load settings from configuration.');
         }
     }
 
@@ -1127,10 +1096,10 @@ export class SettingsScreen {
                 // Clear session storage
                 sessionStorage.clear();
 
-                UIComponents.Notification.show('Cache cleared successfully.', 'success');
+                console.log('Cache cleared successfully.');
             } catch (error) {
                 console.error('Failed to clear cache:', error);
-                UIComponents.Notification.show('Failed to clear cache.', 'error');
+                console.error('Failed to clear cache.');
             }
         }
     }
@@ -1163,7 +1132,7 @@ export class SettingsScreen {
                     await Promise.all(cacheNames.map(name => caches.delete(name)));
                 }
 
-                UIComponents.Notification.show('All data cleared. You will be signed out.', 'info');
+                console.log('All data cleared. You will be signed out.');
                 
                 // Sign out user
                 setTimeout(() => {
@@ -1172,7 +1141,7 @@ export class SettingsScreen {
                 
             } catch (error) {
                 console.error('Failed to clear all data:', error);
-                UIComponents.Notification.show('Failed to clear all data.', 'error');
+                console.error('Failed to clear all data.');
             }
         }
     }
@@ -1210,30 +1179,7 @@ export class SettingsScreen {
         });
     }
 
-    /**
-     * Test notification system (debug)
-     */
-    testNotification() {
-        const types = ['success', 'error', 'warning', 'info'];
-        const messages = [
-            'This is a success notification!',
-            'This is an error notification!',
-            'This is a warning notification!',
-            'This is an info notification!'
-        ];
 
-        // Check if notifications are disabled and inform user
-        if (UIComponents.Notification.areDisabled()) {
-            console.log('Notifications are currently disabled. Testing will force show notifications.');
-        }
-
-        types.forEach((type, index) => {
-            setTimeout(() => {
-                // Use forceShow to bypass notification preferences for testing
-                UIComponents.Notification.forceShow(messages[index], type);
-            }, index * 1000);
-        });
-    }
 
     /**
      * Simulate an error (debug)
@@ -1348,22 +1294,19 @@ export class SettingsScreen {
             if (settings.preferences) {
                 // Import general preferences to config system
                 for (const [key, value] of Object.entries(settings.preferences)) {
-                    if (key === 'disableNotifications') {
-                        await window.electronAPI.config.set('preferences.disableNotifications', value);
-                    } else if (key === 'skipDuplicates') {
+                    if (key === 'skipDuplicates') {
                         await window.electronAPI.config.set('preferences.skipDuplicates', value);
                     }
                     // Note: Cloud service settings are handled separately in the new system
                 }
                 
                 await this.loadPreferences();
-                UIComponents.Notification.show('Settings imported successfully. Cloud service settings need to be configured separately.', 'success');
+                console.log('Settings imported successfully. Cloud service settings need to be configured separately.');
             } else {
                 throw new Error('Invalid settings format');
             }
         } catch (error) {
             console.error('Failed to import settings:', error);
-            UIComponents.Notification.show('Failed to import settings.', 'error');
         }
     }
 
@@ -1374,23 +1317,7 @@ export class SettingsScreen {
         this.isVisible = false;
     }
 
-    /**
-     * Check if notifications are disabled
-     * @returns {boolean} True if notifications are disabled
-     */
-    static areNotificationsDisabled() {
-        try {
-            const preferences = localStorage.getItem('zentransfer_preferences');
-            if (preferences) {
-                const parsedPreferences = JSON.parse(preferences);
-                return parsedPreferences.disableNotifications === true;
-            }
-            return true; // Default to notifications disabled
-        } catch (error) {
-            console.error('Failed to check notification preferences:', error);
-            return true; // Default to notifications disabled if error
-        }
-    }
+
 
     /**
      * Create secure input fields for Azure
@@ -1455,7 +1382,7 @@ export class SettingsScreen {
 
         // Validate file type
         if (!file.name.endsWith('.json')) {
-            UIComponents.Notification.forceShow('Please select a valid JSON file.', 'error');
+                            console.error('Please select a valid JSON file.');
             event.target.value = '';
             return;
         }
@@ -1494,7 +1421,7 @@ export class SettingsScreen {
             this.updateGcpFileButtonText('✓ Service account key loaded');
             this.resetGcpTestButton();
 
-            UIComponents.Notification.show('GCP service account key uploaded and validated successfully.', 'success');
+                            console.log('GCP service account key uploaded and validated successfully.');
 
         } catch (error) {
             console.error('Failed to process GCP key file:', error);
@@ -1512,14 +1439,8 @@ export class SettingsScreen {
             
             console.log('About to show error notification:', errorMessage);
             
-            // Always show the error notification (force show to bypass notification preferences)
-            try {
-                const notificationResult = UIComponents.Notification.forceShow(errorMessage, 'error');
-                console.log('Notification result:', notificationResult);
-            } catch (notificationError) {
-                console.error('Failed to show notification:', notificationError);
-                alert('Error: ' + errorMessage);
-            }
+            // Log the error
+            console.error(errorMessage);
             
             // Clear the file input
             event.target.value = '';
@@ -1578,7 +1499,7 @@ export class SettingsScreen {
             gcpKeyFile.value = '';
         }
 
-        UIComponents.Notification.show('GCP service account key cleared.', 'info');
+        console.log('GCP service account key cleared.');
     }
 
     /**
@@ -1594,7 +1515,7 @@ export class SettingsScreen {
 
         // Validate required fields
         if (!gcpService || !gcpService.bucketName || !gcpService.serviceAccountKey) {
-            UIComponents.Notification.show('Please fill in all required GCP fields.', 'warning');
+            console.warn('Please fill in all required GCP fields.');
             return;
         }
 
@@ -1605,7 +1526,7 @@ export class SettingsScreen {
                 throw new Error('Invalid service account key format');
             }
         } catch (error) {
-            UIComponents.Notification.show('Invalid service account key format.', 'error');
+            console.error('Invalid service account key format.');
             return;
         }
 
@@ -1674,7 +1595,7 @@ export class SettingsScreen {
                 this.gcpConnectionTested = true;
                 
                 // Show success notification
-                UIComponents.Notification.show('GCP Cloud Storage connection test successful! 🎉', 'success');
+                console.log('GCP Cloud Storage connection test successful! 🎉');
             }
             
         } catch (error) {
@@ -1704,7 +1625,7 @@ export class SettingsScreen {
                 }, 3000);
             }
             
-            UIComponents.Notification.show(`GCP Cloud Storage connection test failed: ${error.message}`, 'error');
+                            console.error(`GCP Cloud Storage connection test failed: ${error.message}`);
         }
     }
 
@@ -1867,7 +1788,7 @@ export class SettingsScreen {
                 regionSelect.value = preferences.awsS3Region;
             }
 
-            UIComponents.Notification.show('Using fallback region list. Check your internet connection.', 'warning');
+            console.warn('Using fallback region list. Check your internet connection.');
         }
     }
 
@@ -1920,7 +1841,7 @@ export class SettingsScreen {
 
         // Validate required fields
         if (!awsS3Service || !awsS3Service.region || !awsS3Service.bucket || !awsS3Service.accessKey || !awsS3Service.secretKey) {
-            UIComponents.Notification.show('Please fill in all required AWS S3 fields.', 'warning');
+            console.warn('Please fill in all required AWS S3 fields.');
             return;
         }
 
@@ -1992,7 +1913,7 @@ export class SettingsScreen {
                 this.s3ConnectionTested = true;
                 
                 // Show success notification
-                UIComponents.Notification.show('AWS S3 connection test successful! 🎉', 'success');
+                console.log('AWS S3 connection test successful! 🎉');
             }
             
         } catch (error) {
@@ -2022,7 +1943,7 @@ export class SettingsScreen {
                 }, 3000);
             }
             
-            UIComponents.Notification.show(`AWS S3 connection test failed: ${error.message}`, 'error');
+            console.error(`AWS S3 connection test failed: ${error.message}`);
         }
     }
 
@@ -2070,7 +1991,7 @@ export class SettingsScreen {
 
         // Validate required fields
         if (!azureService || !azureService.containerName || !azureService.connectionString) {
-            UIComponents.Notification.show('Please fill in all required Azure fields.', 'warning');
+            console.warn('Please fill in all required Azure fields.');
             return;
         }
 
@@ -2139,7 +2060,7 @@ export class SettingsScreen {
                 this.azureConnectionTested = true;
                 
                 // Show success notification
-                UIComponents.Notification.show('Azure Blob Storage connection test successful! 🎉', 'success');
+                console.log('Azure Blob Storage connection test successful! 🎉');
             }
             
         } catch (error) {
@@ -2169,7 +2090,7 @@ export class SettingsScreen {
                 }, 3000);
             }
             
-            UIComponents.Notification.show(`Azure Blob Storage connection test failed: ${error.message}`, 'error');
+            console.error(`Azure Blob Storage connection test failed: ${error.message}`);
         }
     }
 
@@ -2450,11 +2371,11 @@ export class SettingsScreen {
                 try {
                     const result = await logger.showLogsFolder();
                     if (!result.success) {
-                        UIComponents.Notification.show('Failed to open logs folder: ' + result.error, 'error');
+                        console.error('Failed to open logs folder: ' + result.error);
                     }
                 } catch (error) {
                     logger.error('Error opening logs folder from settings', { error: error.message });
-                    UIComponents.Notification.show('Failed to open logs folder', 'error');
+                    console.error('Failed to open logs folder');
                 }
             });
         }

@@ -229,7 +229,7 @@ export class UploadScreen {
         
         // Check if any services are available
         if (this.availableServices.length === 0) {
-            UIComponents.Notification.show('No upload services available. Please log in or configure services in Settings.', 'warning');
+                            console.warn('No upload services available. Please log in or configure services in Settings.');
             return;
         }
         
@@ -257,7 +257,7 @@ export class UploadScreen {
                         console.log('uploadManager.addFiles completed');
                     } catch (error) {
                         console.error('Error calling uploadManager.addFiles:', error);
-                        UIComponents.Notification.show('Failed to add files: ' + error.message, 'error');
+                        console.error('Failed to add files: ' + error.message);
                     }
                 } else {
                     console.log('No files selected or dialog cancelled');
@@ -265,7 +265,7 @@ export class UploadScreen {
                 
             } catch (error) {
                 console.error('Native file dialog failed:', error);
-                UIComponents.Notification.show('Failed to open file dialog', 'error');
+                console.error('Failed to open file dialog');
             }
         } else {
             // Fallback for non-Electron environments
@@ -294,7 +294,7 @@ export class UploadScreen {
                         await this.uploadManager.addFiles(e.target.files);
                     } catch (error) {
                         console.error('Error calling uploadManager.addFiles:', error);
-                        UIComponents.Notification.show('Failed to add files: ' + error.message, 'error');
+                        console.error('Failed to add files: ' + error.message);
                     }
                     e.target.value = ''; // Reset input
                 }
@@ -787,7 +787,7 @@ export class UploadScreen {
             await this.uploadManager.stopAllUploads();
         } catch (error) {
             console.error('Failed to stop uploads:', error);
-            UIComponents.Notification.show('Failed to stop uploads: ' + error.message, 'error');
+                            console.error('Failed to stop uploads: ' + error.message);
         }
     }
 
@@ -808,10 +808,10 @@ export class UploadScreen {
             // Update available services to refresh the UI
             this.updateAvailableServices();
             
-            UIComponents.Notification.show('Upload history cleared.', 'info');
+            console.log('Upload history cleared.');
         } catch (error) {
             console.error('Failed to clear upload history:', error);
-            UIComponents.Notification.show('Failed to clear upload history: ' + error.message, 'error');
+                            console.error('Failed to clear upload history: ' + error.message);
         }
     }
 

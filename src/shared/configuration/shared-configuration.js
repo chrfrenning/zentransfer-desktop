@@ -10,7 +10,6 @@ class SharedConfiguration {
     constructor() {
         // User preferences
         this.preferences = {
-            disableNotifications: true,
             skipDuplicates: false
         };
 

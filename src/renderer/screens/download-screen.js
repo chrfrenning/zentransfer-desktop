@@ -346,7 +346,7 @@ export class DownloadScreen {
                     this.downloadQueue.set(data.file.id, data.file);
                 }
                 this.updateFileListWithOrdering();
-                UIComponents.Notification.show(`Started downloading: ${data.file.name}`, 'info');
+                console.log(`Started downloading: ${data.file.name}`);
                 break;
 
             case 'download-completed':
@@ -361,7 +361,7 @@ export class DownloadScreen {
                     this.downloadQueue.set(data.file.id, file);
                 }
                 this.updateFileListWithOrdering();
-                UIComponents.Notification.show(`Download completed: ${data.file.name}`, 'success');
+                console.log(`Download completed: ${data.file.name}`);
                 break;
 
             case 'download-failed':
@@ -375,7 +375,7 @@ export class DownloadScreen {
                     this.downloadQueue.set(data.file.id, file);
                 }
                 this.updateFileListWithOrdering();
-                UIComponents.Notification.show(`Download failed: ${data.file.name}`, 'error');
+                console.error(`Download failed: ${data.file.name}`);
                 break;
 
             case 'queue-update':
@@ -388,7 +388,7 @@ export class DownloadScreen {
                 // Clear the local download queue
                 this.downloadQueue.clear();
                 this.updateFileListWithOrdering();
-                UIComponents.Notification.show(data.message, 'info');
+                console.log(data.message);
                 break;
 
             case 'sync-time-update':
@@ -399,7 +399,7 @@ export class DownloadScreen {
 
             case 'monitoring-error':
                 console.error('Monitoring error:', data.error);
-                UIComponents.Notification.show('Monitoring error: ' + data.error, 'error');
+                console.error('Monitoring error: ' + data.error);
                 break;
 
             default:
@@ -450,7 +450,7 @@ export class DownloadScreen {
                         this.queueManager.setDownloadPath(selectedPath);
                         await window.electronAPI.config.set('downloadSettings.downloadPath', selectedPath);
                         this.updateStartButtonState();
-                        UIComponents.Notification.show('Download directory selected: ' + selectedPath, 'success');
+                        console.log('Download directory selected: ' + selectedPath);
                     }
                     return;
                 } catch (error) {
@@ -470,10 +470,10 @@ export class DownloadScreen {
                                 this.queueManager.setDownloadPath(trimmedPath);
                                 await window.electronAPI.config.set('downloadSettings.downloadPath', trimmedPath);
                                 this.updateStartButtonState();
-                                UIComponents.Notification.show('Download directory set: ' + trimmedPath, 'success');
+                                console.log('Download directory set: ' + trimmedPath);
                                 return;
                             } else {
-                                UIComponents.Notification.show('Directory does not exist: ' + trimmedPath, 'error');
+                                console.error('Directory does not exist: ' + trimmedPath);
                                 return;
                             }
                         } catch (fsError) {
@@ -493,7 +493,7 @@ export class DownloadScreen {
                     this.queueManager.setDownloadPath(path);
                     await window.electronAPI.config.set('downloadSettings.downloadPath', path);
                     this.updateStartButtonState();
-                    UIComponents.Notification.show('Download directory selected: ' + path, 'success');
+                    console.log('Download directory selected: ' + path);
                     return;
                 } catch (err) {
                     if (err.name !== 'AbortError') {
@@ -516,12 +516,12 @@ export class DownloadScreen {
                 this.queueManager.setDownloadPath(defaultPath);
                 await window.electronAPI.config.set('downloadSettings.downloadPath', defaultPath);
                 this.updateStartButtonState();
-                UIComponents.Notification.show('Using browser default download directory', 'success');
+                console.log('Using browser default download directory');
             }
 
         } catch (error) {
             console.error('Failed to browse path:', error);
-            UIComponents.Notification.show('Failed to set download path', 'error');
+            console.error('Failed to set download path');
         }
     }
 
@@ -554,7 +554,7 @@ export class DownloadScreen {
                 }
             }
 
-            UIComponents.Notification.show('Sync time reset', 'success');
+            console.log('Sync time reset');
         }
     }
 
@@ -566,7 +566,7 @@ export class DownloadScreen {
 
         const downloadPath = this.queueManager.downloadPath;
         if (!downloadPath) {
-            UIComponents.Notification.show('Please set a download directory first', 'error');
+            console.error('Please set a download directory first');
             return;
         }
 
@@ -589,11 +589,11 @@ export class DownloadScreen {
                 }
             }
 
-            UIComponents.Notification.show('File monitoring started', 'success');
+            console.log('File monitoring started');
 
         } catch (error) {
             console.error('Failed to start monitoring:', error);
-            UIComponents.Notification.show('Failed to start monitoring: ' + error.message, 'error');
+            console.error('Failed to start monitoring: ' + error.message);
             this.stopMonitoring();
         }
     }
@@ -617,10 +617,10 @@ export class DownloadScreen {
                 }
             }
 
-            UIComponents.Notification.show('File monitoring stopped', 'info');
+            console.log('File monitoring stopped');
         } catch (error) {
             console.error('Failed to stop monitoring:', error);
-            UIComponents.Notification.show('Failed to stop monitoring: ' + error.message, 'error');
+            console.error('Failed to stop monitoring: ' + error.message);
         }
     }
 

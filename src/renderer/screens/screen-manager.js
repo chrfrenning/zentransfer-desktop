@@ -316,9 +316,7 @@ export class ScreenManager {
             // Add click handler to show offline message
             downloadTabBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                if (typeof UIComponents !== 'undefined' && UIComponents.Notification) {
-                    UIComponents.Notification.show('Download feature requires login. Please log in to access downloads.', 'warning');
-                }
+                console.warn('Download feature requires login. Please log in to access downloads.');
             });
         }
         

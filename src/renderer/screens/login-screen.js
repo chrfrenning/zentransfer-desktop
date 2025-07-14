@@ -158,7 +158,7 @@ export class LoginScreen {
             // Reset the authentication state on error to ensure UI is consistent
             this.authManager.resetToEmailStep();
             this.setLoading(false);
-            UIComponents.Notification.show(error.message, 'error');
+            console.error(error.message);
         }
     }
 
@@ -174,7 +174,7 @@ export class LoginScreen {
             // Auth manager will handle state change and proceed to main app
         } catch (error) {
             this.setLoading(false);
-            UIComponents.Notification.show(error.message, 'error');
+            console.error(error.message);
         }
     }
 

@@ -15,8 +15,7 @@ export const config = {
     // Environment
     IS_DEVELOPMENT: false, // we don't know yet
     
-    // UI settings
-    NOTIFICATION_TIMEOUT: 5000,
+
     
     // Upload settings
     MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB

@@ -248,7 +248,6 @@ class ConfigManager {
                 }
                 
                 // Migrate other preferences
-                this.set('preferences.disableNotifications', preferences.disableNotifications);
                 this.set('preferences.skipDuplicates', preferences.skipDuplicates);
             }
             

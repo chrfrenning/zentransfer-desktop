@@ -107,7 +107,7 @@ export class UploadManager {
             }
         } catch (error) {
             console.error('Failed to initialize upload session:', error);
-            UIComponents.Notification.show('Failed to initialize upload session. Please try again.', 'error');
+                            console.error('Failed to initialize upload session. Please try again.');
             return false;
         }
     }
@@ -219,7 +219,7 @@ export class UploadManager {
         if (this.selectedService === 'zentransfer') {
             const tokenResult = await TokenManager.ensureValidToken();
             if (!tokenResult.valid) {
-                UIComponents.Notification.show('Please log in to upload files to ZenTransfer.', 'warning');
+                console.warn('Please log in to upload files to ZenTransfer.');
                 return;
             }
         }
@@ -256,10 +256,7 @@ export class UploadManager {
 
             // Validate file size
             if (fileItem.size > config.MAX_FILE_SIZE) {
-                UIComponents.Notification.show(
-                    `File "${fileItem.name}" is too large. Maximum size is ${this.formatFileSize(config.MAX_FILE_SIZE)}.`,
-                    'error'
-                );
+                console.error(`File "${fileItem.name}" is too large. Maximum size is ${this.formatFileSize(config.MAX_FILE_SIZE)}.`);
                 continue;
             }
 
@@ -387,7 +384,7 @@ export class UploadManager {
             const tokenResult = await TokenManager.ensureValidToken();
             if (!tokenResult.valid) {
                 console.warn('User not authenticated, skipping ZenTransfer upload');
-                UIComponents.Notification.show('Please log in to upload imported files to ZenTransfer.', 'warning');
+                console.warn('Please log in to upload imported files to ZenTransfer.');
                 return;
             }
         }
@@ -456,7 +453,7 @@ export class UploadManager {
 
         } catch (error) {
             console.error('Queue processing failed:', error);
-            UIComponents.Notification.show('Upload session failed. Please try again.', 'error');
+                            console.error('Upload session failed. Please try again.');
             this.isProcessing = false;
         }
     }
@@ -622,7 +619,7 @@ export class UploadManager {
         if (index !== -1) {
             this.queue.splice(index, 1);
             this.notifyQueueUpdate();
-            UIComponents.Notification.show('File removed from queue.', 'info');
+            console.log('File removed from queue.');
         }
     }
 
@@ -634,7 +631,7 @@ export class UploadManager {
         this.uploadLog = this.uploadLog.filter(item => item.status !== 'completed');
         
         if (completedCount > 0) {
-            UIComponents.Notification.show(`Cleared ${completedCount} completed upload${completedCount > 1 ? 's' : ''}.`, 'info');
+            console.log(`Cleared ${completedCount} completed upload${completedCount > 1 ? 's' : ''}.`);
         }
     }
 
@@ -646,7 +643,7 @@ export class UploadManager {
         this.uploadLog = [];
         this.activeUploads.clear();
         this.notifyQueueUpdate();
-        UIComponents.Notification.show('All uploads cleared.', 'info');
+        console.log('All uploads cleared.');
     }
 
     /**
@@ -694,11 +691,11 @@ export class UploadManager {
             this.isProcessing = false;
             
             this.notifyQueueUpdate();
-            UIComponents.Notification.show('All uploads stopped.', 'info');
+            console.log('All uploads stopped.');
             
         } catch (error) {
             console.error('Failed to stop uploads:', error);
-            UIComponents.Notification.show('Failed to stop uploads: ' + error.message, 'error');
+            console.error('Failed to stop uploads: ' + error.message);
         }
     }
 
