@@ -6,11 +6,13 @@
 
 const { UploadServiceBase } = require('./upload-service-base.js');
 const { ThumbnailService } = require('../../shared/services/thumbnail-service.js');
+const { MetadataService } = require('../../shared/services/metadata-service.js');
 
 class EnhancedUploadServiceBase extends UploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.thumbnailService = new ThumbnailService();
+        this.metadataService = new MetadataService();
     }
 
     /**
@@ -43,7 +45,7 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
                 return originalResult;
             }
 
-            // 2. Process thumbnails in the background (don't block on failures)
+            // 2. Process thumbnails and metadata in the background (don't block on failures)
             const backgroundTasks = [];
             
             if (preferences.createPreviews && this.shouldCreateThumbnails(filePath, mimeType)) {
@@ -55,17 +57,41 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
                 backgroundTasks.push(thumbnailTask);
             }
 
+            if (preferences.extractMetadata && this.shouldExtractMetadata(filePath, mimeType)) {
+                const metadataTask = this.processMetadataUpload(filePath, remoteName, options, preferences)
+                    .catch(error => {
+                        console.warn('Metadata upload failed:', error);
+                        return { success: false, error: error.message };
+                    });
+                backgroundTasks.push(metadataTask);
+            }
+
             // Wait for background tasks but don't fail if they fail
             const backgroundResults = await Promise.allSettled(backgroundTasks);
             
             // Log any background failures but don't affect main result
             backgroundResults.forEach((result, index) => {
                 if (result.status === 'rejected') {
-                    console.warn(`Background thumbnail upload task failed:`, result.reason);
+                    console.warn(`Background upload task ${index} failed:`, result.reason);
                 } else if (result.value && !result.value.success) {
-                    console.warn(`Background thumbnail upload task failed:`, result.value.error);
+                    console.warn(`Background upload task ${index} failed:`, result.value.error);
                 }
             });
+
+            // Count successful background tasks
+            let thumbnailsGenerated = false;
+            let metadataExtracted = false;
+            let taskIndex = 0;
+            
+            if (preferences.createPreviews && this.shouldCreateThumbnails(filePath, mimeType)) {
+                thumbnailsGenerated = backgroundResults[taskIndex]?.status === 'fulfilled' && backgroundResults[taskIndex]?.value?.success;
+                taskIndex++;
+            }
+            
+            if (preferences.extractMetadata && this.shouldExtractMetadata(filePath, mimeType)) {
+                metadataExtracted = backgroundResults[taskIndex]?.status === 'fulfilled' && backgroundResults[taskIndex]?.value?.success;
+                taskIndex++;
+            }
 
             // Return original upload result (maintaining compatibility)
             // Optionally add metadata about additional uploads in details
@@ -74,7 +100,8 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
                 details: {
                     ...originalResult.details,
                     enhancedUpload: {
-                        thumbnailsGenerated: backgroundResults.length > 0 && backgroundResults[0].status === 'fulfilled',
+                        thumbnailsGenerated,
+                        metadataExtracted,
                         additionalFiles: this.getAdditionalFilesList(remoteName, preferences)
                     }
                 }
@@ -132,6 +159,16 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
      */
     shouldCreateThumbnails(filePath, mimeType) {
         return this.thumbnailService.isSupported(filePath, mimeType);
+    }
+
+    /**
+     * Check if metadata should be extracted for this file
+     * @param {string} filePath - File path
+     * @param {string} mimeType - MIME type
+     * @returns {boolean} True if metadata should be extracted
+     */
+    shouldExtractMetadata(filePath, mimeType) {
+        return this.metadataService.isSupported(filePath, mimeType);
     }
 
     /**
@@ -227,6 +264,62 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
     }
 
     /**
+     * Process and upload metadata
+     * @param {string} filePath - Original file path
+     * @param {string} remoteName - Remote name of original file
+     * @param {Object} options - Upload options
+     * @param {Object} preferences - Upload preferences
+     * @returns {Promise<Object>} Upload result
+     */
+    async processMetadataUpload(filePath, remoteName, options, preferences) {
+        try {
+            console.log(`Extracting metadata for ${filePath}`);
+            
+            // Extract metadata
+            const result = await this.metadataService.extractMetadata(filePath, {
+                originalFilename: remoteName
+            });
+            
+            if (!result.success) {
+                console.error('Metadata extraction failed:', result.error);
+                return {
+                    success: false,
+                    error: result.error
+                };
+            }
+            
+            console.log(`Metadata extracted successfully, uploading: ${result.filename}`);
+            
+            // Upload metadata JSON
+            const uploadResult = await this.uploadMetadataBuffer(
+                Buffer.from(result.jsonString, 'utf8'),
+                result.filename,
+                'application/json',
+                options
+            );
+            
+            if (uploadResult.success) {
+                console.log(`Metadata uploaded successfully: ${result.filename}`);
+            } else {
+                console.error('Failed to upload metadata:', uploadResult.message);
+            }
+            
+            return {
+                success: uploadResult.success,
+                filename: result.filename,
+                uploadResult: uploadResult
+            };
+            
+        } catch (error) {
+            console.error('Metadata processing failed:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+
+    /**
      * Upload a thumbnail/preview buffer
      * Uses a temporary file approach to work with existing upload infrastructure
      * @param {Buffer} buffer - Image buffer
@@ -267,6 +360,46 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
     }
 
     /**
+     * Upload a metadata JSON buffer
+     * Uses a temporary file approach to work with existing upload infrastructure
+     * @param {Buffer} buffer - JSON buffer
+     * @param {string} filename - Target filename
+     * @param {string} mimeType - MIME type
+     * @param {Object} options - Upload options
+     * @returns {Promise<Object>} Upload result
+     */
+    async uploadMetadataBuffer(buffer, filename, mimeType, options) {
+        const fs = require('fs').promises;
+        const path = require('path');
+        const os = require('os');
+        
+        // Create temporary file
+        const tempDir = os.tmpdir();
+        const tempFile = path.join(tempDir, `metadata_${Date.now()}_${filename}`);
+        
+        try {
+            // Write buffer to temporary file
+            await fs.writeFile(tempFile, buffer);
+            
+            // Upload using the original upload method
+            const result = await this.uploadOriginalFile(tempFile, filename, mimeType, {
+                ...options,
+                skipDuplicates: false // Don't skip duplicates for metadata
+            });
+            
+            return result;
+            
+        } finally {
+            // Clean up temporary file
+            try {
+                await fs.unlink(tempFile);
+            } catch (cleanupError) {
+                console.warn('Failed to cleanup temporary metadata file:', cleanupError);
+            }
+        }
+    }
+
+    /**
      * Get list of additional files that will be uploaded
      * @param {string} remoteName - Original remote name
      * @param {Object} preferences - Upload preferences
@@ -279,6 +412,12 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
             additionalFiles.push(
                 this.thumbnailService.generateThumbnailFilename(remoteName),
                 this.thumbnailService.generatePreviewFilename(remoteName)
+            );
+        }
+        
+        if (preferences.extractMetadata) {
+            additionalFiles.push(
+                this.metadataService.generateMetadataFilename(remoteName)
             );
         }
         
