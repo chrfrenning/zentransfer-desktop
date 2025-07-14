@@ -576,21 +576,21 @@ export class SettingsScreen {
 
         if (createPreviewsToggle) {
             createPreviewsToggle.addEventListener('change', async (e) => {
-                await window.electronAPI.config.set('uploadSettings.createPreviews', e.target.checked);
+                await window.electronAPI.config.set('preferences.createPreviews', e.target.checked);
                 console.log(`Create previews setting updated: ${e.target.checked}`);
             });
         }
 
         if (extractMetaDataToggle) {
             extractMetaDataToggle.addEventListener('change', async (e) => {
-                await window.electronAPI.config.set('uploadSettings.extractMetaData', e.target.checked);
+                await window.electronAPI.config.set('preferences.extractMetaData', e.target.checked);
                 console.log(`Extract metadata setting updated: ${e.target.checked}`);
             });
         }
 
         if (createIndexfilesToggle) {
             createIndexfilesToggle.addEventListener('change', async (e) => {
-                await window.electronAPI.config.set('uploadSettings.createIndexfiles', e.target.checked);
+                await window.electronAPI.config.set('preferences.createIndexfiles', e.target.checked);
                 console.log(`Create index files setting updated: ${e.target.checked}`);
             });
         }
@@ -1212,17 +1212,17 @@ export class SettingsScreen {
             const createIndexfilesToggle = document.getElementById('createIndexfilesToggle');
 
             if (createPreviewsToggle) {
-                const createPreviews = await window.electronAPI.config.get('uploadSettings.createPreviews');
+                const createPreviews = await window.electronAPI.config.get('preferences.createPreviews');
                 createPreviewsToggle.checked = createPreviews || false;
             }
 
             if (extractMetaDataToggle) {
-                const extractMetaData = await window.electronAPI.config.get('uploadSettings.extractMetaData');
+                const extractMetaData = await window.electronAPI.config.get('preferences.extractMetaData');
                 extractMetaDataToggle.checked = extractMetaData || false;
             }
 
             if (createIndexfilesToggle) {
-                const createIndexfiles = await window.electronAPI.config.get('uploadSettings.createIndexfiles');
+                const createIndexfiles = await window.electronAPI.config.get('preferences.createIndexfiles');
                 createIndexfilesToggle.checked = createIndexfiles || false;
             }
             

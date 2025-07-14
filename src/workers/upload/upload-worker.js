@@ -391,7 +391,15 @@ async function uploadFile(fileData, sessionData, jobId) {
             appName,
             appVersion
           },
-          skipDuplicates: skipDuplicates // Pass skipDuplicates setting to service
+          skipDuplicates: skipDuplicates, // Pass skipDuplicates setting to service
+          metadataOptions: {
+            createPreviews: servicePreferences.createPreviews || false,
+            extractMetadata: servicePreferences.extractMetadata || false,
+            thumbnailSize: servicePreferences.thumbnailSize || 400,
+            thumbnailQuality: servicePreferences.thumbnailQuality || 90,
+            previewSize: servicePreferences.previewSize || 1920,
+            previewQuality: servicePreferences.previewQuality || 90
+          }
         }
       );
       // Restore original progress method

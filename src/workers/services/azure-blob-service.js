@@ -3,9 +3,9 @@
  * Handles uploads to Azure Blob Storage
  */
 
-const { UploadServiceBase } = require('./upload-service-base.js');
+const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
 
-class AzureBlobService extends UploadServiceBase {
+class AzureBlobService extends EnhancedUploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -241,7 +241,7 @@ class AzureBlobService extends UploadServiceBase {
         return uniqueName;
     }
 
-    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         this._log('info', 'Starting Azure Blob Storage upload', { remoteName, mimeType });
         
         // Generate upload ID early so it's available in error handling

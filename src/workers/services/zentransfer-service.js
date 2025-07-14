@@ -3,9 +3,9 @@
  * Handles uploads to the ZenTransfer platform
  */
 
-const { UploadServiceBase } = require('./upload-service-base.js');
+const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
 
-class ZenTransferService extends UploadServiceBase {
+class ZenTransferService extends EnhancedUploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.apiBaseUrl = settings.apiBaseUrl || 'https://api.zentransfer.io';
@@ -93,7 +93,7 @@ class ZenTransferService extends UploadServiceBase {
         }
     }
 
-    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         this._log('info', 'Starting ZenTransfer upload', { remoteName, mimeType });
         
         // Generate upload ID early so it's available in error handling

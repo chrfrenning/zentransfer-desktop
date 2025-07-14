@@ -3,9 +3,9 @@
  * Handles uploads to MinIO (S3-compatible storage)
  */
 
-const { UploadServiceBase } = require('./upload-service-base.js');
+const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
 
-class MinioService extends UploadServiceBase {
+class MinioService extends EnhancedUploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -301,7 +301,7 @@ class MinioService extends UploadServiceBase {
         return uniqueName;
     }
 
-    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         const uploadId = this._generateUploadId();
         this._log('info', 'Starting MinIO upload', { uploadId, filePath, remoteName, mimeType });
         console.log(`[MinIO] Starting upload: ${filePath} -> ${remoteName} (${mimeType})`);

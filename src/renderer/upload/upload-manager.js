@@ -822,8 +822,24 @@ export class UploadManager {
             const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
             const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
             
+            // Get thumbnail/preview preferences
+            const createPreviews = await window.electronAPI.config.get('preferences.createPreviews');
+            const extractMetadata = await window.electronAPI.config.get('preferences.extractMetaData');
+            const thumbnailSize = await window.electronAPI.config.get('preferences.thumbnailSize');
+            const thumbnailQuality = await window.electronAPI.config.get('preferences.thumbnailQuality');
+            const previewSize = await window.electronAPI.config.get('preferences.previewSize');
+            const previewQuality = await window.electronAPI.config.get('preferences.previewQuality');
+            
             // Convert to the format expected by uploadServiceFactory
-            const preferences = {};
+            const preferences = {
+                // Thumbnail/preview preferences
+                createPreviews: createPreviews || false,
+                extractMetadata: extractMetadata || false,
+                thumbnailSize: thumbnailSize || 400,
+                thumbnailQuality: thumbnailQuality || 90,
+                previewSize: previewSize || 1920,
+                previewQuality: previewQuality || 90
+            };
             
             // AWS S3
             if (awsS3Service && awsS3Service.enabled) {

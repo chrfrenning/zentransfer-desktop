@@ -3,9 +3,9 @@
  * Handles uploads to Google Cloud Storage
  */
 
-const { UploadServiceBase } = require('./upload-service-base.js');
+const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
 
-class GcpStorageService extends UploadServiceBase {
+class GcpStorageService extends EnhancedUploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -305,7 +305,7 @@ class GcpStorageService extends UploadServiceBase {
         return uniqueName;
     }
 
-    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         this._log('info', 'Starting GCP Cloud Storage upload', { remoteName, mimeType });
         
         // Generate upload ID early so it's available in error handling

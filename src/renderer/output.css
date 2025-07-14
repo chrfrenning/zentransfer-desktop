@@ -974,6 +974,10 @@ video {
           user-select: none;
 }
 
+.resize {
+  resize: both;
+}
+
 .flex-col {
   flex-direction: column;
 }

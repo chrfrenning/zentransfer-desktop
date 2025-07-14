@@ -3,9 +3,9 @@
  * Handles uploads to Amazon S3
  */
 
-const { UploadServiceBase } = require('./upload-service-base.js');
+const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
 
-class AwsS3Service extends UploadServiceBase {
+class AwsS3Service extends EnhancedUploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -322,7 +322,7 @@ class AwsS3Service extends UploadServiceBase {
         return uniqueName;
     }
 
-    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         this._log('info', 'Starting AWS S3 upload', { remoteName, mimeType });
         
         // Generate upload ID early so it's available in error handling
