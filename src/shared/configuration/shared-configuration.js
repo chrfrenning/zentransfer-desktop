@@ -17,7 +17,16 @@ class SharedConfiguration {
         // Download settings
         this.downloadSettings = {
             downloadPath: '',
-            lastSyncTime: null
+            lastSyncTime: null,
+            // Download queue settings
+            downloadQueue: {
+                maxRetries: 5,
+                initialRetryDelay: 1000,        // 1 second
+                maxRetryDelay: 300000,          // 5 minutes (300 seconds)
+                retryBackoffMultiplier: 2.0,
+                maxConcurrentDownloads: 3,
+                retryOn404: false               // Don't retry 404 errors
+            }
         };
 
         // Authentication

@@ -111,6 +111,7 @@
     "@google-cloud/storage": "^7.16.0",
     "@headlessui/react": "^2.2.4",
     "@heroicons/react": "^2.2.0",
+    "better-sqlite3": "^12.2.0",
     "electron-updater": "^6.6.2"
   }
 }

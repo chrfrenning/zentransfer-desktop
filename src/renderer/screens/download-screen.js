@@ -331,6 +331,53 @@ export class DownloadScreen {
                 console.log('Monitoring check:', data.timestamp);
                 break;
 
+            case 'download-started':
+                console.log('Download started:', data.file.name);
+                // Update the file in our local queue to show it's downloading
+                if (this.downloadQueue.has(data.file.id)) {
+                    const file = this.downloadQueue.get(data.file.id);
+                    file.status = 'downloading';
+                    file.jobId = data.jobId;
+                    this.downloadQueue.set(data.file.id, file);
+                } else {
+                    // Add the file if it's not in our queue yet
+                    data.file.status = 'downloading';
+                    data.file.jobId = data.jobId;
+                    this.downloadQueue.set(data.file.id, data.file);
+                }
+                this.updateFileListWithOrdering();
+                UIComponents.Notification.show(`Started downloading: ${data.file.name}`, 'info');
+                break;
+
+            case 'download-completed':
+                console.log('Download completed:', data.file.name);
+                // Update the file in our local queue to show it's completed
+                if (this.downloadQueue.has(data.file.id)) {
+                    const file = this.downloadQueue.get(data.file.id);
+                    file.status = 'completed';
+                    file.progress = 100;
+                    file.filePath = data.filePath;
+                    file.completedAt = Date.now();
+                    this.downloadQueue.set(data.file.id, file);
+                }
+                this.updateFileListWithOrdering();
+                UIComponents.Notification.show(`Download completed: ${data.file.name}`, 'success');
+                break;
+
+            case 'download-failed':
+                console.log('Download failed:', data.file.name, data.error);
+                // Update the file in our local queue to show it's failed
+                if (this.downloadQueue.has(data.file.id)) {
+                    const file = this.downloadQueue.get(data.file.id);
+                    file.status = 'failed';
+                    file.error = data.error;
+                    file.completedAt = Date.now();
+                    this.downloadQueue.set(data.file.id, file);
+                }
+                this.updateFileListWithOrdering();
+                UIComponents.Notification.show(`Download failed: ${data.file.name}`, 'error');
+                break;
+
             case 'queue-update':
                 console.log('Queue update received in renderer:', data.stats);
                 this.updateQueueFromMain(data.files, data.stats);
@@ -338,6 +385,9 @@ export class DownloadScreen {
 
             case 'queue-cleared':
                 console.log('Download queue cleared:', data.message);
+                // Clear the local download queue
+                this.downloadQueue.clear();
+                this.updateFileListWithOrdering();
                 UIComponents.Notification.show(data.message, 'info');
                 break;
 

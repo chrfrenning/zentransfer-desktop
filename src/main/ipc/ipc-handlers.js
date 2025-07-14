@@ -4,7 +4,7 @@
  * Extracted from main.js for better modularity
  */
 
-const { ipcMain, dialog, app } = require('electron');
+const { ipcMain, dialog, app, BrowserWindow } = require('electron');
 const { autoUpdater } = require('electron-updater');
 
 // Import shared configuration
@@ -199,10 +199,38 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
        downloadWorkerPool.lastSyncTime = syncTime;
        downloadWorkerPool.latestDownloadedFileTime = null; // Clear the cached latest time
        
+       // Clear the entire download queue database
+       // Ensure queue manager is initialized before trying to clear it
+       if (!downloadWorkerPool.getQueueManager()) {
+         console.log('IPC reset-sync-time: Queue manager not initialized, initializing now');
+         const { getConfigManager } = require('../app/main-config-setup.js');
+         downloadWorkerPool.initializeQueue(getConfigManager());
+       }
+       
+       const queueManager = downloadWorkerPool.getQueueManager();
+       console.log('IPC reset-sync-time: queueManager found:', !!queueManager);
+       if (queueManager) {
+         console.log('IPC reset-sync-time: About to call clearAll()');
+         const clearResult = queueManager.clearAll();
+         console.log('IPC reset-sync-time: clearAll() returned:', clearResult);
+         console.log('Cleared entire download queue database');
+         
+         // Send notification to renderer
+         const allWindows = BrowserWindow.getAllWindows();
+         allWindows.forEach(window => {
+           window.webContents.send('download-update', {
+             type: 'queue-cleared',
+             message: 'Download queue cleared'
+           });
+         });
+       } else {
+         console.log('IPC reset-sync-time: No queueManager found');
+       }
+       
        // Also save to config system
        setConfig('downloadSettings.lastSyncTime', syncTime);
        
-       console.log(`Reset sync time to: ${syncTime}, cleared latest downloaded file time`);
+       console.log(`Reset sync time to: ${syncTime}, cleared latest downloaded file time and download queue`);
        return { success: true };
      } catch (error) {
        console.error('Failed to reset sync time:', error);
