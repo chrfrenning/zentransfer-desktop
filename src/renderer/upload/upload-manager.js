@@ -530,15 +530,16 @@ export class UploadManager {
     async uploadFileViaMainProcess(fileItem) {
         if (window.electronAPI) {
             try {
-                let fileBuffer;
+                let fileBuffer = null;
+                let useFilePath = false;
                 
                 if (fileItem.filePath) {
-                    
-                    // File path upload (from import system)
-                    const fileContent = window.electronAPI.node.readFileSync(fileItem.filePath);
-                    fileBuffer = window.electronAPI.node.bufferFrom(fileContent, 'utf8');
+                    // File path upload (from import system or local files)
+                    // Pass file path directly to worker - no need to read into memory
+                    useFilePath = true;
                 } else if (fileItem.file) {
-                    // File object upload (from file input/drag-drop)
+                    // File object upload (from web-based drag-drop)
+                    // Only read into buffer for web files that don't have a local path
                     fileBuffer = await this.fileToBuffer(fileItem.file);
                 } else {
                     throw new Error('No file or file path available for upload');
@@ -561,8 +562,8 @@ export class UploadManager {
                     fileName: fileItem.name,
                     fileSize: fileItem.size,
                     fileType: fileItem.type,
-                    fileBuffer: fileBuffer,
-                    filePath: fileItem.filePath,
+                    fileBuffer: useFilePath ? null : fileBuffer, // Only pass buffer for web files
+                    filePath: useFilePath ? fileItem.filePath : null, // Pass file path for local files
                     source: fileItem.source,
                     serviceType: fileItem.serviceType || this.selectedService,
                     serviceName: fileItem.serviceName,

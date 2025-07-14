@@ -345,14 +345,26 @@ async function uploadFile(fileData, sessionData, jobId) {
     
     console.log(`Worker ${workerId}: Using ${actualServiceName} for upload of ${fileName}`);
     
-    // Create a temporary file to work with the service
+    // Determine file path to use for upload
     const fs = require('fs');
     const os = require('os');
-    const tempFilePath = path.join(os.tmpdir(), `zentransfer_${Date.now()}_${fileName}`);
+    let tempFilePath;
+    let isTemporary = false;
     
     try {
-      // Write buffer to temporary file
-      fs.writeFileSync(tempFilePath, fileBuffer);
+      if (fileData.filePath) {
+        // Local file - use the path directly (no copying needed)
+        tempFilePath = fileData.filePath;
+        console.log(`Worker ${workerId}: Using local file path: ${tempFilePath}`);
+      } else if (fileBuffer) {
+        // Web file or file object - create temporary file
+        tempFilePath = path.join(os.tmpdir(), `zentransfer_${Date.now()}_${fileName}`);
+        fs.writeFileSync(tempFilePath, fileBuffer);
+        isTemporary = true;
+        console.log(`Worker ${workerId}: Created temporary file: ${tempFilePath}`);
+      } else {
+        throw new Error('No file path or file buffer provided');
+      }
       
       // Generate remote name with folder organization if needed
       //remoteName = generateRemoteName(fileData.filePath, importSettings);
@@ -428,13 +440,18 @@ async function uploadFile(fileData, sessionData, jobId) {
       };
       
     } finally {
-      // Clean up temporary file
-      try {
-        if (fs.existsSync(tempFilePath)) {
-          fs.unlinkSync(tempFilePath);
+      // Clean up temporary file only if we created it
+      if (isTemporary) {
+        try {
+          if (fs.existsSync(tempFilePath)) {
+            fs.unlinkSync(tempFilePath);
+            console.log(`Worker ${workerId}: Cleaned up temporary file: ${tempFilePath}`);
+          }
+        } catch (cleanupError) {
+          console.warn(`Worker ${workerId}: Failed to clean up temp file: ${cleanupError.message}`);
         }
-      } catch (cleanupError) {
-        console.warn(`Worker ${workerId}: Failed to clean up temp file: ${cleanupError.message}`);
+      } else {
+        console.log(`Worker ${workerId}: Skipping cleanup for local file: ${tempFilePath}`);
       }
     }
     

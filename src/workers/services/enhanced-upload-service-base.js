@@ -26,6 +26,8 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
         // Get preferences from options or load defaults
         const preferences = await this.getUploadPreferences(options);
         
+        console.log('Enhanced upload preferences:', preferences);
+        
         // If no enhancements enabled, use original implementation
         if (!preferences.createPreviews) {
             return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
