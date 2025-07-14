@@ -4,6 +4,9 @@ const path = require('path');
 // Import shared configuration
 const sharedConfig = require('./src/shared/config.js');
 
+// Import logger
+const logger = require('./src/shared/logger.js');
+
 // Import extracted modules
 const { UploadWorkerPool } = require('./src/main/workers/upload-worker-pool.js');
 const { ImportWorkerManager } = require('./src/main/workers/import-worker-manager.js');
@@ -25,6 +28,7 @@ if (sharedConfig.isDevelopment || process.argv.includes('--dev')) {
     // Ignore node_modules and hidden files
     ignored: /node_modules|[\/\\]\./
   });
+  logger.info('Development mode: electron-reload enabled');
 }
 
 
@@ -77,40 +81,66 @@ function createWindow() {
 app.disableHardwareAcceleration();
 
 app.whenReady().then(() => {
+  logger.info('App ready, starting initialization...');
+  
   // Initialize configuration manager first
-  console.log('Initializing configuration manager...');
+  logger.info('Initializing configuration manager...');
   initializeConfigManager();
+  logger.info('Configuration manager initialized');
   
   // Initialize auto-updater manager
+  logger.info('Initializing auto-updater manager...');
   autoUpdaterManager = new AutoUpdaterManager();
   autoUpdaterManager.initialize();
+  logger.info('Auto-updater manager initialized');
   
   // Initialize upload worker pool
+  logger.info('Initializing upload worker pool...');
   uploadWorkerPool = new UploadWorkerPool(3);
+  logger.info('Upload worker pool initialized with 3 workers');
   
   // Initialize import worker manager
+  logger.info('Initializing import worker manager...');
   importWorkerPool = new ImportWorkerManager();
+  logger.info('Import worker manager initialized');
   
   // Initialize download worker manager
+  logger.info('Initializing download worker manager...');
   downloadWorkerPool = new DownloadWorkerManager();
+  logger.info('Download worker manager initialized');
   
   // Initialize upload service manager
+  logger.info('Initializing upload service manager...');
   uploadServiceManager = new UploadServiceManager();
+  logger.info('Upload service manager initialized');
   
+  // Create main window
+  logger.info('Creating main window...');
   createWindow();
+  logger.info('Main window created');
   
   // Set up IPC handlers
+  logger.info('Setting up IPC handlers...');
   setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager);
+  logger.info('IPC handlers configured');
+  
+  logger.info('ZenTransfer application initialization completed successfully');
 });
 
 app.on('window-all-closed', () => {
+  logger.info('All windows closed');
   if (process.platform !== 'darwin') {
+    logger.info('Quitting application (non-macOS platform)');
     app.quit();
+  } else {
+    logger.info('Keeping application running (macOS platform)');
   }
 });
 
 app.on('activate', () => {
+  logger.info('Application activated');
   if (BrowserWindow.getAllWindows().length === 0) {
+    logger.info('No windows open, creating new window');
     createWindow();
   }
 });

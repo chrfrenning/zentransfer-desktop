@@ -9,13 +9,7 @@ import { UIComponents } from './components/ui-components.js';
 import { config } from './config/app-config.js';
 import { ScreenManager } from './screens/screen-manager.js';
 import { UpdateManager } from './components/update-manager.js';
-
-// Logging via main process
-function logToStdout(message) {
-    window.electronAPI.app.log(message);
-}
-
-logToStdout('Hello from renderer');
+import { logger } from './logger.js';
 
 export class AppController {
     constructor() {
@@ -34,14 +28,14 @@ export class AppController {
     async initializeApp() {
         try {
             // Initialize version from main process BEFORE version check
-            console.log('Initializing ZenTransfer app...');
+            logger.info('Initializing ZenTransfer app...');
             const result = await window.electronAPI.app.getVersion();
-            console.log(`ZenTransfer renderer initialized with version: ${result}`);
+            logger.info('ZenTransfer renderer initialized', { version: result });
             config.setVersion(result);
 
             // Get the configuration from the main process
             const inheritedConfig = await window.electronAPI.app.getConfig();
-            console.log('AppController: Configuration received from main process:', config);
+            logger.info('AppController: Configuration received from main process', { config: config });
             config.APP_NAME = inheritedConfig.APP_NAME;
             config.CLIENT_ID = inheritedConfig.CLIENT_ID;
             config.SERVER_BASE_URL = inheritedConfig.serverBaseUrl;
@@ -54,7 +48,7 @@ export class AppController {
             const shouldProceed = await this.screenManager.showLoaderAndCheckVersion();
             
             if (!shouldProceed) {
-                console.log('App initialization stopped due to version check failure');
+                logger.info('App initialization stopped due to version check failure');
                 // Exit the app if in Electron environment
                 if (window.electronAPI) {
                     try {
@@ -62,16 +56,16 @@ export class AppController {
                             window.electronAPI.app.quit();
                         }, 1000);
                     } catch (error) {
-                        console.error('Failed to quit app:', error);
+                        logger.error('Failed to quit app', { error });
                     }
                 }
                 return;
             }
             
             // Set up authentication state change handler
-            console.log('AppController: Setting up auth state change callback');
+            logger.info('AppController: Setting up auth state change callback');
             this.authManager.setAuthStateChangeCallback((state) => {
-                console.log('AppController: Auth state change callback triggered with state:', state);
+                logger.info('AppController: Auth state change callback triggered with state', { state });
                 this.handleAuthStateChange(state);
             });
 
@@ -79,7 +73,7 @@ export class AppController {
 
             // Initialize update manager
             this.updateManager = new UpdateManager();
-            console.log('Update manager initialized');
+            logger.info('Update manager initialized');
 
             // Initialize UI event listeners
             this.initializeUIEventListeners();
@@ -88,10 +82,10 @@ export class AppController {
             this.setupErrorHandling();
 
             this.isInitialized = true;
-            console.log('App initialization complete');
+            logger.info('App initialization complete');
 
         } catch (error) {
-            console.error('App initialization failed:', error);
+            logger.error('App initialization failed', { error });
             UIComponents.Notification.show('Failed to initialize app. Please refresh the page.', 'error');
         }
     }
@@ -101,7 +95,7 @@ export class AppController {
      * @param {Object} state - Authentication state
      */
     handleAuthStateChange(state) {
-        console.log('AppController: handleAuthStateChange called with state:', state);
+        logger.info('AppController: handleAuthStateChange called with state', { state });
 
         // Show notifications for certain states
         if (state.status === 'otp_required' && state.message) {
@@ -114,7 +108,7 @@ export class AppController {
         this.uploadManager.handleAuthStateChange(state);
 
         // Delegate to screen manager
-        console.log('AppController: Delegating to screen manager...');
+        logger.info('AppController: Delegating to screen manager...');
         this.screenManager.handleAuthStateChange(state);
     }
 
@@ -146,7 +140,7 @@ export class AppController {
                 if (window.electronAPI && window.electronAPI.download) {
                     window.electronAPI.download.signalUIActivity().catch(error => {
                         // Silently ignore errors - this is just an optimization
-                        console.debug('Failed to signal UI activity:', error);
+                        logger.debug('Failed to signal UI activity', { error });
                     });
                 }
             }
@@ -158,7 +152,7 @@ export class AppController {
         document.addEventListener('keydown', signalActivity, { passive: true });
         document.addEventListener('scroll', signalActivity, { passive: true });
         
-        console.log('UI activity detection setup for download backoff reset');
+        logger.info('UI activity detection setup for download backoff reset');
     }
 
     /**
@@ -192,8 +186,8 @@ export class AppController {
      */
     setupErrorHandling() {
         window.addEventListener('error', (event) => {
-            console.error('Global error:', event.error);
-            console.error('Error details:', {
+            logger.error('Global error', { error: event.error });
+            logger.error('Error details', {
                 message: event.error?.message,
                 stack: event.error?.stack,
                 filename: event.filename,
@@ -204,8 +198,8 @@ export class AppController {
         });
 
         window.addEventListener('unhandledrejection', (event) => {
-            console.error('Unhandled promise rejection:', event.reason);
-            console.error('Rejection details:', {
+            logger.error('Unhandled promise rejection', { reason: event.reason });
+            logger.error('Rejection details', {
                 reason: event.reason,
                 promise: event.promise,
                 stack: event.reason?.stack
@@ -228,7 +222,7 @@ export class AppController {
             clearAllData: () => this.authManager.clearAllData()
         };
 
-        console.log('Main app initialized');
+        logger.info('Main app initialized');
     }
 
     /**

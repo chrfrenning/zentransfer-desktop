@@ -4,11 +4,15 @@
  * Extracted from main.js for better modularity
  */
 
-const { ipcMain, dialog, app, BrowserWindow } = require('electron');
+const { ipcMain, dialog, app, BrowserWindow, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
+const path = require('path');
 
 // Import shared configuration
 const sharedConfig = require('../../shared/config.js');
+
+// Import logger
+const logger = require('../../shared/logger.js');
 
 // Import configuration management
 const {
@@ -28,9 +32,58 @@ const {
 } = require('../app/main-config-setup.js');
 
 function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager) {
+  logger.info('Setting up IPC handlers...');
+
   // Handle log messages from renderer
+  ipcMain.on('log-from-renderer', (event, { level, message, meta = {} }) => {
+    // Use the proper logger instead of console.log
+    if (logger[level]) {
+      logger[level](`[Renderer] ${message}`, meta);
+    } else {
+      logger.info(`[Renderer] [${level.toUpperCase()}] ${message}`, meta);
+    }
+  });
+
+  // Legacy handler for backward compatibility
   ipcMain.on('log-to-stdout', (event, message) => {
-    console.log(`[Renderer] ${message}`);
+    logger.info(`[Renderer] ${message}`);
+  });
+
+  // Show log file in system file explorer
+  ipcMain.handle('show-logs-folder', async () => {
+    try {
+      const logInfo = logger.getLogInfo();
+      if (!logInfo) {
+        logger.error('Cannot show logs folder: log info not available');
+        return { success: false, error: 'Log information not available' };
+      }
+
+      // This opens the folder and highlights the log file
+      shell.showItemInFolder(logInfo.path);
+      
+      logger.info('User opened logs folder via IPC');
+      return { success: true };
+    } catch (error) {
+      logger.error('Failed to open logs folder:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Get log file info (for display purposes)
+  ipcMain.handle('get-log-info', async () => {
+    try {
+      const logInfo = logger.getLogInfo();
+      if (logInfo) {
+        logger.debug('Provided log info to renderer');
+        return logInfo;
+      } else {
+        logger.warn('Log info requested but not available');
+        return null;
+      }
+    } catch (error) {
+      logger.error('Failed to get log info:', error);
+      return null;
+    }
   });
   
   // Handle directory dialog requests
@@ -393,7 +446,6 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
 
    // Node.js operation handlers - secure Node.js access for renderer
    const fs = require('fs');
-   const path = require('path');
    const os = require('os');
    const http = require('http');
    const https = require('https');
@@ -533,8 +585,6 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    });
 
    // Shell API handlers
-   const { shell } = require('electron');
-   
    ipcMain.handle('shell-openExternal', async (event, url) => {
      try {
        await shell.openExternal(url);

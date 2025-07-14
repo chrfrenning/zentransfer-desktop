@@ -13,7 +13,16 @@ const electronAPI = {
     getVersion: () => ipcRenderer.invoke('get-app-version'),
     getConfig: () => ipcRenderer.invoke('get-config'),
     quit: () => ipcRenderer.invoke('app-quit'),
-    log: (message) => ipcRenderer.send('log-to-stdout', message)
+    
+    // Enhanced logging API
+    log: (level, message, meta = {}) => ipcRenderer.send('log-from-renderer', { level, message, meta }),
+    
+    // Legacy logging for backward compatibility
+    logMessage: (message) => ipcRenderer.send('log-to-stdout', message),
+    
+    // Log management APIs
+    showLogsFolder: () => ipcRenderer.invoke('show-logs-folder'),
+    getLogInfo: () => ipcRenderer.invoke('get-log-info')
   },
 
   // Dialog APIs

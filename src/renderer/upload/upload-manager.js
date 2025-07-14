@@ -8,6 +8,7 @@ import { config } from '../config/app-config.js';
 import { TokenManager } from '../auth/token-manager.js';
 import { UIComponents } from '../components/ui-components.js';
 import { StorageManager } from '../components/storage-manager.js';
+import { logger } from '../logger.js';
 
 export class UploadManager {
     constructor() {
@@ -22,7 +23,7 @@ export class UploadManager {
         this.maxConcurrentUploads = 3;
         this.selectedService = 'zentransfer'; // Default service
         
-        console.log('UploadManager: Initialized with main process worker pool support');
+        logger.info('UploadManager: Initialized with main process worker pool support');
         
         // Listen for progress updates from main process
         this.setupProgressListener();

@@ -6,6 +6,7 @@
 import { UIComponents } from '../components/ui-components.js';
 import { config } from '../config/app-config.js';
 import { StorageManager } from '../components/storage-manager.js';
+import { logger } from '../logger.js';
 
 export class SettingsScreen {
     constructor(authManager, onNavigateToLogin = null) {
@@ -316,6 +317,39 @@ export class SettingsScreen {
                     </div>
                 </div>
 
+                <!-- Logs Section -->
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Application Logs
+                    </h3>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Application logs help diagnose issues and track application behavior. Logs are automatically managed and kept for 30 days.
+                    </p>
+                    <div id="logInfo" class="space-y-2 mb-4 text-sm text-gray-500">
+                        <div class="flex justify-between">
+                            <span>Log file:</span>
+                            <span id="logFilePath" class="font-mono text-xs">Loading...</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>File size:</span>
+                            <span id="logFileSize">Loading...</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Last updated:</span>
+                            <span id="logLastModified">Loading...</span>
+                        </div>
+                    </div>
+                    <button id="showLogsBtn" class="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:ring-2 focus:ring-blue-500 font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-2M14 4h6m0 0v6m0-6L10 14"></path>
+                        </svg>
+                        <span>Show Logs Folder</span>
+                    </button>
+                </div>
+
                 <!-- Debug Section (Development Only) -->
                 ${config.IS_DEVELOPMENT ? `
                     <div class="bg-white rounded-lg p-4 shadow-sm border-2 border-yellow-200">
@@ -372,6 +406,9 @@ export class SettingsScreen {
         this.createAzureSecureInputs();
         this.setupGcpFileHandling();
         this.createAwsS3SecureInputs();
+
+        // Setup logs functionality
+        this.setupLogsEventListeners();
 
         // Setup hidden developer console trigger
         const serverLabel = document.getElementById('serverLabel');
@@ -2400,6 +2437,76 @@ export class SettingsScreen {
         }
         
         console.log('=== End Debug ===');
+    }
+
+    /**
+     * Setup event listeners for logs functionality
+     */
+    setupLogsEventListeners() {
+        const showLogsBtn = document.getElementById('showLogsBtn');
+        
+        if (showLogsBtn) {
+            showLogsBtn.addEventListener('click', async () => {
+                try {
+                    const result = await logger.showLogsFolder();
+                    if (!result.success) {
+                        UIComponents.Notification.show('Failed to open logs folder: ' + result.error, 'error');
+                    }
+                } catch (error) {
+                    logger.error('Error opening logs folder from settings', { error: error.message });
+                    UIComponents.Notification.show('Failed to open logs folder', 'error');
+                }
+            });
+        }
+
+        // Load and display log info when settings screen is shown
+        this.loadLogInfo();
+    }
+
+    /**
+     * Load and display log file information
+     */
+    async loadLogInfo() {
+        try {
+            const logInfo = await logger.getLogInfo();
+            
+            const logFilePathElement = document.getElementById('logFilePath');
+            const logFileSizeElement = document.getElementById('logFileSize');
+            const logLastModifiedElement = document.getElementById('logLastModified');
+
+            if (logInfo) {
+                if (logFilePathElement) {
+                    // Show just the filename, not the full path for UI cleanliness
+                    const fileName = logInfo.path.split(/[\\\/]/).pop();
+                    logFilePathElement.textContent = fileName;
+                    logFilePathElement.title = logInfo.path; // Full path in tooltip
+                }
+                
+                if (logFileSizeElement) {
+                    logFileSizeElement.textContent = logger.formatFileSize(logInfo.size);
+                }
+                
+                if (logLastModifiedElement) {
+                    logLastModifiedElement.textContent = new Date(logInfo.lastModified).toLocaleString();
+                }
+            } else {
+                // Show unavailable state
+                if (logFilePathElement) logFilePathElement.textContent = 'Unavailable';
+                if (logFileSizeElement) logFileSizeElement.textContent = 'Unavailable';
+                if (logLastModifiedElement) logLastModifiedElement.textContent = 'Unavailable';
+            }
+        } catch (error) {
+            logger.error('Failed to load log info for settings display', { error: error.message });
+            
+            // Show error state
+            const logFilePathElement = document.getElementById('logFilePath');
+            const logFileSizeElement = document.getElementById('logFileSize');
+            const logLastModifiedElement = document.getElementById('logLastModified');
+            
+            if (logFilePathElement) logFilePathElement.textContent = 'Error loading';
+            if (logFileSizeElement) logFileSizeElement.textContent = 'Error loading';
+            if (logLastModifiedElement) logLastModifiedElement.textContent = 'Error loading';
+        }
     }
 
 } 
