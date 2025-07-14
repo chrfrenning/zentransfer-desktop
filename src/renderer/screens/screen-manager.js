@@ -9,6 +9,7 @@ import { UploadScreen } from './upload-screen.js';
 import { DownloadScreen } from './download-screen.js';
 import { SettingsScreen } from './settings-screen.js';
 import { LoaderScreen } from './loader-screen.js';
+import { UIComponents } from '../components/ui-components.js';
 
 export class ScreenManager {
     constructor(authManager, uploadManager, appController = null) {
@@ -23,7 +24,7 @@ export class ScreenManager {
             login: new LoginScreen(authManager),
             import: new ImportScreen(uploadManager),
             upload: new UploadScreen(uploadManager),
-            download: new DownloadScreen(),
+            download: new DownloadScreen(async () => await this.showLoginScreen()),
             settings: new SettingsScreen(authManager, async () => await this.showLoginScreen())
         };
 
@@ -312,12 +313,6 @@ export class ScreenManager {
             downloadTabBtn.disabled = true;
             downloadTabBtn.classList.add('opacity-50', 'cursor-not-allowed');
             downloadTabBtn.classList.remove('hover:text-gray-700', 'hover:bg-gray-50');
-            
-            // Add click handler to show offline message
-            downloadTabBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.warn('Download feature requires login. Please log in to access downloads.');
-            });
         }
         
         // Update tab buttons to reflect offline state

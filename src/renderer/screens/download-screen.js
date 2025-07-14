@@ -10,7 +10,7 @@ import { StorageManager } from '../components/storage-manager.js';
 import { DownloadQueueManager } from '../components/download-queue-manager.js';
 
 export class DownloadScreen {
-    constructor() {
+    constructor(showLoginCallback = null) {
         console.log('DownloadScreen constructor called!');
         this.isVisible = false;
         this.elements = {};
@@ -18,6 +18,7 @@ export class DownloadScreen {
         this.queueManager = new DownloadQueueManager();
         this.downloadQueue = new Map(); // Track download progress
         this.maxCompletedItems = 20; // Maximum number of completed items to keep
+        this.showLoginCallback = showLoginCallback; // Store callback for navigation to login
 
         this.initializeElements();
         this.setupEventListeners();
@@ -918,6 +919,22 @@ export class DownloadScreen {
             this.elements.downloadTab.classList.remove('hidden');
             this.isVisible = true;
 
+            // Check authentication status first
+            let isAuthenticated = false;
+            try {
+                const tokenResult = await TokenManager.ensureValidToken();
+                isAuthenticated = tokenResult && tokenResult.valid;
+            } catch (error) {
+                console.log('Authentication check failed:', error);
+                isAuthenticated = false;
+            }
+
+            if (!isAuthenticated) {
+                // Show login required message for unauthenticated users
+                this.showLoginRequiredMessage();
+                return;
+            }
+
             // Load settings and update UI
             await this.loadSettings();
 
@@ -967,5 +984,67 @@ export class DownloadScreen {
     destroy() {
         this.stopMonitoring();
         this.isVisible = false;
+    }
+
+    /**
+     * Show login required message for unauthenticated users
+     */
+    showLoginRequiredMessage() {
+        // Clear the download tab content and show login required message
+        if (this.elements.downloadTab) {
+            this.elements.downloadTab.innerHTML = `
+                <div class="flex items-center justify-center min-h-[400px]">
+                    <div class="text-center max-w-md mx-auto p-8">
+                        <!-- Icon -->
+                        <div class="w-16 h-16 mx-auto mb-6 bg-blue-100 rounded-full flex items-center justify-center">
+                            <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
+                        </div>
+                        
+                        <!-- Title -->
+                        <h2 class="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
+                        
+                        <!-- Description -->
+                        <p class="text-gray-600 mb-6 leading-relaxed">
+                            Send files from your camera via FTP to ZenTransfer.io and automatically download them to this computer.
+                        </p>
+                        
+                        <!-- Login Button -->
+                        <button 
+                            id="loginFromDownloadBtn" 
+                            class="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        >
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                            </svg>
+                            Log In
+                        </button>
+                        
+                        <!-- Additional Info -->
+                        <p class="text-sm text-gray-500 mt-4">
+                            You must be logged in to ZenTransfer.io to use this feature.
+                        </p>
+                    </div>
+                </div>
+            `;
+            
+            // Add click handler for login button
+            const loginBtn = document.getElementById('loginFromDownloadBtn');
+            if (loginBtn) {
+                loginBtn.addEventListener('click', () => {
+                    // Trigger login screen - this will be handled by the screen manager
+                    if (this.showLoginCallback) {
+                        // If we have a callback, use it to navigate to login screen
+                        this.showLoginCallback();
+                    } else {
+                        // Fallback: navigate to login screen via screen manager
+                        console.log('Navigating to login screen from download page');
+                        // The screen manager should handle this through auth state changes
+                        window.location.reload(); // Simple fallback
+                    }
+                });
+            }
+        }
     }
 }
