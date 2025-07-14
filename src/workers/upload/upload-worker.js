@@ -345,26 +345,64 @@ async function uploadFile(fileData, sessionData, jobId) {
     
     console.log(`Worker ${workerId}: Using ${actualServiceName} for upload of ${fileName}`);
     
-    // Determine file path to use for upload
     const fs = require('fs');
     const os = require('os');
     let tempFilePath;
     let isTemporary = false;
     
+    console.log('=== UPLOAD WORKER: FILE HANDLING ===');
+    console.log(`Worker ${workerId}: Processing file upload for: ${fileName}`);
+    console.log(`Worker ${workerId}: File data details:`, {
+        hasFilePath: !!(fileData.filePath),
+        hasFileBuffer: !!(fileBuffer),
+        filePath: fileData.filePath || '(none)',
+        fileBufferSize: fileBuffer ? fileBuffer.length : 0,
+        fileName: fileName,
+        fileSize: fileData.size,
+        mimeType: correctMimeType,
+        source: fileData.source || 'unknown'
+    });
+    
     try {
       if (fileData.filePath) {
         // Local file - use the path directly (no copying needed)
         tempFilePath = fileData.filePath;
-        console.log(`Worker ${workerId}: Using local file path: ${tempFilePath}`);
+        console.log(`Worker ${workerId}: ✓ Using local file path directly (NO TEMPORARY FILE NEEDED)`);
+        console.log(`Worker ${workerId}: Local file path: ${tempFilePath}`);
+        console.log(`Worker ${workerId}: Source: ${fileData.source || 'unknown'}`);
+        
+        if (fileData.source === 'drag-drop-with-path') {
+          console.log(`Worker ${workerId}: 🎉 DRAG/DROP OPTIMIZATION: Using direct path instead of temporary file!`);
+          console.log(`Worker ${workerId}: This drag/drop file is processed as efficiently as import files`);
+        }
+        
+        console.log(`Worker ${workerId}: Benefits: No copying, no temporary files, direct file access`);
       } else if (fileBuffer) {
         // Web file or file object - create temporary file
         tempFilePath = path.join(os.tmpdir(), `zentransfer_${Date.now()}_${fileName}`);
+        console.log(`Worker ${workerId}: ⚠️ Creating temporary file (FILE OBJECT WITHOUT PATH)`);
+        console.log(`Worker ${workerId}: Source: ${fileData.source || 'unknown'}`);
+        console.log(`Worker ${workerId}: Temporary file path: ${tempFilePath}`);
+        console.log(`Worker ${workerId}: Writing ${fileBuffer.length} bytes to temporary file...`);
+        
+        if (fileData.source === 'drag-drop-buffer') {
+          console.log(`Worker ${workerId}: This drag/drop file had no path property, using fallback buffer strategy`);
+        }
+        
+        const startTime = Date.now();
         fs.writeFileSync(tempFilePath, fileBuffer);
+        const writeTime = Date.now() - startTime;
+        
         isTemporary = true;
-        console.log(`Worker ${workerId}: Created temporary file: ${tempFilePath}`);
+        console.log(`Worker ${workerId}: ✓ Temporary file created successfully in ${writeTime}ms`);
+        console.log(`Worker ${workerId}: This requires extra I/O - file is copied from memory to disk`);
       } else {
         throw new Error('No file path or file buffer provided');
       }
+      
+      console.log(`Worker ${workerId}: Final file path for upload: ${tempFilePath}`);
+      console.log(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
+      console.log(`Worker ${workerId}: Processing efficiency: ${isTemporary ? 'LESS EFFICIENT (temp file)' : 'HIGHLY EFFICIENT (direct path)'}`);
       
       // Generate remote name with folder organization if needed
       //remoteName = generateRemoteName(fileData.filePath, importSettings);
@@ -441,18 +479,32 @@ async function uploadFile(fileData, sessionData, jobId) {
       
     } finally {
       // Clean up temporary file only if we created it
+      console.log(`Worker ${workerId}: === CLEANUP PHASE ===`);
+      console.log(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
+      console.log(`Worker ${workerId}: File path: ${tempFilePath}`);
+      
       if (isTemporary) {
         try {
           if (fs.existsSync(tempFilePath)) {
+            console.log(`Worker ${workerId}: 🗑️ Removing temporary file: ${tempFilePath}`);
+            const statsBefore = fs.statSync(tempFilePath);
+            console.log(`Worker ${workerId}: Temporary file size: ${statsBefore.size} bytes`);
+            
             fs.unlinkSync(tempFilePath);
-            console.log(`Worker ${workerId}: Cleaned up temporary file: ${tempFilePath}`);
+            console.log(`Worker ${workerId}: ✓ Temporary file successfully removed`);
+            console.log(`Worker ${workerId}: This frees up ${statsBefore.size} bytes of disk space`);
+          } else {
+            console.log(`Worker ${workerId}: Temporary file no longer exists: ${tempFilePath}`);
           }
         } catch (cleanupError) {
-          console.warn(`Worker ${workerId}: Failed to clean up temp file: ${cleanupError.message}`);
+          console.warn(`Worker ${workerId}: ❌ Failed to clean up temp file: ${cleanupError.message}`);
         }
       } else {
-        console.log(`Worker ${workerId}: Skipping cleanup for local file: ${tempFilePath}`);
+        console.log(`Worker ${workerId}: ✓ Skipping cleanup for local file (no temporary file created)`);
+        console.log(`Worker ${workerId}: Local file remains at: ${tempFilePath}`);
       }
+      
+      console.log(`Worker ${workerId}: === END CLEANUP ===`);
     }
     
   } catch (error) {

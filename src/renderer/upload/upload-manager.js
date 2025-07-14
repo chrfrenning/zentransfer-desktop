@@ -240,6 +240,10 @@ export class UploadManager {
      * @param {FileList|Array} files - Files to add (File objects or file paths)
      */
     async addFiles(files) {
+        console.log('=== UPLOAD MANAGER: addFiles called ===');
+        console.log('Input type:', files.constructor.name);
+        console.log('Number of files:', files.length);
+        
         // Check if user is authenticated only for ZenTransfer uploads
         if (this.selectedService === 'zentransfer') {
             const tokenResult = await TokenManager.ensureValidToken();
@@ -266,18 +270,44 @@ export class UploadManager {
         const fileArray = Array.from(files);
         const validFiles = [];
 
-        for (const file of fileArray) {
+        console.log('=== PROCESSING FILES ===');
+        for (let i = 0; i < fileArray.length; i++) {
+            const file = fileArray[i];
+            console.log(`Processing file ${i + 1}/${fileArray.length}:`, {
+                name: typeof file === 'string' ? file : file.name,
+                type: typeof file,
+                isString: typeof file === 'string',
+                isFileObject: file instanceof File,
+                hasPath: !!(file.path),
+                size: typeof file === 'string' ? 'unknown' : file.size
+            });
+            
             let fileItem;
             
             if (typeof file === 'string') {
                 // Handle file path (from import system)
+                console.log('  -> Creating file item from path (no temporary file needed)');
                 fileItem = await this.createFileItemFromPath(file);
             } else {
                 // Handle File object (from file input/drag-drop)
+                console.log('  -> Creating file item from File object (may need temporary file)');
                 fileItem = this.createFileItemFromFile(file);
             }
             
-            if (!fileItem) continue;
+            if (!fileItem) {
+                console.warn(`  -> Failed to create file item for file ${i + 1}`);
+                continue;
+            }
+
+            console.log(`  -> File item created:`, {
+                id: fileItem.id,
+                name: fileItem.name,
+                size: fileItem.size,
+                type: fileItem.type,
+                hasFilePath: !!(fileItem.filePath),
+                hasFileObject: !!(fileItem.file),
+                source: fileItem.source
+            });
 
             // Validate file size
             if (fileItem.size > config.MAX_FILE_SIZE) {
@@ -291,14 +321,21 @@ export class UploadManager {
             validFiles.push(fileItem);
         }
 
+        console.log(`=== ADDING ${validFiles.length} VALID FILES TO QUEUE ===`);
         if (validFiles.length > 0) {
             this.queue.push(...validFiles);
+            console.log('Queue updated. Total files in queue:', this.queue.length);
             this.notifyQueueUpdate();
 
             // Start processing if not already running
             if (!this.isProcessing) {
+                console.log('Starting upload processing...');
                 this.startProcessing();
+            } else {
+                console.log('Processing already running, files added to queue');
             }
+        } else {
+            console.log('No valid files to add to queue');
         }
     }
 
@@ -308,21 +345,82 @@ export class UploadManager {
      * @returns {Object} File item
      */
     createFileItemFromFile(file) {
-        return {
-            id: this.generateFileId(),
-            file: file,
+        console.log('=== CREATING FILE ITEM FROM FILE OBJECT ===');
+        console.log('File object details:', {
             name: file.name,
             size: file.size,
             type: file.type,
-            status: 'pending',
-            progress: 0,
-            error: null,
-            uploadId: null,
-            finalUrl: null,
-            addedAt: Date.now(),
-            statusMessage: 'Queued',
-            source: 'file-input'
-        };
+            lastModified: file.lastModified,
+            lastModifiedDate: new Date(file.lastModified),
+            webkitRelativePath: file.webkitRelativePath || '(none)',
+            constructor: file.constructor.name,
+            // Check for path property (may be available in some Electron contexts)
+            path: file.path || '(no path property)',
+            // Check for additional properties
+            keys: Object.keys(file)
+        });
+        
+        // Check if File object has a path property (Electron drag/drop files)
+        const hasPath = file.path && typeof file.path === 'string';
+        console.log('File path analysis:', {
+            hasPath: hasPath,
+            pathValue: file.path || '(none)',
+            canUseDirectPath: hasPath
+        });
+        
+        let fileItem;
+        
+        if (hasPath) {
+            // File has a real path - use it directly like import files (no temporary file needed!)
+            console.log('✓ File has path property - using direct path strategy (EFFICIENT)');
+            fileItem = {
+                id: this.generateFileId(),
+                filePath: file.path,  // Use the real file path
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                status: 'pending',
+                progress: 0,
+                error: null,
+                uploadId: null,
+                finalUrl: null,
+                addedAt: Date.now(),
+                statusMessage: 'Queued',
+                source: 'drag-drop-with-path'
+            };
+        } else {
+            // File object without path - fallback to buffer strategy (needs temporary file)
+            console.log('⚠️ File has no path property - using buffer strategy (REQUIRES TEMPORARY FILE)');
+            fileItem = {
+                id: this.generateFileId(),
+                file: file,  // Store the File object for buffer extraction
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                status: 'pending',
+                progress: 0,
+                error: null,
+                uploadId: null,
+                finalUrl: null,
+                addedAt: Date.now(),
+                statusMessage: 'Queued',
+                source: 'drag-drop-buffer'
+            };
+        }
+        
+        console.log('File item created:', {
+            id: fileItem.id,
+            name: fileItem.name,
+            size: fileItem.size,
+            type: fileItem.type,
+            hasFileObject: !!(fileItem.file),
+            hasFilePath: !!(fileItem.filePath),
+            source: fileItem.source,
+            willNeedTemporaryFile: !fileItem.filePath && !!fileItem.file,
+            optimizationUsed: hasPath ? 'Direct path (like import)' : 'Buffer + temp file'
+        });
+        
+        return fileItem;
     }
 
     /**
@@ -528,22 +626,67 @@ export class UploadManager {
      * Upload file via main process worker
      */
     async uploadFileViaMainProcess(fileItem) {
+        console.log('=== UPLOAD MANAGER: uploadFileViaMainProcess ===');
+        console.log('File item details:', {
+            id: fileItem.id,
+            name: fileItem.name,
+            size: fileItem.size,
+            type: fileItem.type,
+            hasFilePath: !!(fileItem.filePath),
+            hasFileObject: !!(fileItem.file),
+            source: fileItem.source,
+            serviceType: fileItem.serviceType || this.selectedService
+        });
+        
         if (window.electronAPI) {
             try {
                 let fileBuffer = null;
                 let useFilePath = false;
                 
+                console.log('=== DETERMINING FILE HANDLING STRATEGY ===');
+                
                 if (fileItem.filePath) {
-                    // File path upload (from import system or local files)
+                    // File path upload (from import system or drag/drop with path)
                     // Pass file path directly to worker - no need to read into memory
                     useFilePath = true;
+                    console.log('✓ Using file path strategy (EFFICIENT - NO TEMPORARY FILES)');
+                    console.log('  - File path:', fileItem.filePath);
+                    console.log('  - Source:', fileItem.source);
+                    console.log('  - Benefits: No memory usage, no temporary files, direct file access');
+                    
+                    if (fileItem.source === 'drag-drop-with-path') {
+                        console.log('  - 🎉 OPTIMIZATION: Drag/drop file using direct path (like import files)!');
+                    }
                 } else if (fileItem.file) {
-                    // File object upload (from web-based drag-drop)
+                    // File object upload (from web-based drag-drop without path)
                     // Only read into buffer for web files that don't have a local path
+                    console.log('⚠️ Using file buffer strategy (DRAG/DROP - REQUIRES TEMPORARY FILE)');
+                    console.log('  - File object:', fileItem.file);
+                    console.log('  - Source:', fileItem.source);
+                    console.log('  - Reason: File object has no path property');
+                    console.log('  - Will read file into memory buffer...');
+                    
+                    const bufferStart = Date.now();
                     fileBuffer = await this.fileToBuffer(fileItem.file);
+                    const bufferTime = Date.now() - bufferStart;
+                    
+                    console.log('  - Buffer created:', {
+                        size: fileBuffer.length,
+                        timeToCreate: bufferTime + 'ms',
+                        memoryUsage: (fileBuffer.length / 1024 / 1024).toFixed(2) + 'MB'
+                    });
+                    console.log('  - This buffer will be written to temporary file by worker');
                 } else {
                     throw new Error('No file or file path available for upload');
                 }
+                
+                console.log('File handling strategy determined:', {
+                    useFilePath: useFilePath,
+                    willNeedTemporaryFile: !useFilePath,
+                    bufferSize: fileBuffer ? fileBuffer.length : 0,
+                    source: fileItem.source,
+                    optimizationApplied: fileItem.source === 'drag-drop-with-path' ? 'YES - Direct path from drag/drop' : 'NO'
+                });
                 
                 // Only check authentication for ZenTransfer uploads
                 let tokenResult = { valid: false, token: null };
@@ -556,6 +699,14 @@ export class UploadManager {
                 
                 // Get service preferences from config system
                 const servicePreferences = await this.getServicePreferences();
+                
+                console.log('Calling upload worker with:', {
+                    fileId: fileItem.id,
+                    fileName: fileItem.name,
+                    hasFileBuffer: !!(fileBuffer),
+                    hasFilePath: !!(fileItem.filePath),
+                    serviceType: fileItem.serviceType || this.selectedService
+                });
                 
                 const result = await window.electronAPI.upload.uploadFile({
                     fileId: fileItem.id,
@@ -578,6 +729,8 @@ export class UploadManager {
                     servicePreferences: servicePreferences,
                     selectedService: fileItem.serviceType || this.selectedService
                 });
+                
+                console.log('Upload worker result:', result);
                 
                 if (!result.success) {
                     throw new Error(result.error);

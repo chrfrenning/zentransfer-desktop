@@ -311,29 +311,106 @@ export class UploadScreen {
         // Global drag and drop handlers for full-screen drop zone
         document.addEventListener('dragenter', (e) => {
             e.preventDefault();
+            console.log('=== DRAG ENTER EVENT ===');
+            console.log('Event target:', e.target);
+            console.log('Related target:', e.relatedTarget);
+            console.log('DataTransfer types:', e.dataTransfer.types);
+            console.log('DataTransfer items length:', e.dataTransfer.items.length);
+            
             if (this.isVisible && !this.isDragOver) {
+                console.log('Showing drop overlay (upload screen is visible)');
                 this.showDropOverlay();
             }
         });
 
         document.addEventListener('dragover', (e) => {
             e.preventDefault();
+            // Only log occasionally to avoid spam
+            if (Math.random() < 0.01) {
+                console.log('Drag over - DataTransfer types:', e.dataTransfer.types);
+            }
         });
 
         document.addEventListener('dragleave', (e) => {
             e.preventDefault();
+            console.log('=== DRAG LEAVE EVENT ===');
+            console.log('Event target:', e.target);
+            console.log('Related target:', e.relatedTarget);
+            
             // Only hide if we're leaving the document entirely
             if (!e.relatedTarget || e.relatedTarget.nodeName === 'HTML') {
+                console.log('Hiding drop overlay (leaving document)');
                 this.hideDropOverlay();
             }
         });
 
         document.addEventListener('drop', async (e) => {
             e.preventDefault();
+            console.log('=== DROP EVENT ===');
+            console.log('Event target:', e.target);
+            console.log('Upload screen visible:', this.isVisible);
+            
             this.hideDropOverlay();
             
             if (this.isVisible && e.dataTransfer.files.length > 0) {
+                console.log('=== ANALYZING DROPPED FILES ===');
+                console.log('Number of files:', e.dataTransfer.files.length);
+                console.log('DataTransfer types:', e.dataTransfer.types);
+                console.log('DataTransfer items:', e.dataTransfer.items);
+                
+                // Log detailed information about each file
+                for (let i = 0; i < e.dataTransfer.files.length; i++) {
+                    const file = e.dataTransfer.files[i];
+                    const hasPath = file.path && typeof file.path === 'string';
+                    
+                    console.log(`File ${i + 1}:`, {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        lastModified: file.lastModified,
+                        lastModifiedDate: new Date(file.lastModified),
+                        webkitRelativePath: file.webkitRelativePath || '(none)',
+                        // Check if this is a File object or something else
+                        constructor: file.constructor.name,
+                        // Check for any path-related properties
+                        path: file.path || '(no path property)',
+                        hasPath: hasPath,
+                        // Check for any additional properties
+                        keys: Object.keys(file),
+                        // Optimization analysis
+                        canUseDirectPath: hasPath,
+                        willNeedTemporaryFile: !hasPath
+                    });
+                    
+                    if (hasPath) {
+                        console.log(`  🎉 File ${i + 1} OPTIMIZATION: Has path property - will use direct file access!`);
+                        console.log(`  📁 Direct path: ${file.path}`);
+                        console.log(`  ✅ Benefits: No memory buffer, no temporary file, efficient like import`);
+                    } else {
+                        console.log(`  ⚠️ File ${i + 1} FALLBACK: No path property - will need buffer + temporary file`);
+                        console.log(`  📦 Will read ${file.size} bytes into memory buffer`);
+                    }
+                }
+                
+                // Log DataTransfer items for additional context
+                if (e.dataTransfer.items) {
+                    console.log('=== DATATRANSFER ITEMS ===');
+                    for (let i = 0; i < e.dataTransfer.items.length; i++) {
+                        const item = e.dataTransfer.items[i];
+                        console.log(`Item ${i + 1}:`, {
+                            kind: item.kind,
+                            type: item.type,
+                            // Try to get file info if available
+                            file: item.kind === 'file' ? item.getAsFile() : null
+                        });
+                    }
+                }
+                
+                console.log('Calling uploadManager.addFiles with File objects...');
                 await this.uploadManager.addFiles(e.dataTransfer.files);
+                console.log('uploadManager.addFiles completed');
+            } else {
+                console.log('Not processing drop - either screen not visible or no files');
             }
         });
 
