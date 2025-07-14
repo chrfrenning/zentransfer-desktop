@@ -110,7 +110,7 @@ export class UploadServiceFactory {
      * @returns {Array<string>} Array of service type names
      */
     getAvailableServiceTypes() {
-        return ['zentransfer', 'aws-s3', 'azure-blob', 'gcp-storage'];
+        return ['zentransfer', 'aws-s3', 'azure-blob', 'gcp-storage', 'minio'];
     }
 }
 

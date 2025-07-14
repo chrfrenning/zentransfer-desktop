@@ -758,12 +758,14 @@ export class ImportScreen {
         const isAwsS3Available = await this.isServiceConfigured('aws-s3');
         const isAzureAvailable = await this.isServiceConfigured('azure-blob');
         const isGcpAvailable = await this.isServiceConfigured('gcp-storage');
+        const isMinioAvailable = await this.isServiceConfigured('minio');
         
         // Update UI elements
         this.updateServiceUI('zentransfer', isZenTransferAvailable, 'Please log in to enable ZenTransfer uploads');
         this.updateServiceUI('aws-s3', isAwsS3Available, 'Please enable and configure AWS S3 in Settings to enable uploads');
         this.updateServiceUI('azure-blob', isAzureAvailable, 'Please enable and configure Azure Blob Storage in Settings to enable uploads');
         this.updateServiceUI('gcp-storage', isGcpAvailable, 'Please enable and configure Google Cloud Storage in Settings to enable uploads');
+        this.updateServiceUI('minio', isMinioAvailable, 'Please enable and configure MinIO in Settings to enable uploads');
     }
 
     /**
@@ -804,6 +806,10 @@ export class ImportScreen {
                 break;
             case 'gcp-storage':
                 checkbox = this.elements.uploadToGcpCheckbox;
+                label = checkbox?.parentElement;
+                break;
+            case 'minio':
+                checkbox = this.elements.uploadToMinioCheckbox;
                 label = checkbox?.parentElement;
                 break;
         }
@@ -1235,6 +1241,9 @@ export class ImportScreen {
             if (importSettings.uploadToGcp) {
                 enabledServices.push('Google Cloud Storage');
             }
+            if (importSettings.uploadToMinio) {
+                enabledServices.push('MinIO');
+            }
             
             if (enabledServices.length > 0) {
                 this.addLogEntry(`Upload services enabled: ${enabledServices.join(', ')}`);
@@ -1331,6 +1340,7 @@ export class ImportScreen {
             await window.electronAPI.config.set('importSettings.uploadToAwsS3', settings.uploadToAwsS3);
             await window.electronAPI.config.set('importSettings.uploadToAzure', settings.uploadToAzure);
             await window.electronAPI.config.set('importSettings.uploadToGcp', settings.uploadToGcp);
+            await window.electronAPI.config.set('importSettings.uploadToMinio', settings.uploadToMinio);
             await window.electronAPI.config.set('importSettings.includeSubdirectories', settings.includeSubdirectories);
             await window.electronAPI.config.set('importSettings.organizeIntoFolders', settings.organizeIntoFolders);
             await window.electronAPI.config.set('importSettings.folderOrganizationType', settings.folderOrganizationType);

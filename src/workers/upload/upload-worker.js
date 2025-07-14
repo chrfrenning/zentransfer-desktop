@@ -282,6 +282,17 @@ async function uploadFile(fileData, sessionData, jobId) {
         // Use MinIO service
         actualServiceName = 'MinIO';
         
+        console.log(`[Upload Worker] Processing MinIO upload for file: ${fileName}`);
+        console.log(`[Upload Worker] MinIO service preferences:`, {
+            endpoint: servicePreferences.minioEndpoint,
+            bucket: servicePreferences.minioBucket,
+            port: servicePreferences.minioPort,
+            useSSL: servicePreferences.minioUseSSL,
+            region: servicePreferences.minioRegion,
+            hasAccessKey: !!servicePreferences.minioAccessKey,
+            hasSecretKey: !!servicePreferences.minioSecretKey
+        });
+        
         if (!minioService) {
             // Validate MinIO configuration
             if (!servicePreferences.minioEndpoint || !servicePreferences.minioBucket || 
@@ -289,6 +300,7 @@ async function uploadFile(fileData, sessionData, jobId) {
                 throw new Error('Incomplete MinIO configuration. Please check your MinIO settings.');
             }
             
+            console.log(`[Upload Worker] Creating new MinIO service instance`);
             minioService = new MinioService({
                 endpoint: servicePreferences.minioEndpoint,
                 port: servicePreferences.minioPort || 9000,
@@ -298,6 +310,8 @@ async function uploadFile(fileData, sessionData, jobId) {
                 accessKey: servicePreferences.minioAccessKey,
                 secretKey: servicePreferences.minioSecretKey
             });
+        } else {
+            console.log(`[Upload Worker] Reusing existing MinIO service instance`);
         }
         
         uploadService = minioService;

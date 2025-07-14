@@ -92,6 +92,9 @@ async function handleStartImport(message) {
         if (importSettings.uploadToGcp) {
             enabledServices.push('Google Cloud Storage');
         }
+        if (importSettings.uploadToMinio) {
+            enabledServices.push('MinIO');
+        }
         
         if (enabledServices.length > 0) {
             sendMessage('log', { message: `Upload services enabled: ${enabledServices.join(', ')}` });
@@ -308,7 +311,7 @@ async function processFiles(files, importSettings) {
             }
             
             // Queue for upload to enabled cloud services (only if successfully copied to destination)
-            const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || importSettings.uploadToAzure || importSettings.uploadToGcp;
+            const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || importSettings.uploadToAzure || importSettings.uploadToGcp || importSettings.uploadToMinio;
             if (hasAnyUploadEnabled && destinationFilePath) {
                 console.log(`Import worker ${workerId}: About to queue for upload: ${file.name}, isProcessing: ${isProcessing}`);
                 sendMessage('upload-ready', {
@@ -379,7 +382,7 @@ async function processFiles(files, importSettings) {
     const wasCancelled = !isProcessing;
     
     // Log final upload summary if any files were queued
-    const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || importSettings.uploadToAzure || importSettings.uploadToGcp;
+    const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || importSettings.uploadToAzure || importSettings.uploadToGcp || importSettings.uploadToMinio;
     if (hasAnyUploadEnabled && uploadQueueCount > 0) {
         sendMessage('log', { message: `Total files queued for upload: ${uploadQueueCount}` });
     }

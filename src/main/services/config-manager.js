@@ -267,6 +267,7 @@ class ConfigManager {
                 'zentransfer_import_upload_to_aws_s3',
                 'zentransfer_import_upload_to_azure',
                 'zentransfer_import_upload_to_gcp',
+                'zentransfer_import_upload_to_minio',
                 'zentransfer_import_enable_cloud_upload'
             ];
             
@@ -289,6 +290,8 @@ class ConfigManager {
                             this.set('importSettings.uploadToAzure', value);
                         } else if (importSettingKey === 'upload_to_gcp') {
                             this.set('importSettings.uploadToGcp', value);
+                        } else if (importSettingKey === 'upload_to_minio') {
+                            this.set('importSettings.uploadToMinio', value);
                         } else if (importSettingKey === 'upload_enabled') {
                             this.set('importSettings.uploadEnabled', value);
                         } else if (importSettingKey === 'enable_cloud_upload') {

@@ -304,6 +304,7 @@ class MinioService extends UploadServiceBase {
     async uploadFile(filePath, remoteName, mimeType, options = {}) {
         const uploadId = this._generateUploadId();
         this._log('info', 'Starting MinIO upload', { uploadId, filePath, remoteName, mimeType });
+        console.log(`[MinIO] Starting upload: ${filePath} -> ${remoteName} (${mimeType})`);
 
         try {
             const validation = this.validateConfiguration();
@@ -400,6 +401,10 @@ class MinioService extends UploadServiceBase {
                 etag: response.ETag
             });
 
+            console.log(`[MinIO] Upload completed successfully: ${finalRemoteName} (${fileInfo.size} bytes, ${uploadTime}ms)`);
+            console.log(`[MinIO] File URL: ${publicUrl}`);
+            console.log(`[MinIO] ETag: ${response.ETag}`);
+
             // Clean up
             this.activeUploads.delete(uploadId);
 
@@ -422,6 +427,12 @@ class MinioService extends UploadServiceBase {
                 error: error.message,
                 stack: error.stack
             });
+
+            console.error(`[MinIO] Upload failed: ${error.message}`);
+            console.error(`[MinIO] Upload ID: ${uploadId}`);
+            console.error(`[MinIO] File: ${filePath}`);
+            console.error(`[MinIO] Remote name: ${remoteName}`);
+            console.error(`[MinIO] Error details:`, error);
 
             // Update progress
             this._updateProgress(uploadId, 0, 'failed');

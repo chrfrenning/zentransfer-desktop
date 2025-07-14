@@ -76,6 +76,7 @@ class SharedConfiguration {
             uploadToAwsS3: false,
             uploadToAzure: false,
             uploadToGcp: false,
+            uploadToMinio: false,
             enableCloudUpload: false
         };
 

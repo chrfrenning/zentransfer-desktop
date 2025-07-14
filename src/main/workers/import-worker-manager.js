@@ -155,6 +155,10 @@ class ImportWorkerManager {
       uploadServices.push({ type: 'gcp-storage', name: 'Google Cloud Storage' });
     }
     
+    if (importSettings?.uploadToMinio) {
+      uploadServices.push({ type: 'minio', name: 'MinIO' });
+    }
+    
     console.log(`Upload services enabled: ${uploadServices.map(s => s.name).join(', ')}`);
     
     // Forward to renderer for upload manager integration
