@@ -440,9 +440,9 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
      }
    });
    
-   ipcMain.handle('upload-service-test', async (event, serviceType) => {
+   ipcMain.handle('upload-service-test', async (event, serviceType, settings) => {
      try {
-       const result = await uploadServiceManager.testService(serviceType);
+       const result = await uploadServiceManager.testService(serviceType, settings);
        return { success: true, result };
      } catch (error) {
        console.error('Failed to test upload service:', error);

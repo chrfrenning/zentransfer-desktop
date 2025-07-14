@@ -1,6 +1,7 @@
 const { AwsS3Service } = require('../cloud-services/aws-s3-service.js');
 const { AzureBlobService } = require('../cloud-services/azure-blob-service.js');
 const { GcpStorageService } = require('../cloud-services/gcp-storage-service.js');
+const { MinioService } = require('../cloud-services/minio-service.js');
 
 /**
  * SharedConfiguration class
@@ -10,7 +11,14 @@ class SharedConfiguration {
     constructor() {
         // User preferences
         this.preferences = {
-            skipDuplicates: false
+            skipDuplicates: false,
+            createPreviews: false,              // Generate preview and thumbnails for cloud stores
+            extractMetaData: false,             // Extract metadata and save as json in cloud stores
+            createIndexfiles: false,            // Generate json indexes of uploaded files
+            thumbnailSize: 400,                 // Thumbnail size in pixels
+            thumbnailQuality: 90,               // Thumbnail quality (0-100)
+            previewSize: 1920,                  // Preview size in pixels
+            previewQuality: 90                  // Preview quality (0-100)
         };
 
         // Download settings
@@ -44,7 +52,8 @@ class SharedConfiguration {
         this.cloudServices = {
             'aws-s3': new AwsS3Service(),
             'azure-blob': new AzureBlobService(),
-            'gcp-storage': new GcpStorageService()
+            'gcp-storage': new GcpStorageService(),
+            'minio': new MinioService()
         };
 
         // Import settings (consolidated all import-related settings here)
@@ -72,14 +81,8 @@ class SharedConfiguration {
 
         // Upload settings (for upload screen preferences)
         this.uploadSettings = {
-            lastSelectedService: 'zentransfer', // Default to ZenTransfer
-            createPreviews: false,              // Generate preview and thumbnails for cloud stores
-            extractMetaData: false,             // Extract metadata and save as json in cloud stores
-            createIndexfiles: false,            // Generate json indexes of uploaded files
-            thumbnailSize: 400,                 // Thumbnail size in pixels
-            thumbnailQuality: 90,               // Thumbnail quality (0-100)
-            previewSize: 1920,                  // Preview size in pixels
-            previewQuality: 90                  // Preview quality (0-100)
+            lastSelectedService: 'zentransfer' // Default to ZenTransfer
+            
         };
     }
 

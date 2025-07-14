@@ -282,6 +282,105 @@ export class SettingsScreen {
                     </div>
                 </div>
 
+                <!-- MinIO Upload Section -->
+                <div class="bg-white rounded-lg p-4 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <!-- MinIO icon -->
+                            <svg class="w-5 h-5 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2L2 7v10l10 5 10-5V7l-10-5zM12 4.5L19.5 8 12 11.5 4.5 8 12 4.5zM4 9.5l7 3.5v7l-7-3.5v-7zm16 0v7l-7 3.5v-7l7-3.5z"/>
+                            </svg>
+                            <h3 class="text-lg font-semibold text-gray-900">MinIO Upload</h3>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="minioEnableToggle" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                        </label>
+                    </div>
+                    
+                    <div id="minioSettings" class="space-y-4 hidden">
+                        <!-- Endpoint -->
+                        <div>
+                            <label for="minioEndpoint" class="block text-sm font-medium text-gray-700 mb-1">Endpoint <span class="text-red-500">*</span></label>
+                            <input 
+                                type="text" 
+                                id="minioEndpoint"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" 
+                                placeholder="minio.example.com"
+                                required
+                            >
+                            <p class="text-xs text-gray-500 mt-1">Enter the MinIO server hostname or IP address (without protocol)</p>
+                        </div>
+                        
+                        <!-- Port -->
+                        <div>
+                            <label for="minioPort" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+                            <input 
+                                type="number" 
+                                id="minioPort"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" 
+                                placeholder="9000"
+                                min="1"
+                                max="65535"
+                                value="9000"
+                            >
+                            <p class="text-xs text-gray-500 mt-1">Default: 9000 (HTTP), 9443 (HTTPS)</p>
+                        </div>
+                        
+                        <!-- Use SSL -->
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm font-medium text-gray-700">Use SSL/TLS</span>
+                                <p class="text-xs text-gray-500">Enable secure connections (HTTPS)</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="minioUseSSL" class="sr-only peer" checked>
+                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                            </label>
+                        </div>
+                        
+                        <!-- Bucket Name -->
+                        <div>
+                            <label for="minioBucket" class="block text-sm font-medium text-gray-700 mb-1">Bucket Name <span class="text-red-500">*</span></label>
+                            <input 
+                                type="text" 
+                                id="minioBucket"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" 
+                                placeholder="my-bucket"
+                                required
+                            >
+                            <p class="text-xs text-gray-500 mt-1">Bucket must exist and be accessible</p>
+                        </div>
+                        
+                        <!-- Region -->
+                        <div>
+                            <label for="minioRegion" class="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                            <input 
+                                type="text" 
+                                id="minioRegion"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" 
+                                placeholder="us-east-1"
+                                value="us-east-1"
+                            >
+                            <p class="text-xs text-gray-500 mt-1">MinIO region (default: us-east-1)</p>
+                        </div>
+                        
+                        <!-- Access Key -->
+                        <div id="minioAccessKeyContainer"></div>
+                        
+                        <!-- Secret Key -->
+                        <div id="minioSecretKeyContainer"></div>
+                        
+                        <!-- Test Connection Button -->
+                        <button id="testMinioConnectionBtn" class="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 focus:ring-2 focus:ring-purple-500 font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2">
+                            <svg id="testMinioIcon" class="w-5 h-5 transition-all duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <span id="testMinioText">Test Connection</span>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Account Section -->
                 <div class="bg-white rounded-lg p-4 shadow-sm">
                     <h3 class="text-lg font-semibold text-gray-900 mb-3">ZenTransfer.io account</h3>
@@ -433,6 +532,7 @@ export class SettingsScreen {
         this.createAzureSecureInputs();
         this.setupGcpFileHandling();
         this.createAwsS3SecureInputs();
+        this.createMinioSecureInputs();
 
         // Setup logs functionality
         this.setupLogsEventListeners();
@@ -619,6 +719,77 @@ export class SettingsScreen {
         if (testS3ConnectionBtn) {
             testS3ConnectionBtn.addEventListener('click', () => {
                 this.testS3Connection();
+            });
+        }
+
+        // MinIO settings
+        const minioEnableToggle = document.getElementById('minioEnableToggle');
+        const minioSettings = document.getElementById('minioSettings');
+        const minioEndpoint = document.getElementById('minioEndpoint');
+        const minioPort = document.getElementById('minioPort');
+        const minioUseSSL = document.getElementById('minioUseSSL');
+        const minioBucket = document.getElementById('minioBucket');
+        const minioRegion = document.getElementById('minioRegion');
+        const testMinioConnectionBtn = document.getElementById('testMinioConnectionBtn');
+
+        // Track if MinIO connection was tested successfully
+        this.minioConnectionTested = false;
+
+        if (minioEnableToggle) {
+            minioEnableToggle.addEventListener('change', (e) => {
+                const isEnabled = e.target.checked;
+                this.updateCloudServiceSetting('minio', 'enabled', isEnabled);
+                this.resetMinioTestButton();
+                
+                if (minioSettings) {
+                    if (isEnabled) {
+                        minioSettings.classList.remove('hidden');
+                    } else {
+                        minioSettings.classList.add('hidden');
+                    }
+                }
+            });
+        }
+
+        if (minioEndpoint) {
+            minioEndpoint.addEventListener('input', (e) => {
+                this.updateCloudServiceSetting('minio', 'endpoint', e.target.value);
+                this.resetMinioTestButton();
+            });
+        }
+
+        if (minioPort) {
+            minioPort.addEventListener('input', (e) => {
+                const port = parseInt(e.target.value) || 9000;
+                this.updateCloudServiceSetting('minio', 'port', port);
+                this.resetMinioTestButton();
+            });
+        }
+
+        if (minioUseSSL) {
+            minioUseSSL.addEventListener('change', (e) => {
+                this.updateCloudServiceSetting('minio', 'useSSL', e.target.checked);
+                this.resetMinioTestButton();
+            });
+        }
+
+        if (minioBucket) {
+            minioBucket.addEventListener('input', (e) => {
+                this.updateCloudServiceSetting('minio', 'bucket', e.target.value);
+                this.resetMinioTestButton();
+            });
+        }
+
+        if (minioRegion) {
+            minioRegion.addEventListener('input', (e) => {
+                this.updateCloudServiceSetting('minio', 'region', e.target.value);
+                this.resetMinioTestButton();
+            });
+        }
+
+        if (testMinioConnectionBtn) {
+            testMinioConnectionBtn.addEventListener('click', () => {
+                this.testMinioConnection();
             });
         }
 
@@ -1011,6 +1182,7 @@ export class SettingsScreen {
             const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
             const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
             const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+            const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
             
             // Wait a bit to ensure DOM elements are ready
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -1031,6 +1203,15 @@ export class SettingsScreen {
             const awsS3StorageTier = document.getElementById('awsS3StorageTier');
             const awsS3AccessKey = document.getElementById('awsS3AccessKey');
             const awsS3SecretKey = document.getElementById('awsS3SecretKey');
+            const minioEnableToggle = document.getElementById('minioEnableToggle');
+            const minioSettings = document.getElementById('minioSettings');
+            const minioEndpoint = document.getElementById('minioEndpoint');
+            const minioPort = document.getElementById('minioPort');
+            const minioUseSSL = document.getElementById('minioUseSSL');
+            const minioBucket = document.getElementById('minioBucket');
+            const minioRegion = document.getElementById('minioRegion');
+            const minioAccessKey = document.getElementById('minioAccessKey');
+            const minioSecretKey = document.getElementById('minioSecretKey');
 
             // Load general preferences
             
@@ -1135,6 +1316,37 @@ export class SettingsScreen {
                         this.updateGcpFileButtonText('✓ Service account key loaded');
                         console.log('GCP Service Account Key loaded from config');
                     }, 50);
+                }
+            }
+            
+            // Load MinIO settings
+            if (minioEnableToggle && minioService) {
+                minioEnableToggle.checked = minioService.enabled || false;
+                
+                // Show/hide MinIO settings based on toggle state
+                if (minioSettings) {
+                    if (minioService.enabled) {
+                        minioSettings.classList.remove('hidden');
+                    } else {
+                        minioSettings.classList.add('hidden');
+                    }
+                }
+                
+                // Load MinIO configuration values
+                if (minioEndpoint) minioEndpoint.value = minioService.endpoint || '';
+                if (minioPort) minioPort.value = minioService.port || 9000;
+                if (minioUseSSL) minioUseSSL.checked = minioService.useSSL !== false;
+                if (minioBucket) minioBucket.value = minioService.bucket || '';
+                if (minioRegion) minioRegion.value = minioService.region || 'us-east-1';
+                
+                // Load secure fields with proper timing
+                if (minioAccessKey && minioService.accessKey) {
+                    minioAccessKey.value = minioService.accessKey;
+                    console.log('MinIO Access Key loaded from config');
+                }
+                if (minioSecretKey && minioService.secretKey) {
+                    minioSecretKey.value = minioService.secretKey;
+                    console.log('MinIO Secret Key loaded from config');
                 }
             }
             
@@ -2506,6 +2718,187 @@ export class SettingsScreen {
             if (logFilePathElement) logFilePathElement.textContent = 'Error loading';
             if (logFileSizeElement) logFileSizeElement.textContent = 'Error loading';
             if (logLastModifiedElement) logLastModifiedElement.textContent = 'Error loading';
+        }
+    }
+
+    /**
+     * Create secure input fields for MinIO
+     */
+    createMinioSecureInputs() {
+        const accessKeyContainer = document.getElementById('minioAccessKeyContainer');
+        const secretKeyContainer = document.getElementById('minioSecretKeyContainer');
+
+        if (accessKeyContainer) {
+            const accessKeyInput = UIComponents.SecureInput.create({
+                id: 'minioAccessKey',
+                label: 'Access Key',
+                placeholder: 'Enter MinIO access key',
+                required: true
+            });
+            accessKeyContainer.appendChild(accessKeyInput);
+
+            // Add event listener for access key changes
+            const accessKeyField = document.getElementById('minioAccessKey');
+            if (accessKeyField) {
+                accessKeyField.addEventListener('input', (e) => {
+                    this.updateCloudServiceSetting('minio', 'accessKey', e.target.value);
+                    this.resetMinioTestButton();
+                });
+            }
+        }
+
+        if (secretKeyContainer) {
+            const secretKeyInput = UIComponents.SecureInput.create({
+                id: 'minioSecretKey',
+                label: 'Secret Key',
+                placeholder: 'Enter MinIO secret key',
+                required: true
+            });
+            secretKeyContainer.appendChild(secretKeyInput);
+
+            // Add event listener for secret key changes
+            const secretKeyField = document.getElementById('minioSecretKey');
+            if (secretKeyField) {
+                secretKeyField.addEventListener('input', (e) => {
+                    this.updateCloudServiceSetting('minio', 'secretKey', e.target.value);
+                    this.resetMinioTestButton();
+                });
+            }
+        }
+    }
+
+    /**
+     * Test MinIO connection with enhanced animations and feedback
+     */
+    async testMinioConnection() {
+        const testBtn = document.getElementById('testMinioConnectionBtn');
+        const testIcon = document.getElementById('testMinioIcon');
+        const testText = document.getElementById('testMinioText');
+        
+        // Get current MinIO service configuration (full config including credentials)
+        const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+
+        // Validate required fields
+        if (!minioService || !minioService.endpoint || !minioService.bucket || !minioService.accessKey || !minioService.secretKey) {
+            console.warn('Please fill in all required MinIO fields.');
+            return;
+        }
+
+        // Disable button and start loading animation
+        if (testBtn && testIcon && testText) {
+            testBtn.disabled = true;
+            testBtn.classList.remove('bg-purple-500', 'hover:bg-purple-600');
+            testBtn.classList.add('bg-purple-600');
+            
+            // Loading state with spinning icon
+            testIcon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            `;
+            testIcon.classList.add('animate-spin');
+            testText.textContent = 'Testing Connection...';
+        }
+
+        try {
+            // Test connection through upload service manager
+            const testResult = await window.electronAPI.uploadService.test('minio', {
+                endpoint: minioService.endpoint,
+                port: minioService.port || 9000,
+                useSSL: minioService.useSSL !== false,
+                bucket: minioService.bucket,
+                region: minioService.region || 'us-east-1',
+                accessKey: minioService.accessKey,
+                secretKey: minioService.secretKey
+            });
+
+            if (testResult.success) {
+                this.minioConnectionTested = true;
+                
+                // Success state
+                if (testBtn && testIcon && testText) {
+                    testBtn.classList.remove('bg-purple-600');
+                    testBtn.classList.add('bg-green-500');
+                    
+                    testIcon.innerHTML = `
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    `;
+                    testIcon.classList.remove('animate-spin');
+                    testText.textContent = 'Connection Successful!';
+                }
+                
+                console.log('MinIO connection test successful:', testResult.message);
+                
+                // Reset button after delay
+                setTimeout(() => {
+                    this.resetMinioTestButton();
+                }, 3000);
+                
+            } else {
+                this.minioConnectionTested = false;
+                
+                // Error state
+                if (testBtn && testIcon && testText) {
+                    testBtn.classList.remove('bg-purple-600');
+                    testBtn.classList.add('bg-red-500');
+                    
+                    testIcon.innerHTML = `
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    `;
+                    testIcon.classList.remove('animate-spin');
+                    testText.textContent = 'Connection Failed';
+                }
+                
+                console.error('MinIO connection test failed:', testResult.message);
+                
+                // Reset button after delay
+                setTimeout(() => {
+                    this.resetMinioTestButton();
+                }, 3000);
+            }
+            
+        } catch (error) {
+            this.minioConnectionTested = false;
+            
+            // Error state
+            if (testBtn && testIcon && testText) {
+                testBtn.classList.remove('bg-purple-600');
+                testBtn.classList.add('bg-red-500');
+                
+                testIcon.innerHTML = `
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                `;
+                testIcon.classList.remove('animate-spin');
+                testText.textContent = 'Connection Failed';
+            }
+            
+            console.error('MinIO connection test error:', error);
+            
+            // Reset button after delay
+            setTimeout(() => {
+                this.resetMinioTestButton();
+            }, 3000);
+        }
+    }
+
+    /**
+     * Reset MinIO test button to initial state
+     */
+    resetMinioTestButton() {
+        const testBtn = document.getElementById('testMinioConnectionBtn');
+        const testIcon = document.getElementById('testMinioIcon');
+        const testText = document.getElementById('testMinioText');
+        
+        this.minioConnectionTested = false;
+        
+        if (testBtn && testIcon && testText) {
+            testBtn.disabled = false;
+            testBtn.classList.remove('bg-purple-600', 'bg-green-500', 'bg-red-500');
+            testBtn.classList.add('bg-purple-500', 'hover:bg-purple-600');
+            
+            testIcon.innerHTML = `
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+            `;
+            testIcon.classList.remove('animate-spin');
+            testText.textContent = 'Test Connection';
         }
     }
 

@@ -7,6 +7,7 @@ const { ZenTransferService } = require('./services/zentransfer-service.js');
 const { AwsS3Service } = require('./services/aws-s3-service.js');
 const { AzureBlobService } = require('./services/azure-blob-service.js');
 const { GcpStorageService } = require('./services/gcp-storage-service.js');
+const { MinioService } = require('./services/minio-service.js');
 
 class UploadServiceManager {
     constructor() {
@@ -15,7 +16,8 @@ class UploadServiceManager {
             'zentransfer': ZenTransferService,
             'aws-s3': AwsS3Service,
             'azure-blob': AzureBlobService,
-            'gcp-storage': GcpStorageService
+            'gcp-storage': GcpStorageService,
+            'minio': MinioService
         };
     }
 
@@ -47,13 +49,33 @@ class UploadServiceManager {
      * @param {string} serviceType - Type of service
      * @returns {Promise<Object>} Test result
      */
-    async testService(serviceType) {
+    async testService(serviceType, settings = null) {
         const service = this.services.get(serviceType);
         if (!service) {
+            // If service doesn't exist but we have settings, create a temporary service for testing
+            if (settings && this.serviceTypes[serviceType]) {
+                const ServiceClass = this.serviceTypes[serviceType];
+                const tempService = new ServiceClass(settings);
+                return await tempService.testConnection();
+            }
+            
             return {
                 success: false,
                 message: `Service not found: ${serviceType}`
             };
+        }
+
+        // If settings are provided, test with those settings (without persisting them)
+        if (settings) {
+            const originalSettings = service.settings;
+            service.updateSettings(settings);
+            try {
+                const result = await service.testConnection();
+                return result;
+            } finally {
+                // Restore original settings
+                service.updateSettings(originalSettings);
+            }
         }
 
         return await service.testConnection();
@@ -110,6 +132,12 @@ class UploadServiceManager {
                 description: 'Upload to Google Cloud',
                 icon: '☁️',
                 color: 'red'
+            },
+            'minio': {
+                name: 'MinIO',
+                description: 'Upload to MinIO (S3-compatible)',
+                icon: '🗄️',
+                color: 'purple'
             }
         };
 
@@ -167,6 +195,20 @@ class UploadServiceManager {
             const serviceInfo = this.createService('gcp-storage', {
                 bucketName: preferences.gcpBucket,
                 serviceAccountKey: preferences.gcpServiceAccountKey
+            });
+            createdServices.push(serviceInfo);
+        }
+
+        // MinIO
+        if (preferences.minioEnabled && preferences.minioEndpoint && preferences.minioBucket && preferences.minioAccessKey && preferences.minioSecretKey) {
+            const serviceInfo = this.createService('minio', {
+                endpoint: preferences.minioEndpoint,
+                bucket: preferences.minioBucket,
+                accessKey: preferences.minioAccessKey,
+                secretKey: preferences.minioSecretKey,
+                region: preferences.minioRegion || 'us-east-1',
+                useSSL: preferences.minioUseSSL !== false,
+                port: preferences.minioPort || 9000
             });
             createdServices.push(serviceInfo);
         }

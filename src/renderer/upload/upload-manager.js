@@ -249,9 +249,9 @@ export class UploadManager {
             }
         }
 
-        // Get current skip duplicates setting from settings screen
-        const skipDuplicates = StorageManager.getImportSkipDuplicates();
-        console.log('Upload Manager: addFiles - skipDuplicates from settings:', skipDuplicates);
+        // Get current skip duplicates setting from preferences
+        const skipDuplicates = await window.electronAPI.config.get('preferences.skipDuplicates') || false;
+        console.log('Upload Manager: addFiles - skipDuplicates from preferences:', skipDuplicates);
         
         // Create import settings for upload worker (similar to import screen)
         const importSettings = {
@@ -820,6 +820,7 @@ export class UploadManager {
             const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
             const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
             const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+            const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
             
             // Convert to the format expected by uploadServiceFactory
             const preferences = {};
@@ -846,6 +847,18 @@ export class UploadManager {
                 preferences.gcpEnabled = gcpService.enabled;
                 preferences.gcpBucket = gcpService.bucketName;
                 preferences.gcpServiceAccountKey = gcpService.serviceAccountKey;
+            }
+            
+            // MinIO
+            if (minioService && minioService.enabled) {
+                preferences.minioEnabled = minioService.enabled;
+                preferences.minioEndpoint = minioService.endpoint;
+                preferences.minioBucket = minioService.bucket;
+                preferences.minioAccessKey = minioService.accessKey;
+                preferences.minioSecretKey = minioService.secretKey;
+                preferences.minioRegion = minioService.region;
+                preferences.minioUseSSL = minioService.useSSL;
+                preferences.minioPort = minioService.port;
             }
             
             return preferences;

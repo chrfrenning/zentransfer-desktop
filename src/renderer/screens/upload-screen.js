@@ -930,6 +930,7 @@ export class UploadScreen {
             const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
             const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
             const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+            const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
             
             // Convert to the format expected by uploadServiceFactory
             const preferences = {};
@@ -956,6 +957,18 @@ export class UploadScreen {
                 preferences.gcpEnabled = gcpService.enabled;
                 preferences.gcpBucket = gcpService.bucketName;
                 preferences.gcpServiceAccountKey = gcpService.serviceAccountKey;
+            }
+            
+            // MinIO
+            if (minioService && minioService.enabled) {
+                preferences.minioEnabled = minioService.enabled;
+                preferences.minioEndpoint = minioService.endpoint;
+                preferences.minioBucket = minioService.bucket;
+                preferences.minioAccessKey = minioService.accessKey;
+                preferences.minioSecretKey = minioService.secretKey;
+                preferences.minioRegion = minioService.region;
+                preferences.minioUseSSL = minioService.useSSL;
+                preferences.minioPort = minioService.port;
             }
             
             return preferences;

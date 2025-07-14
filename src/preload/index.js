@@ -99,7 +99,7 @@ const electronAPI = {
   // Upload Service APIs
   uploadService: {
     create: (serviceType, settings) => ipcRenderer.invoke('upload-service-create', serviceType, settings),
-    test: (serviceType) => ipcRenderer.invoke('upload-service-test', serviceType),
+    test: (serviceType, settings) => ipcRenderer.invoke('upload-service-test', serviceType, settings),
     update: (serviceType, newSettings) => ipcRenderer.invoke('upload-service-update', serviceType, newSettings),
     getDisplayInfo: (serviceType) => ipcRenderer.invoke('upload-service-get-display-info', serviceType),
     createFromPreferences: (preferences) => ipcRenderer.invoke('upload-service-create-from-preferences', preferences),

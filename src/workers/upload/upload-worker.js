@@ -10,12 +10,14 @@ const { ZenTransferService } = require(path.join(__dirname, '..', 'services', 'z
 const { AwsS3Service } = require(path.join(__dirname, '..', 'services', 'aws-s3-service.js'));
 const { AzureBlobService } = require(path.join(__dirname, '..', 'services', 'azure-blob-service.js'));
 const { GcpStorageService } = require(path.join(__dirname, '..', 'services', 'gcp-storage-service.js'));
+const { MinioService } = require(path.join(__dirname, '..', 'services', 'minio-service.js'));
 
 // Worker state
 let zenTransferService = null;
 let awsS3Service = null;
 let azureBlobService = null;
 let gcpStorageService = null;
+let minioService = null;
 let cancelledJobs = new Set();
 let storedSessionConfig = null; // Store the full session configuration
 
@@ -276,6 +278,30 @@ async function uploadFile(fileData, sessionData, jobId) {
         
         uploadService = gcpStorageService;
         
+    } else if (targetService === 'minio') {
+        // Use MinIO service
+        actualServiceName = 'MinIO';
+        
+        if (!minioService) {
+            // Validate MinIO configuration
+            if (!servicePreferences.minioEndpoint || !servicePreferences.minioBucket || 
+                !servicePreferences.minioAccessKey || !servicePreferences.minioSecretKey) {
+                throw new Error('Incomplete MinIO configuration. Please check your MinIO settings.');
+            }
+            
+            minioService = new MinioService({
+                endpoint: servicePreferences.minioEndpoint,
+                port: servicePreferences.minioPort || 9000,
+                useSSL: servicePreferences.minioUseSSL !== false,
+                bucket: servicePreferences.minioBucket,
+                region: servicePreferences.minioRegion || 'us-east-1',
+                accessKey: servicePreferences.minioAccessKey,
+                secretKey: servicePreferences.minioSecretKey
+            });
+        }
+        
+        uploadService = minioService;
+        
     } else {
         // Use ZenTransfer service (default)
         actualServiceName = 'ZenTransfer';
@@ -320,8 +346,8 @@ async function uploadFile(fileData, sessionData, jobId) {
       if (importSettings.destinationPath && importSettings.destinationPath.length > 0)
         remoteName = fileData.filePath.substr(importSettings.destinationPath.length+1).replaceAll('\\', '/');
       
-      // Extract skipDuplicates setting from importSettings (default to true if not specified)
-      const skipDuplicates = importSettings && importSettings.skipDuplicates !== undefined ? importSettings.skipDuplicates : true;
+      // Extract skipDuplicates setting from importSettings
+      const skipDuplicates = importSettings ? importSettings.skipDuplicates : false;
       
       // Set up progress monitoring
       const originalUpdateProgress = uploadService._updateProgress;
@@ -363,10 +389,19 @@ async function uploadFile(fileData, sessionData, jobId) {
       
       sendProgress(fileId, 100, 'Upload completed');
       
+      // Extract upload ID based on service type
+      let extractedUploadId;
+      if (targetService === 'zentransfer') {
+        extractedUploadId = uploadResult.details?.zentransferUploadId;
+      } else {
+        // For other services (AWS S3, Azure, GCP, MinIO), use the generic uploadId
+        extractedUploadId = uploadResult.details?.uploadId;
+      }
+      
       return {
         fileId,
         status: 'completed',
-        uploadId: uploadResult.details.zentransferUploadId,
+        uploadId: extractedUploadId,
         finalUrl: uploadResult.url
       };
       

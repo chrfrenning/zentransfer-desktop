@@ -296,6 +296,18 @@ export class ImportScreen {
                                 </label>
                             </div>
 
+                            <!-- Upload to MinIO -->
+                            <div class="flex items-center space-x-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="uploadToMinioCheckbox" 
+                                    class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                <label for="uploadToMinioCheckbox" class="text-sm font-medium text-gray-700 cursor-pointer">
+                                    🗄️ Upload to MinIO
+                                </label>
+                            </div>
+
                             <!-- Upload to ZenTransfer -->
                             <div class="flex items-center space-x-3 cursor-pointer">
                                 <input 
@@ -537,6 +549,12 @@ export class ImportScreen {
             });
         }
 
+        if (this.elements.uploadToMinioCheckbox) {
+            this.elements.uploadToMinioCheckbox.addEventListener('change', () => {
+                this.saveAllSettings();
+            });
+        }
+
         // Enable cloud upload checkbox
         if (this.elements.enableCloudUploadCheckbox) {
             this.elements.enableCloudUploadCheckbox.addEventListener('change', () => {
@@ -570,6 +588,7 @@ export class ImportScreen {
         this.elements.uploadToAwsS3Checkbox = document.getElementById('uploadToAwsS3Checkbox');
         this.elements.uploadToAzureCheckbox = document.getElementById('uploadToAzureCheckbox');
         this.elements.uploadToGcpCheckbox = document.getElementById('uploadToGcpCheckbox');
+        this.elements.uploadToMinioCheckbox = document.getElementById('uploadToMinioCheckbox');
         this.elements.startImportBtn = document.getElementById('startImportBtn');
         
         // Progress mode elements
@@ -608,6 +627,7 @@ export class ImportScreen {
             const uploadToAwsS3 = await window.electronAPI.config.get('importSettings.uploadToAwsS3');
             const uploadToAzure = await window.electronAPI.config.get('importSettings.uploadToAzure');
             const uploadToGcp = await window.electronAPI.config.get('importSettings.uploadToGcp');
+            const uploadToMinio = await window.electronAPI.config.get('importSettings.uploadToMinio');
             const enableCloudUpload = await window.electronAPI.config.get('importSettings.enableCloudUpload');
 
             if (importPath && this.elements.importFromInput) {
@@ -673,6 +693,10 @@ export class ImportScreen {
                 this.elements.uploadToGcpCheckbox.checked = uploadToGcp || false;
             }
 
+            if (this.elements.uploadToMinioCheckbox) {
+                this.elements.uploadToMinioCheckbox.checked = uploadToMinio || false;
+            }
+
             if (this.elements.enableCloudUploadCheckbox) {
                 this.elements.enableCloudUploadCheckbox.checked = enableCloudUpload || false;
                 this.toggleCloudServices();
@@ -707,6 +731,10 @@ export class ImportScreen {
                 case 'gcp-storage':
                     const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
                     return !!(gcpService && gcpService.enabled && gcpService.bucketName && gcpService.serviceAccountKey);
+                case 'minio':
+                    const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+                    return !!(minioService && minioService.enabled && minioService.endpoint && minioService.bucket && 
+                             minioService.accessKey && minioService.secretKey);
                 case 'zentransfer':
                     // ZenTransfer requires authentication (no enable toggle needed)
                     return TokenManager.isAuthenticated();
@@ -844,6 +872,10 @@ export class ImportScreen {
 
             if (this.elements.uploadToGcpCheckbox) {
                 await window.electronAPI.config.set('importSettings.uploadToGcp', this.elements.uploadToGcpCheckbox.checked);
+            }
+
+            if (this.elements.uploadToMinioCheckbox) {
+                await window.electronAPI.config.set('importSettings.uploadToMinio', this.elements.uploadToMinioCheckbox.checked);
             }
 
             // Save enable cloud upload setting
@@ -1256,6 +1288,7 @@ export class ImportScreen {
             uploadToAwsS3: enableCloudUpload && (this.elements.uploadToAwsS3Checkbox?.checked || false),
             uploadToAzure: enableCloudUpload && (this.elements.uploadToAzureCheckbox?.checked || false),
             uploadToGcp: enableCloudUpload && (this.elements.uploadToGcpCheckbox?.checked || false),
+            uploadToMinio: enableCloudUpload && (this.elements.uploadToMinioCheckbox?.checked || false),
             organizeIntoFolders: this.elements.organizeIntoFoldersCheckbox?.checked !== false,
             folderOrganizationType: this.elements.dateFolderRadio?.checked ? 'date' : 'custom',
             customFolderName: this.elements.customFolderNameInput?.value?.trim(),
@@ -1619,7 +1652,8 @@ export class ImportScreen {
                     this.elements.uploadToZenTransferCheckbox,
                     this.elements.uploadToAwsS3Checkbox,
                     this.elements.uploadToAzureCheckbox,
-                    this.elements.uploadToGcpCheckbox
+                    this.elements.uploadToGcpCheckbox,
+                    this.elements.uploadToMinioCheckbox
                 ];
                 
                 cloudServiceCheckboxes.forEach(checkbox => {
