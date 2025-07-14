@@ -20,6 +20,10 @@ const { UploadServiceManager } = require(path.join(__dirname, 'src/workers', 'up
 // Import Configuration Manager
 const { initializeConfigManager } = require('./src/main/app/main-config-setup.js');
 
+// Import Token Manager and Auth Service
+const { MainTokenManager } = require('./src/main/services/token-manager.js');
+const { MainAuthService } = require('./src/main/services/auth-service.js');
+
 // Enable live reload for Electron in development
 if (sharedConfig.isDevelopment || process.argv.includes('--dev')) {
   require('electron-reload')(__dirname, {
@@ -39,6 +43,8 @@ let importWorkerPool;
 let downloadWorkerPool;
 let uploadServiceManager;
 let autoUpdaterManager;
+let mainTokenManager;
+let mainAuthService;
 
 
 
@@ -85,8 +91,14 @@ app.whenReady().then(() => {
   
   // Initialize configuration manager first
   logger.info('Initializing configuration manager...');
-  initializeConfigManager();
+  const configManager = initializeConfigManager();
   logger.info('Configuration manager initialized');
+  
+  // Initialize auth services
+  logger.info('Initializing auth services...');
+  mainAuthService = new MainAuthService(configManager);
+  mainTokenManager = new MainTokenManager(configManager, mainAuthService);
+  logger.info('Auth services initialized');
   
   // Initialize auto-updater manager
   logger.info('Initializing auto-updater manager...');
@@ -104,9 +116,9 @@ app.whenReady().then(() => {
   importWorkerPool = new ImportWorkerManager();
   logger.info('Import worker manager initialized');
   
-  // Initialize download worker manager
+  // Initialize download worker manager with token manager
   logger.info('Initializing download worker manager...');
-  downloadWorkerPool = new DownloadWorkerManager();
+  downloadWorkerPool = new DownloadWorkerManager(mainTokenManager);
   logger.info('Download worker manager initialized');
   
   // Initialize upload service manager
@@ -121,8 +133,13 @@ app.whenReady().then(() => {
   
   // Set up IPC handlers
   logger.info('Setting up IPC handlers...');
-  setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager);
+  setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager, mainTokenManager, mainAuthService);
   logger.info('IPC handlers configured');
+  
+  // Start token refresh timer if there's a token
+  logger.info('Starting token refresh timer...');
+  mainTokenManager.startTokenRefreshTimer();
+  logger.info('Token refresh timer started');
   
   logger.info('ZenTransfer application initialization completed successfully');
 });

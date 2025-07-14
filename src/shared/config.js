@@ -55,6 +55,12 @@ const sharedConfig = {
     // App metadata
     APP_NAME: 'com.chph.zentransfer',
     CLIENT_ID: '4a276465-fbc2-4874-833d-966bd48c3ace',
+    APP_VERSION: '0.1.22',
+    
+    // CamelCase aliases for auth service
+    appName: 'com.chph.zentransfer',
+    clientId: '4a276465-fbc2-4874-833d-966bd48c3ace',
+    appVersion: '0.1.22',
 
     // Server settings
     serverBaseUrl: getIsDevelopment().isDev ? SERVER_URLS.development : SERVER_URLS.production,

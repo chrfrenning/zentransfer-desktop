@@ -74,17 +74,38 @@ export class UploadManager {
         }
     }
 
-    /**
+        /**
      * Initialize session if needed
      */
     async initializeSession() {
         try {
-            const tokenResult = await TokenManager.ensureValidToken();
-            if (!tokenResult.valid) {
-                throw new Error('Authentication required');
+            // Retry logic to handle race condition where token might not be immediately available after login
+            let tokenResult = null;
+            let retryCount = 0;
+            const maxRetries = 3;
+            
+            while (retryCount < maxRetries) {
+                console.log(`Attempting to get valid token (attempt ${retryCount + 1}/${maxRetries})...`);
+                tokenResult = await TokenManager.ensureValidToken();
+                
+                if (tokenResult.valid) {
+                    console.log('Valid token obtained successfully');
+                    break;
+                }
+                
+                retryCount++;
+                if (retryCount < maxRetries) {
+                    console.log(`Token not available yet, waiting 500ms before retry...`);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
+            }
+            
+            if (!tokenResult || !tokenResult.valid) {
+                throw new Error('Authentication required - please log in again');
             }
 
             if (window.electronAPI) {
+                console.log('Creating upload session via main process...');
                 const result = await window.electronAPI.upload.createSession({
                     serverBaseUrl: config.SERVER_BASE_URL,
                     token: tokenResult.token,
@@ -96,7 +117,7 @@ export class UploadManager {
                 if (result.success) {
                     this.uploadSession = result.session;
                     this.isSessionInitialized = true;
-                    console.log('Upload session created via main process');
+                    console.log('Upload session created via main process successfully');
                     return true;
                 } else {
                     throw new Error(result.error);
@@ -107,7 +128,7 @@ export class UploadManager {
             }
         } catch (error) {
             console.error('Failed to initialize upload session:', error);
-                            console.error('Failed to initialize upload session. Please try again.');
+            console.error('Failed to initialize upload session. Please try again.');
             return false;
         }
     }
@@ -180,8 +201,12 @@ export class UploadManager {
         console.log('UploadManager: Auth state changed to:', authState.status);
         
         if (authState.status === 'authenticated' && !this.isSessionInitialized) {
-            // User just logged in, initialize upload session
-            console.log('UploadManager: User authenticated, initializing upload session...');
+            // User just logged in, give token management a moment to complete then initialize upload session
+            console.log('UploadManager: User authenticated, waiting briefly then initializing upload session...');
+            
+            // Small delay to ensure token is fully saved in main process
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const success = await this.initializeSession();
             if (success) {
                 console.log('UploadManager: Upload session initialized successfully');

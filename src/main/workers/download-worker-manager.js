@@ -15,7 +15,7 @@ const { DownloadQueue } = require('../services/download-queue.js');
 const getConfig = () => sharedConfig;
 
 class DownloadWorkerManager {
-  constructor() {
+  constructor(mainTokenManager) {
     this.workers = [];
     this.activeJobs = new Map(); // Currently downloading files
     this.jobIdCounter = 0;
@@ -26,7 +26,7 @@ class DownloadWorkerManager {
     this.lastSyncTime = null;
     this.latestDownloadedFileTime = null;
     this.downloadPath = null;
-    this.authToken = null;
+    this.mainTokenManager = mainTokenManager;
     
     // Exponential backoff for server polling
     this.lastServerCheckTime = 0;
@@ -152,7 +152,7 @@ class DownloadWorkerManager {
     console.log(`Download worker ${id} created successfully`);
   }
   
-  async startMonitoring(downloadPath, lastSyncTime = null, authToken = null) {
+  async startMonitoring(downloadPath, lastSyncTime = null) {
     if (this.isMonitoring) {
       throw new Error('Monitoring already in progress');
     }
@@ -166,12 +166,12 @@ class DownloadWorkerManager {
     this.isMonitoring = true;
     this.downloadPath = downloadPath;
     this.lastSyncTime = lastSyncTime || '2025-01-01T00:00:00.000Z';
-    this.authToken = authToken;
     
     console.log(`Starting download monitoring with sync time: ${this.lastSyncTime}`);
     
-    if (!this.authToken) {
-      console.warn('No authentication token provided for download monitoring');
+    // Check if we have token access
+    if (!this.mainTokenManager) {
+      console.warn('No token manager available for download monitoring');
     }
     
     // Process any existing incomplete downloads first
@@ -471,9 +471,10 @@ class DownloadWorkerManager {
       // Get server configuration
       const config = getConfig();
       
-      // Get authentication token
-      if (!this.authToken) {
-        console.log('No authentication token available for download monitoring');
+      // Get authentication token from token manager
+      const authToken = await this.mainTokenManager.getValidToken();
+      if (!authToken) {
+        console.log('No valid authentication token available for download monitoring');
         return { files: [], hasMoreItems: false };
       }
       
@@ -482,7 +483,7 @@ class DownloadWorkerManager {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.authToken}`
+          'Authorization': `Bearer ${authToken}`
         }
       });
       

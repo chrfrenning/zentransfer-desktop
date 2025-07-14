@@ -31,8 +31,140 @@ const {
   exportConfig
 } = require('../app/main-config-setup.js');
 
-function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager) {
+function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager, mainTokenManager, mainAuthService) {
   logger.info('Setting up IPC handlers...');
+
+  // Authentication IPC handlers
+  ipcMain.handle('auth-get-valid-token', async (event) => {
+    try {
+      const token = await mainTokenManager.getValidToken();
+      return { success: true, token };
+    } catch (error) {
+      logger.error('Failed to get valid token:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-get-token', async (event) => {
+    try {
+      const token = await mainTokenManager.getToken();
+      return { success: true, token };
+    } catch (error) {
+      logger.error('Failed to get token:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-get-email', async (event) => {
+    try {
+      const email = await mainTokenManager.getEmail();
+      return { success: true, email };
+    } catch (error) {
+      logger.error('Failed to get email:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-get-token-info', async (event) => {
+    try {
+      const tokenInfo = await mainTokenManager.getTokenInfo();
+      return { success: true, tokenInfo };
+    } catch (error) {
+      logger.error('Failed to get token info:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-validate-token', async (event, token) => {
+    try {
+      const isValid = await mainTokenManager.validateTokenWithServer(token);
+      return { success: true, isValid };
+    } catch (error) {
+      logger.error('Failed to validate token:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-refresh-token', async (event) => {
+    try {
+      const newToken = await mainTokenManager.ensureValidToken();
+      return { success: true, token: newToken };
+    } catch (error) {
+      logger.error('Failed to refresh token:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-save-token', async (event, token, userEmail) => {
+    try {
+      const result = await mainTokenManager.saveToken(token, userEmail);
+      return { success: result };
+    } catch (error) {
+      logger.error('Failed to save token:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-clear-token', async (event) => {
+    try {
+      await mainTokenManager.clearToken();
+      return { success: true };
+    } catch (error) {
+      logger.error('Failed to clear token:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-clear-all', async (event) => {
+    try {
+      await mainTokenManager.clearAll();
+      return { success: true };
+    } catch (error) {
+      logger.error('Failed to clear all auth data:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Login API IPC handlers
+  ipcMain.handle('auth-login-initialize', async (event, email, deviceId) => {
+    try {
+      const result = await mainAuthService.initialize(email, deviceId);
+      return { success: true, result };
+    } catch (error) {
+      logger.error('Failed to initialize login:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-login-finalize', async (event, sessionId, otp) => {
+    try {
+      const result = await mainAuthService.finalize(sessionId, otp);
+      return { success: true, result };
+    } catch (error) {
+      logger.error('Failed to finalize login:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-test-connection', async (event) => {
+    try {
+      const isConnected = await mainAuthService.testConnection();
+      return { success: true, isConnected };
+    } catch (error) {
+      logger.error('Failed to test connection:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('auth-get-server-config', async (event) => {
+    try {
+      const config = mainAuthService.getServerConfig();
+      return { success: true, config };
+    } catch (error) {
+      logger.error('Failed to get server config:', error);
+      return { success: false, error: error.message };
+    }
+  });
 
   // Handle log messages from renderer
   ipcMain.on('log-from-renderer', (event, { level, message, meta = {} }) => {
@@ -197,18 +329,11 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
       const downloadPath = downloadSettings?.downloadPath;
       const lastSyncTime = downloadSettings?.lastSyncTime || '2025-01-01T00:00:00.000Z';
       
-      // Get authentication token from config
-      const authToken = getConfig('authToken');
-      
       if (!downloadPath) {
         throw new Error('Download path not configured');
       }
       
-      if (!authToken) {
-        throw new Error('Authentication token not available');
-      }
-      
-      const result = await downloadWorkerPool.startMonitoring(downloadPath, lastSyncTime, authToken);
+      const result = await downloadWorkerPool.startMonitoring(downloadPath, lastSyncTime);
       return { success: true, result };
     } catch (error) {
       console.error('Download monitoring failed:', error);

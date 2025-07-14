@@ -1,138 +1,188 @@
 /**
- * Token Manager
- * Handles JWT token storage, validation, and refresh
+ * Token Manager (Renderer)
+ * Simplified wrapper around main process token management
+ * All authentication logic now handled in main process for better security
  */
 
 import { JWTUtils } from './jwt-utils.js';
-import { LoginAPI } from './login-api.js';
 
 export class TokenManager {
     static TOKEN_KEY = 'zentransfer_auth_token';
     static TOKEN_METADATA_KEY = 'zentransfer_token_metadata';
     
+    /**
+     * Get a valid token (automatically refreshes if needed)
+     * @returns {Promise<string|null>} Valid token or null
+     */
+    static async getValidToken() {
+        try {
+            const result = await window.electronAPI.auth.getValidToken();
+            if (result.success) {
+                return result.token;
+            } else {
+                console.error('Failed to get valid token:', result.error);
+                return null;
+            }
+        } catch (error) {
+            console.error('Failed to get valid token:', error);
+            return null;
+        }
+    }
+    
+    /**
+     * Save token to main process
+     * @param {string} token - Token to save
+     * @param {string} userEmail - User email
+     * @returns {Promise<boolean>} Success status
+     */
     static async saveToken(token, userEmail = null) {
         try {
-            // Save token to config system
-            await window.electronAPI.config.set('authToken', token);
-            
-            // Save email if provided
-            if (userEmail) {
-                await window.electronAPI.config.set('email', userEmail);
+            const result = await window.electronAPI.auth.saveToken(token, userEmail);
+            if (result.success) {
+                console.log('Token saved successfully');
+                return true;
+            } else {
+                console.error('Failed to save token:', result.error);
+                return false;
             }
-            
-            console.log('Token saved successfully to config');
-            return true;
         } catch (error) {
             console.error('Failed to save token:', error);
             return false;
         }
     }
     
+    /**
+     * Get token from main process
+     * @returns {Promise<string|null>} Token or null
+     */
     static async getToken() {
         try {
-            return await window.electronAPI.config.get('authToken');
+            const result = await window.electronAPI.auth.getToken();
+            if (result.success) {
+                return result.token;
+            } else {
+                console.error('Failed to get token:', result.error);
+                return null;
+            }
         } catch (error) {
-            console.error('Failed to get token from config:', error);
+            console.error('Failed to get token:', error);
             return null;
         }
     }
     
+    /**
+     * Get email from main process
+     * @returns {Promise<string|null>} Email or null
+     */
     static async getEmail() {
         try {
-            return await window.electronAPI.config.get('email');
+            const result = await window.electronAPI.auth.getEmail();
+            if (result.success) {
+                return result.email;
+            } else {
+                console.error('Failed to get email:', result.error);
+                return null;
+            }
         } catch (error) {
-            console.error('Failed to get email from config:', error);
+            console.error('Failed to get email:', error);
             return null;
         }
     }
     
+    /**
+     * Check if token is valid (local check only)
+     * @returns {Promise<boolean>} True if valid
+     */
     static async isTokenValid() {
         try {
-            const token = await this.getToken();
-            if (!token) {
-                return false;
-            }
-            
-            // Check if token is expired
-            if (JWTUtils.isTokenExpired(token)) {
-                console.log('Token is expired');
-                return false;
-            }
-            
-            return true;
+            const tokenInfo = await this.getTokenInfo();
+            return tokenInfo.isValid;
         } catch (error) {
             console.error('Failed to validate token:', error);
             return false;
         }
     }
 
+    /**
+     * Check if token is expiring soon (local check only)
+     * @param {number} minutesThreshold - Minutes threshold
+     * @returns {Promise<boolean>} True if expiring soon
+     */
     static async isTokenExpiringSoon(minutesThreshold = 5) {
         try {
-            const token = await this.getToken();
-            if (!token) {
+            const tokenInfo = await this.getTokenInfo();
+            if (!tokenInfo.token) {
                 return true;
             }
             
-            return JWTUtils.isTokenExpiringSoon(token, minutesThreshold);
+            return JWTUtils.isTokenExpiringSoon(tokenInfo.token, minutesThreshold);
         } catch (error) {
             console.error('Failed to check token expiration:', error);
             return true;
         }
     }
 
+    /**
+     * Get time until token expires (local check only)
+     * @returns {Promise<number>} Time in milliseconds
+     */
     static async getTokenTimeRemaining() {
         try {
-            const token = await this.getToken();
-            if (!token) {
-                return 0;
-            }
-            
-            return JWTUtils.getTimeUntilExpiry(token);
+            const tokenInfo = await this.getTokenInfo();
+            return tokenInfo.timeRemaining;
         } catch (error) {
             console.error('Failed to get token time remaining:', error);
             return 0;
         }
     }
     
+    /**
+     * Clear token from main process
+     * @returns {Promise<void>}
+     */
     static async clearToken() {
         try {
-            await window.electronAPI.config.set('authToken', '');
-            console.log('Token cleared from config (email preserved)');
+            const result = await window.electronAPI.auth.clearToken();
+            if (result.success) {
+                console.log('Token cleared from main process');
+            } else {
+                console.error('Failed to clear token:', result.error);
+            }
         } catch (error) {
-            console.error('Failed to clear token from config:', error);
+            console.error('Failed to clear token:', error);
         }
     }
     
+    /**
+     * Clear all auth data from main process
+     * @returns {Promise<void>}
+     */
     static async clearAll() {
         try {
-            await window.electronAPI.config.set('authToken', '');
-            await window.electronAPI.config.set('email', '');
-            console.log('Token and email cleared from config');
+            const result = await window.electronAPI.auth.clearAll();
+            if (result.success) {
+                console.log('All auth data cleared from main process');
+            } else {
+                console.error('Failed to clear all auth data:', result.error);
+            }
         } catch (error) {
-            console.error('Failed to clear token and email from config:', error);
+            console.error('Failed to clear all auth data:', error);
         }
     }
     
+    /**
+     * Validate token with server (via main process)
+     * @param {string} token - Token to validate
+     * @returns {Promise<boolean>} True if valid
+     */
     static async validateTokenWithServer(token) {
         try {
-            console.log('Validating token with server...');
-            const isValid = await LoginAPI.verify(token);
-            
-            if (isValid) {
-                console.log('Token is valid on server');
-                return true;
+            const result = await window.electronAPI.auth.validateToken(token);
+            if (result.success) {
+                return result.isValid;
             } else {
-                console.log('Token is invalid on server, attempting refresh...');
-                
-                // Try to refresh the token
-                const refreshResult = await this.refreshToken(token);
-                if (refreshResult.success) {
-                    console.log('Token refreshed successfully');
-                    return true;
-                } else {
-                    console.log('Token refresh failed');
-                    return false;
-                }
+                console.error('Failed to validate token with server:', result.error);
+                return false;
             }
         } catch (error) {
             console.error('Token validation failed:', error);
@@ -140,28 +190,19 @@ export class TokenManager {
         }
     }
     
-    static async refreshToken(currentToken = null) {
+    /**
+     * Refresh token (via main process)
+     * @returns {Promise<Object>} Refresh result
+     */
+    static async refreshToken() {
         try {
-            const token = currentToken || await this.getToken();
-            if (!token) {
-                return { success: false, error: 'No token to refresh' };
-            }
-            
-            console.log('Attempting to refresh token...');
-            const response = await LoginAPI.refresh(token);
-            
-            if (response.result === 'ok' && response.token) {
-                // Get current email to preserve it
-                const currentEmail = await this.getEmail();
-                
-                // Save new token
-                await this.saveToken(response.token, currentEmail);
-                
+            const result = await window.electronAPI.auth.refreshToken();
+            if (result.success) {
                 console.log('Token refreshed successfully');
-                return { success: true, token: response.token };
+                return { success: true, token: result.token };
             } else {
-                console.log('Token refresh failed:', response.message);
-                return { success: false, error: response.message || 'Refresh failed' };
+                console.log('Token refresh failed:', result.error);
+                return { success: false, error: result.error };
             }
         } catch (error) {
             console.error('Token refresh error:', error);
@@ -169,32 +210,52 @@ export class TokenManager {
         }
     }
     
+    /**
+     * Ensure we have a valid token (via main process)
+     * @returns {Promise<Object>} Token validation result
+     */
     static async ensureValidToken() {
         try {
-            const isValid = await this.isTokenValid();
-            if (!isValid) {
-                return { valid: false, error: 'No valid token' };
+            const token = await this.getValidToken();
+            if (token) {
+                return { valid: true, token: token, refreshed: false };
+            } else {
+                return { valid: false, error: 'No valid token available' };
             }
-            
-            const token = await this.getToken();
-            
-            // If token is expiring soon, try to refresh it
-            const expiringSoon = await this.isTokenExpiringSoon(10); // 10 minutes threshold
-            if (expiringSoon) {
-                console.log('Token expiring soon, refreshing...');
-                const refreshResult = await this.refreshToken();
-                
-                if (refreshResult.success) {
-                    return { valid: true, token: refreshResult.token, refreshed: true };
-                } else {
-                    return { valid: false, error: 'Token refresh failed' };
-                }
-            }
-            
-            return { valid: true, token: token, refreshed: false };
         } catch (error) {
             console.error('Failed to ensure valid token:', error);
             return { valid: false, error: error.message };
+        }
+    }
+    
+    /**
+     * Get comprehensive token information from main process
+     * @returns {Promise<Object>} Token information
+     */
+    static async getTokenInfo() {
+        try {
+            const result = await window.electronAPI.auth.getTokenInfo();
+            if (result.success) {
+                return result.tokenInfo;
+            } else {
+                console.error('Failed to get token info:', result.error);
+                return {
+                    token: null,
+                    email: null,
+                    isValid: false,
+                    timeRemaining: 0,
+                    expiringSoon: true
+                };
+            }
+        } catch (error) {
+            console.error('Failed to get token info:', error);
+            return {
+                token: null,
+                email: null,
+                isValid: false,
+                timeRemaining: 0,
+                expiringSoon: true
+            };
         }
     }
 } 

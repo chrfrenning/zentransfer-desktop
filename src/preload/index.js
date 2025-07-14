@@ -187,6 +187,38 @@ const electronAPI = {
     getHostname: () => ipcRenderer.invoke('config-get-hostname'),
     getServerUrl: () => ipcRenderer.invoke('config-get-server-url'),
     exportConfig: () => ipcRenderer.invoke('config-export')
+  },
+
+  // Authentication APIs
+  auth: {
+    // Token management
+    getValidToken: () => ipcRenderer.invoke('auth-get-valid-token'),
+    getToken: () => ipcRenderer.invoke('auth-get-token'),
+    getEmail: () => ipcRenderer.invoke('auth-get-email'),
+    getTokenInfo: () => ipcRenderer.invoke('auth-get-token-info'),
+    validateToken: (token) => ipcRenderer.invoke('auth-validate-token', token),
+    refreshToken: () => ipcRenderer.invoke('auth-refresh-token'),
+    saveToken: (token, userEmail) => ipcRenderer.invoke('auth-save-token', token, userEmail),
+    clearToken: () => ipcRenderer.invoke('auth-clear-token'),
+    clearAll: () => ipcRenderer.invoke('auth-clear-all'),
+    
+    // Login API
+    loginInitialize: (email, deviceId) => ipcRenderer.invoke('auth-login-initialize', email, deviceId),
+    loginFinalize: (sessionId, otp) => ipcRenderer.invoke('auth-login-finalize', sessionId, otp),
+    testConnection: () => ipcRenderer.invoke('auth-test-connection'),
+    getServerConfig: () => ipcRenderer.invoke('auth-get-server-config'),
+    
+    // Authentication events
+    onTokenUpdated: (callback) => {
+      const wrappedCallback = (event, data) => callback(data);
+      ipcRenderer.on('auth-token-updated', wrappedCallback);
+      return () => ipcRenderer.removeListener('auth-token-updated', wrappedCallback);
+    },
+    onTokenCleared: (callback) => {
+      const wrappedCallback = (event) => callback();
+      ipcRenderer.on('auth-token-cleared', wrappedCallback);
+      return () => ipcRenderer.removeListener('auth-token-cleared', wrappedCallback);
+    }
   }
 };
 

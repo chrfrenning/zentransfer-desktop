@@ -222,8 +222,23 @@ export class AuthManager {
         // Use email from input field, not from token
         const userEmail = this.currentEmail || 'Unknown';
         
-        // Save token with email from input
-        await TokenManager.saveToken(token, userEmail);
+        // Save token with email from input and wait for completion
+        console.log('Saving token to main process...');
+        const saveResult = await TokenManager.saveToken(token, userEmail);
+        if (!saveResult) {
+            console.error('Failed to save token, but proceeding anyway');
+        } else {
+            console.log('Token saved successfully to main process');
+        }
+        
+        // Verify token is accessible before proceeding
+        console.log('Verifying token is accessible...');
+        const tokenCheck = await TokenManager.getValidToken();
+        if (!tokenCheck) {
+            console.warn('Token not immediately accessible, but proceeding anyway');
+        } else {
+            console.log('Token verified and accessible');
+        }
         
         // Reset login state
         this.sessionId = null;
