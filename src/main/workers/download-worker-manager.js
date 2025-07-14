@@ -21,11 +21,22 @@ class DownloadWorkerManager {
     this.jobIdCounter = 0;
     this.isMonitoring = false;
     this.pollingTimeout = null;
+    this.queueProcessingInterval = null; // Timer for processing queue every second
+    this.newFilePollingInterval = null; // Timer for checking new files every second
     this.lastSyncTime = null;
     this.latestDownloadedFileTime = null;
     this.downloadPath = null;
     this.authToken = null;
-    this.pollingInterval = 30000; // 30 seconds default polling interval
+    
+    // Exponential backoff for server polling
+    this.lastServerCheckTime = 0;
+    this.currentBackoffInterval = 1000; // Start with 1 second
+    this.backoffConfig = {
+      initialInterval: 1000,    // 1 second
+      maxInterval: 1800000,     // 30 minutes
+      multiplier: 2.0,          // Double each time
+      resetOnActivity: true
+    };
     
     // SQLite queue manager
     this.queueManager = null;
@@ -35,10 +46,35 @@ class DownloadWorkerManager {
     this.completedFiles = [];
     this.failedFiles = [];
     
+    // Load backoff configuration
+    this.loadBackoffConfiguration();
+    
     // Create workers (number configurable via config)
     this.createWorkers();
     
     console.log('Download worker manager initialized with SQLite queue');
+  }
+  
+  /**
+   * Load exponential backoff configuration from config system
+   */
+  loadBackoffConfiguration() {
+    try {
+      const downloadSettings = require('../app/main-config-setup.js').getConfig('downloadSettings');
+      if (downloadSettings && downloadSettings.serverPolling) {
+        this.backoffConfig = { 
+          ...this.backoffConfig, 
+          ...downloadSettings.serverPolling 
+        };
+      }
+      
+      // Reset current interval to initial value
+      this.currentBackoffInterval = this.backoffConfig.initialInterval;
+      
+      console.log('Loaded server polling backoff config:', this.backoffConfig);
+    } catch (error) {
+      console.warn('Failed to load server polling configuration, using defaults:', error);
+    }
   }
   
   /**
@@ -138,18 +174,14 @@ class DownloadWorkerManager {
       console.warn('No authentication token provided for download monitoring');
     }
     
-    // Set polling interval (shorter in development)
-    if (sharedConfig.isDevelopment) {
-      this.pollingInterval = 5000; // 5 seconds in dev
-    } else {
-      this.pollingInterval = 30000; // 30 seconds in production
-    }
-    
     // Process any existing incomplete downloads first
     await this.processQueue();
     
     // Start with immediate check for new files
     await this.checkForNewFiles();
+    
+    // Set up two timers for monitoring
+    this.startTimers();
     
     return { success: true };
   }
@@ -158,9 +190,18 @@ class DownloadWorkerManager {
     console.log('Stopping download monitoring...');
     this.isMonitoring = false;
     
+    // Clear all timers
     if (this.pollingTimeout) {
       clearTimeout(this.pollingTimeout);
       this.pollingTimeout = null;
+    }
+    if (this.queueProcessingInterval) {
+      clearInterval(this.queueProcessingInterval);
+      this.queueProcessingInterval = null;
+    }
+    if (this.newFilePollingInterval) {
+      clearInterval(this.newFilePollingInterval);
+      this.newFilePollingInterval = null;
     }
     
     // Get active downloads
@@ -185,6 +226,35 @@ class DownloadWorkerManager {
     
     // Send updated queue state
     this.sendQueueUpdate();
+  }
+  
+  /**
+   * Start the two monitoring timers
+   */
+  startTimers() {
+    if (!this.isMonitoring) return;
+    
+    // Timer 1: Process queue every second
+    this.queueProcessingInterval = setInterval(async () => {
+      if (!this.isMonitoring) return;
+      try {
+        await this.processQueue();
+      } catch (error) {
+        console.error('Error in queue processing timer:', error);
+      }
+    }, 1000);
+    
+    // Timer 2: Check for new files every second (with condition)
+    this.newFilePollingInterval = setInterval(async () => {
+      if (!this.isMonitoring) return;
+      try {
+        await this.checkForNewFiles();
+      } catch (error) {
+        console.error('Error in new file polling timer:', error);
+      }
+    }, 1000);
+    
+    console.log('Started two monitoring timers: queue processing and new file polling');
   }
   
   updateFileProgress(jobId, progressData) {
@@ -228,6 +298,11 @@ class DownloadWorkerManager {
    * Convert database file record to legacy format for UI compatibility
    */
   convertDbFileToLegacy(dbFile) {
+    if (!dbFile) {
+      console.error('convertDbFileToLegacy called with null/undefined dbFile');
+      return null;
+    }
+    
     return {
       id: dbFile.file_id,
       jobId: dbFile.job_id,
@@ -257,11 +332,22 @@ class DownloadWorkerManager {
       
       // Get current files from database
       const pendingFiles = this.queueManager.getReadyFiles();
-      const downloadingFiles = Array.from(this.activeJobs.values()).map(job => this.convertDbFileToLegacy(job.file));
+      const downloadingFiles = Array.from(this.activeJobs.values())
+        .map(job => {
+          if (!job.file) {
+            console.error('Active job missing file property:', job);
+          }
+          return this.convertDbFileToLegacy(job.file);
+        })
+        .filter(file => file !== null); // Filter out null results
+      
+      const pendingLegacyFiles = pendingFiles
+        .map(file => this.convertDbFileToLegacy(file))
+        .filter(file => file !== null); // Filter out null results
       
       const allFiles = [
         ...downloadingFiles, // Active downloads first
-        ...pendingFiles.map(file => this.convertDbFileToLegacy(file)), // Then pending
+        ...pendingLegacyFiles, // Then pending
         ...this.completedFiles, // Then completed
         ...this.failedFiles // Finally failed
       ];
@@ -285,17 +371,26 @@ class DownloadWorkerManager {
   async checkForNewFiles() {
     if (!this.isMonitoring || !this.queueManager) return;
     
-    // Check if we have capacity for more downloads
-    const availableWorkers = this.workers.filter(w => !w.busy).length;
-    const pendingFiles = this.queueManager.getReadyFiles(availableWorkers).length;
+    // Check if there are ANY files pending or in retry - if so, skip server check
+    const pendingFiles = this.queueManager.getReadyFiles(1);
+    if (pendingFiles.length > 0) {
+      // Queue has work to do, don't check server
+      return;
+    }
     
-    if (availableWorkers === 0 || pendingFiles >= availableWorkers) {
-      console.log('Workers busy or enough files queued, skipping new file check');
+    // Check exponential backoff - only call server if enough time has passed
+    const now = Date.now();
+    const timeSinceLastCheck = now - this.lastServerCheckTime;
+    if (timeSinceLastCheck < this.currentBackoffInterval) {
+      // Not time for server check yet
       return;
     }
     
     try {
-      console.log('Checking for new files...');
+      console.log(`Checking for new files (backoff: ${this.currentBackoffInterval}ms)...`);
+      
+      // Update last server check time
+      this.lastServerCheckTime = now;
       
       // Send monitoring update to renderer
       this.sendDownloadUpdate({
@@ -307,7 +402,10 @@ class DownloadWorkerManager {
       const { files: newFiles, hasMoreItems } = result;
       
       if (newFiles.length > 0) {
-        console.log(`Found ${newFiles.length} new files`);
+        console.log(`Found ${newFiles.length} new files - resetting backoff`);
+        
+        // Reset backoff when files are found
+        this.resetBackoff();
         
         // Add files to database queue
         const addResults = this.queueManager.addFiles(newFiles);
@@ -318,18 +416,13 @@ class DownloadWorkerManager {
         // Send queue update to renderer
         this.sendQueueUpdate();
         
-        // Process queue
-        await this.processQueue();
-        
-        // If server indicates more items are available, schedule immediate check
-        if (hasMoreItems) {
-          console.log('Server has more items available - scheduling immediate check');
-          this.scheduleNextCheck(1000); // Small delay to allow current batch to start downloading
-        }
+        // Note: No need to call processQueue here since timer will handle it
         
       } else {
-        console.log('No new files found - scheduling next check');
-        this.scheduleNextCheck(this.pollingInterval);
+        console.log('No new files found - increasing backoff');
+        
+        // Increase backoff when no files found
+        this.increaseBackoff();
       }
       
     } catch (error) {
@@ -339,36 +432,32 @@ class DownloadWorkerManager {
         error: error.message
       });
       
-      // Schedule retry after error
-      this.scheduleNextCheck(this.pollingInterval);
+      // Timer will retry automatically
     }
   }
   
-  scheduleNextCheck(delay) {
-    if (this.pollingTimeout) {
-      clearTimeout(this.pollingTimeout);
-    }
-    
-    this.pollingTimeout = setTimeout(() => {
-      this.checkForNewFiles();
-    }, delay);
+  /**
+   * Reset exponential backoff to initial interval
+   */
+  resetBackoff() {
+    this.currentBackoffInterval = this.backoffConfig.initialInterval;
+    console.log(`Backoff reset to ${this.currentBackoffInterval}ms`);
   }
   
-  checkQueueAndPoll() {
-    if (!this.isMonitoring || !this.queueManager) return;
+  /**
+   * Increase exponential backoff interval
+   */
+  increaseBackoff() {
+    const newInterval = Math.min(
+      this.currentBackoffInterval * this.backoffConfig.multiplier,
+      this.backoffConfig.maxInterval
+    );
     
-    // Check if we have available workers and ready files
-    const availableWorkers = this.workers.filter(w => !w.busy).length;
-    const readyFiles = this.queueManager.getReadyFiles(1); // Just check if any exist
-    
-    if (availableWorkers > 0 && readyFiles.length === 0) {
-      console.log('Workers available but no ready files - checking for new files');
-      // Clear any scheduled polling timeout since we're checking immediately
-      if (this.pollingTimeout) {
-        clearTimeout(this.pollingTimeout);
-        this.pollingTimeout = null;
-      }
-      this.checkForNewFiles();
+    if (newInterval !== this.currentBackoffInterval) {
+      this.currentBackoffInterval = newInterval;
+      console.log(`Backoff increased to ${this.currentBackoffInterval}ms`);
+    } else {
+      console.log(`Backoff at maximum: ${this.currentBackoffInterval}ms`);
     }
   }
   
@@ -449,10 +538,7 @@ class DownloadWorkerManager {
       await this.startDownload(worker, file);
     }
     
-    // If no files were started and no files are ready, check for new files
-    if (readyFiles.length === 0 && this.activeJobs.size === 0) {
-      this.checkQueueAndPoll();
-    }
+    // Timer will handle regular processing
   }
   
   async startDownload(workerInfo, file) {
@@ -573,11 +659,7 @@ class DownloadWorkerManager {
       // Send queue update to renderer
       this.sendQueueUpdate();
       
-      // Process next files in queue
-      await this.processQueue();
-      
-      // Check if queue is empty and poll for new files if needed
-      this.checkQueueAndPoll();
+      // Timer will handle processing queue automatically
     }
   }
   

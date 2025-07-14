@@ -26,6 +26,13 @@ class SharedConfiguration {
                 retryBackoffMultiplier: 2.0,
                 maxConcurrentDownloads: 3,
                 retryOn404: false               // Don't retry 404 errors
+            },
+            // Server polling settings with exponential backoff
+            serverPolling: {
+                initialInterval: 1000,          // 1 second (immediate responsiveness)
+                maxInterval: 1800000,           // 30 minutes (1800 seconds)
+                multiplier: 2.0,                // Double interval each time
+                resetOnActivity: true           // Reset backoff on UI activity
             }
         };
 

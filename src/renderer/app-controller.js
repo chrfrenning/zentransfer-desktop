@@ -127,6 +127,38 @@ export class AppController {
 
         // External link handling
         this.setupExternalLinks();
+        
+        // UI activity detection for download backoff reset
+        this.setupUIActivityDetection();
+    }
+    
+    /**
+     * Setup UI activity detection to reset download polling backoff
+     */
+    setupUIActivityDetection() {
+        let lastActivitySignal = 0;
+        const throttleDelay = 5000; // Only signal every 5 seconds max
+        
+        const signalActivity = () => {
+            const now = Date.now();
+            if (now - lastActivitySignal > throttleDelay) {
+                lastActivitySignal = now;
+                if (window.electronAPI && window.electronAPI.download) {
+                    window.electronAPI.download.signalUIActivity().catch(error => {
+                        // Silently ignore errors - this is just an optimization
+                        console.debug('Failed to signal UI activity:', error);
+                    });
+                }
+            }
+        };
+        
+        // Listen for mouse and keyboard activity
+        document.addEventListener('mousemove', signalActivity, { passive: true });
+        document.addEventListener('click', signalActivity, { passive: true });
+        document.addEventListener('keydown', signalActivity, { passive: true });
+        document.addEventListener('scroll', signalActivity, { passive: true });
+        
+        console.log('UI activity detection setup for download backoff reset');
     }
 
     /**

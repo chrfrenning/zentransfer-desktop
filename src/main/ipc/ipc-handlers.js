@@ -238,6 +238,19 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
      }
    });
    
+   // Reset server polling backoff on UI activity
+   ipcMain.handle('ui-activity', async (event) => {
+     try {
+       if (downloadWorkerPool && downloadWorkerPool.isMonitoring) {
+         downloadWorkerPool.resetBackoff();
+       }
+       return { success: true };
+     } catch (error) {
+       console.error('Failed to handle UI activity:', error);
+       return { success: false, error: error.message };
+     }
+   });
+   
    // Upload Service handlers
    ipcMain.handle('upload-service-create', async (event, serviceType, settings) => {
      try {
