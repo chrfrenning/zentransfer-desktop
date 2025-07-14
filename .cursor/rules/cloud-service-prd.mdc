@@ -1,0 +1,796 @@
+---
+alwaysApply: false
+---
+# Cloud Service Integration PRD
+
+## Product Requirements Document: Adding New Cloud Service Support
+
+### Document Information
+- **Version**: 1.0
+- **Created**: Based on MinIO implementation (July 2025)
+- **Purpose**: Guide for implementing new cloud service integrations in ZenTransfer Desktop
+- **Scope**: Complete integration including configuration, UI, upload, and import functionality
+
+---
+
+## Overview
+
+This document outlines the complete process for adding support for new cloud storage services to ZenTransfer Desktop. The integration includes configuration management, UI components, upload functionality, and import workflow support.
+
+## Architecture Components
+
+The cloud service integration spans multiple layers:
+1. **Configuration Layer**: Service-specific settings and validation
+2. **Service Layer**: Upload implementation and connection testing
+3. **UI Layer**: Settings screens and user controls
+4. **Worker Layer**: Background processing for uploads and imports
+5. **Migration Layer**: Configuration migration and defaults
+
+---
+
+## Implementation Steps
+
+### Step 1: Cloud Service Configuration
+
+#### 1.1 Create Cloud Service Class
+**Location**: `src/shared/cloud-services/[service-name]-service.js`
+
+Create a service class extending `CloudService`:
+
+```javascript
+const { CloudService } = require('./cloud-service.js');
+
+class [ServiceName]Service extends CloudService {
+    constructor() {
+        super('[service-type]'); // e.g., 'minio', 'dropbox', 'onedrive'
+        
+        // Define service-specific configuration fields
+        this.endpoint = '';
+        this.bucket = '';
+        this.accessKey = '';
+        this.secretKey = '';
+        // Add other required fields
+    }
+
+    toConfig() {
+        return {
+            ...super.toConfig(),
+            endpoint: this.endpoint,
+            bucket: this.bucket,
+            accessKey: this.accessKey,
+            secretKey: this.secretKey
+            // Include all configuration fields
+        };
+    }
+
+    fromConfig(config) {
+        super.fromConfig(config);
+        this.endpoint = config.endpoint || '';
+        this.bucket = config.bucket || '';
+        this.accessKey = config.accessKey || '';
+        this.secretKey = config.secretKey || '';
+        // Load all configuration fields
+    }
+
+    isValid() {
+        return this.enabled && this.endpoint && this.bucket && 
+               this.accessKey && this.secretKey;
+        // Add validation for required fields
+    }
+
+    getDisplayInfo() {
+        return {
+            ...super.getDisplayInfo(),
+            name: '[Service Display Name]',
+            endpoint: this.endpoint,
+            bucket: this.bucket,
+            hasCredentials: !!(this.accessKey && this.secretKey)
+            // Include display-safe information
+        };
+    }
+
+    validate() {
+        const errors = [];
+        
+        if (!this.endpoint) {
+            errors.push('[Service] endpoint is required');
+        }
+        
+        if (!this.bucket) {
+            errors.push('[Service] bucket/container is required');
+        }
+        
+        if (!this.accessKey) {
+            errors.push('[Service] access key is required');
+        }
+        
+        if (!this.secretKey) {
+            errors.push('[Service] secret key is required');
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
+    }
+}
+
+module.exports = { [ServiceName]Service };
+```
+
+#### 1.2 Register in Shared Configuration
+**Location**: `src/shared/configuration/shared-configuration.js`
+
+Add service to cloud services:
+```javascript
+// Import the new service
+const { [ServiceName]Service } = require('../cloud-services/[service-name]-service.js');
+
+// In constructor, add to cloudServices object:
+this.cloudServices = {
+    // ... existing services
+    '[service-type]': new [ServiceName]Service()
+};
+
+// Add to importSettings default configuration:
+this.importSettings = {
+    // ... existing settings
+    uploadTo[ServiceName]: false
+};
+```
+
+### Step 2: Upload Service Implementation
+
+#### 2.1 Create Upload Service Class
+**Location**: `src/workers/services/[service-name]-service.js`
+
+Create upload service extending `UploadServiceBase`:
+
+```javascript
+const { UploadServiceBase } = require('./upload-service-base.js');
+
+class [ServiceName]Service extends UploadServiceBase {
+    constructor(settings = {}) {
+        super(settings);
+        this.activeUploads = new Map();
+    }
+
+    getServiceName() {
+        return '[Service Display Name]';
+    }
+
+    validateConfiguration() {
+        const errors = [];
+        
+        if (!this.settings.endpoint) {
+            errors.push('Endpoint is required');
+        }
+        
+        if (!this.settings.bucket) {
+            errors.push('Bucket/Container is required');
+        }
+        
+        if (!this.settings.accessKey) {
+            errors.push('Access key is required');
+        }
+        
+        if (!this.settings.secretKey) {
+            errors.push('Secret key is required');
+        }
+
+        return {
+            valid: errors.length === 0,
+            errors
+        };
+    }
+
+    async testConnection() {
+        try {
+            // Implement connection test specific to the service
+            // 1. Validate configuration
+            // 2. Test authentication
+            // 3. Test bucket/container access
+            // 4. Test upload permissions
+            // 5. Cleanup test artifacts
+            
+            return {
+                success: true,
+                message: 'Connection test successful',
+                details: { /* test results */ }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Connection test failed: ${error.message}`,
+                details: { error: error.message }
+            };
+        }
+    }
+
+    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+        const uploadId = this._generateUploadId();
+        
+        try {
+            // 1. Validate configuration
+            // 2. Validate file
+            // 3. Handle duplicate checking if options.skipDuplicates
+            // 4. Generate unique remote name if needed
+            // 5. Read file content
+            // 6. Perform upload using service-specific API
+            // 7. Return success result with URL and details
+            
+            return {
+                success: true,
+                message: 'File uploaded successfully',
+                url: publicUrl,
+                details: {
+                    uploadId,
+                    remoteName: finalRemoteName,
+                    fileSize: fileInfo.size,
+                    uploadTime: uploadTime
+                }
+            };
+        } catch (error) {
+            return {
+                success: false,
+                message: `Upload failed: ${error.message}`,
+                details: { uploadId, error: error.message }
+            };
+        }
+    }
+}
+
+module.exports = { [ServiceName]Service };
+```
+
+#### 2.2 Register in Upload Service Manager
+**Location**: `src/workers/upload-service-manager.js`
+
+```javascript
+// Import the service
+const { [ServiceName]Service } = require('./services/[service-name]-service.js');
+
+// Add to serviceTypes mapping:
+this.serviceTypes = {
+    // ... existing services
+    '[service-type]': [ServiceName]Service
+};
+
+// Add to getServiceDisplayInfo method:
+getServiceDisplayInfo(serviceType) {
+    const displayInfo = {
+        // ... existing services
+        '[service-type]': {
+            name: '[Service Display Name]',
+            description: 'Upload to [Service Description]',
+            icon: '☁️', // Choose appropriate icon
+            color: '[color]' // Choose appropriate color
+        }
+    };
+}
+
+// Add to createServicesFromPreferences method:
+// [Service Name]
+if (preferences.[serviceName]Enabled && preferences.[serviceName]Bucket && 
+    preferences.[serviceName]AccessKey && preferences.[serviceName]SecretKey) {
+    const serviceInfo = this.createService('[service-type]', {
+        endpoint: preferences.[serviceName]Endpoint,
+        bucket: preferences.[serviceName]Bucket,
+        accessKey: preferences.[serviceName]AccessKey,
+        secretKey: preferences.[serviceName]SecretKey
+        // Map all required configuration fields
+    });
+    createdServices.push(serviceInfo);
+}
+```
+
+### Step 3: Settings Screen Integration
+
+#### 3.1 Add Settings HTML Section
+**Location**: `src/renderer/screens/settings-screen.js`
+
+Add service section in alphabetical order in the settings HTML:
+
+```html
+<!-- [Service Name] Section -->
+<div class="space-y-4">
+    <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 bg-[color]-500 rounded-full flex items-center justify-center">
+                <span class="text-white text-sm">☁️</span>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900">[Service Display Name]</h3>
+                <p class="text-sm text-gray-600">[Service Description]</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <button id="test[ServiceName]Btn" class="test-button" disabled>
+                <!-- Test button content -->
+            </button>
+            <label class="inline-flex items-center">
+                <input type="checkbox" id="[serviceName]EnableToggle" class="toggle-checkbox">
+                <span class="toggle-slider"></span>
+            </label>
+        </div>
+    </div>
+
+    <div id="[serviceName]Settings" class="hidden ml-11 space-y-4">
+        <!-- Service-specific configuration fields -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Endpoint *</label>
+                <input type="text" id="[serviceName]Endpoint" class="config-input" placeholder="service.example.com">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Bucket/Container *</label>
+                <input type="text" id="[serviceName]Bucket" class="config-input" placeholder="my-bucket">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Access Key *</label>
+                <input type="password" id="[serviceName]AccessKey" class="config-input" placeholder="Enter access key">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Secret Key *</label>
+                <input type="password" id="[serviceName]SecretKey" class="config-input" placeholder="Enter secret key">
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+#### 3.2 Add Event Handlers
+**Location**: `src/renderer/screens/settings-screen.js`
+
+Add event handlers in the `setupEventListeners` method:
+
+```javascript
+// [Service Name] settings
+const [serviceName]EnableToggle = document.getElementById('[serviceName]EnableToggle');
+const [serviceName]Settings = document.getElementById('[serviceName]Settings');
+const test[ServiceName]Btn = document.getElementById('test[ServiceName]Btn');
+
+if ([serviceName]EnableToggle) {
+    [serviceName]EnableToggle.addEventListener('change', () => {
+        if ([serviceName]EnableToggle.checked) {
+            [serviceName]Settings?.classList.remove('hidden');
+            test[ServiceName]Btn?.removeAttribute('disabled');
+        } else {
+            [serviceName]Settings?.classList.add('hidden');
+            test[ServiceName]Btn?.setAttribute('disabled', 'true');
+        }
+        this.save[ServiceName]Settings();
+    });
+}
+
+// Add event listeners for all configuration fields
+['[serviceName]Endpoint', '[serviceName]Bucket', '[serviceName]AccessKey', '[serviceName]SecretKey'].forEach(fieldId => {
+    const field = document.getElementById(fieldId);
+    if (field) {
+        field.addEventListener('input', () => this.save[ServiceName]Settings());
+        field.addEventListener('blur', () => this.save[ServiceName]Settings());
+    }
+});
+
+// Test connection button
+if (test[ServiceName]Btn) {
+    test[ServiceName]Btn.addEventListener('click', () => this.test[ServiceName]Connection());
+}
+```
+
+#### 3.3 Add Settings Management Methods
+**Location**: `src/renderer/screens/settings-screen.js`
+
+```javascript
+async save[ServiceName]Settings() {
+    try {
+        const [serviceName]Enabled = document.getElementById('[serviceName]EnableToggle')?.checked || false;
+        const [serviceName]Endpoint = document.getElementById('[serviceName]Endpoint')?.value || '';
+        const [serviceName]Bucket = document.getElementById('[serviceName]Bucket')?.value || '';
+        const [serviceName]AccessKey = document.getElementById('[serviceName]AccessKey')?.value || '';
+        const [serviceName]SecretKey = document.getElementById('[serviceName]SecretKey')?.value || '';
+
+        await window.electronAPI.config.updateCloudService('[service-type]', {
+            enabled: [serviceName]Enabled,
+            endpoint: [serviceName]Endpoint,
+            bucket: [serviceName]Bucket,
+            accessKey: [serviceName]AccessKey,
+            secretKey: [serviceName]SecretKey
+        });
+
+        console.log('[Service Name] settings saved');
+    } catch (error) {
+        console.error('Failed to save [Service Name] settings:', error);
+    }
+}
+
+async test[ServiceName]Connection() {
+    const testBtn = document.getElementById('test[ServiceName]Btn');
+    const testIcon = document.getElementById('test[ServiceName]Icon');
+    
+    if (!testBtn || testBtn.disabled) return;
+
+    try {
+        // Show loading state
+        testBtn.disabled = true;
+        testIcon.className = 'w-5 h-5 animate-spin text-gray-400';
+
+        const settings = {
+            endpoint: document.getElementById('[serviceName]Endpoint')?.value || '',
+            bucket: document.getElementById('[serviceName]Bucket')?.value || '',
+            accessKey: document.getElementById('[serviceName]AccessKey')?.value || '',
+            secretKey: document.getElementById('[serviceName]SecretKey')?.value || ''
+        };
+
+        const result = await window.electronAPI.uploadService.test('[service-type]', settings);
+
+        if (result.success && result.result.success) {
+            // Success state
+            testIcon.className = 'w-5 h-5 text-green-500';
+            this.showNotification('[Service Name] connection test successful!', 'success');
+        } else {
+            // Error state
+            testIcon.className = 'w-5 h-5 text-red-500';
+            this.showNotification(`[Service Name] connection test failed: ${result.result?.message || 'Unknown error'}`, 'error');
+        }
+    } catch (error) {
+        // Error state
+        testIcon.className = 'w-5 h-5 text-red-500';
+        this.showNotification(`[Service Name] connection test failed: ${error.message}`, 'error');
+    } finally {
+        // Re-enable button after delay
+        setTimeout(() => {
+            testBtn.disabled = false;
+            testIcon.className = 'w-5 h-5 transition-all duration-300';
+        }, 2000);
+    }
+}
+```
+
+#### 3.4 Add to Preferences Loading
+**Location**: `src/renderer/screens/settings-screen.js`
+
+In the `loadPreferences` method:
+
+```javascript
+// Load [Service Name] settings
+const [serviceName]EnableToggle = document.getElementById('[serviceName]EnableToggle');
+const [serviceName]Settings = document.getElementById('[serviceName]Settings');
+const [serviceName]Endpoint = document.getElementById('[serviceName]Endpoint');
+const [serviceName]Bucket = document.getElementById('[serviceName]Bucket');
+const [serviceName]AccessKey = document.getElementById('[serviceName]AccessKey');
+const [serviceName]SecretKey = document.getElementById('[serviceName]SecretKey');
+
+const [serviceName]Service = await window.electronAPI.config.getCloudServiceFull('[service-type]');
+if ([serviceName]Service) {
+    if ([serviceName]EnableToggle) {
+        [serviceName]EnableToggle.checked = [serviceName]Service.enabled || false;
+        if ([serviceName]Service.enabled) {
+            [serviceName]Settings?.classList.remove('hidden');
+        }
+    }
+    
+    if ([serviceName]Endpoint) [serviceName]Endpoint.value = [serviceName]Service.endpoint || '';
+    if ([serviceName]Bucket) [serviceName]Bucket.value = [serviceName]Service.bucket || '';
+    if ([serviceName]AccessKey) [serviceName]AccessKey.value = [serviceName]Service.accessKey || '';
+    if ([serviceName]SecretKey) [serviceName]SecretKey.value = [serviceName]Service.secretKey || '';
+}
+```
+
+### Step 4: Import Screen Integration
+
+#### 4.1 Add Service Checkbox
+**Location**: `src/renderer/screens/import-screen.js`
+
+Add checkbox in alphabetical order in the cloud services container:
+
+```html
+<!-- Upload to [Service Name] -->
+<div class="flex items-center space-x-3 cursor-pointer">
+    <input 
+        type="checkbox" 
+        id="uploadTo[ServiceName]Checkbox" 
+        class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+    <label for="uploadTo[ServiceName]Checkbox" class="text-sm font-medium text-gray-700 cursor-pointer">
+        ☁️ Upload to [Service Display Name]
+    </label>
+</div>
+```
+
+#### 4.2 Add Service Configuration Check
+**Location**: `src/renderer/screens/import-screen.js`
+
+In the `isServiceConfigured` method:
+
+```javascript
+case '[service-type]':
+    const [serviceName]Service = await window.electronAPI.config.getCloudServiceFull('[service-type]');
+    return !!([serviceName]Service && [serviceName]Service.enabled && [serviceName]Service.endpoint && 
+             [serviceName]Service.bucket && [serviceName]Service.accessKey && [serviceName]Service.secretKey);
+```
+
+#### 4.3 Add Service Availability Update
+**Location**: `src/renderer/screens/import-screen.js`
+
+In the `updateServiceAvailability` method:
+
+```javascript
+const is[ServiceName]Available = await this.isServiceConfigured('[service-type]');
+
+this.updateServiceUI('[service-type]', is[ServiceName]Available, 'Please enable and configure [Service Name] in Settings to enable uploads');
+```
+
+#### 4.4 Add UI Update Case
+**Location**: `src/renderer/screens/import-screen.js`
+
+In the `updateServiceUI` method:
+
+```javascript
+case '[service-type]':
+    checkbox = this.elements.uploadTo[ServiceName]Checkbox;
+    label = checkbox?.parentElement;
+    break;
+```
+
+#### 4.5 Add Event Listeners and Settings Management
+**Location**: `src/renderer/screens/import-screen.js`
+
+In `setupEventListeners`:
+
+```javascript
+if (this.elements.uploadTo[ServiceName]Checkbox) {
+    this.elements.uploadTo[ServiceName]Checkbox.addEventListener('change', () => {
+        this.saveAllSettings();
+    });
+}
+```
+
+In `loadSettings`:
+
+```javascript
+const uploadTo[ServiceName] = await window.electronAPI.config.get('importSettings.uploadTo[ServiceName]');
+
+if (this.elements.uploadTo[ServiceName]Checkbox) {
+    this.elements.uploadTo[ServiceName]Checkbox.checked = uploadTo[ServiceName] || false;
+}
+```
+
+In `saveAllSettings`:
+
+```javascript
+if (this.elements.uploadTo[ServiceName]Checkbox) {
+    await window.electronAPI.config.set('importSettings.uploadTo[ServiceName]', this.elements.uploadTo[ServiceName]Checkbox.checked);
+}
+```
+
+In `collectImportSettings`:
+
+```javascript
+uploadTo[ServiceName]: enableCloudUpload && (this.elements.uploadTo[ServiceName]Checkbox?.checked || false),
+```
+
+In `saveImportSettings`:
+
+```javascript
+await window.electronAPI.config.set('importSettings.uploadTo[ServiceName]', settings.uploadTo[ServiceName]);
+```
+
+In `startImport` logging:
+
+```javascript
+if (importSettings.uploadTo[ServiceName]) {
+    enabledServices.push('[Service Display Name]');
+}
+```
+
+### Step 5: Upload Screen Integration
+
+#### 5.1 Add Service Preferences Loading
+**Location**: `src/renderer/upload/upload-manager.js`
+
+In the `getServicePreferences` method:
+
+```javascript
+// [Service Name]
+if ([serviceName]Service && [serviceName]Service.enabled) {
+    preferences.[serviceName]Enabled = [serviceName]Service.enabled;
+    preferences.[serviceName]Endpoint = [serviceName]Service.endpoint;
+    preferences.[serviceName]Bucket = [serviceName]Service.bucket;
+    preferences.[serviceName]AccessKey = [serviceName]Service.accessKey;
+    preferences.[serviceName]SecretKey = [serviceName]Service.secretKey;
+    // Map all configuration fields
+}
+```
+
+#### 5.2 Add to Available Service Types
+**Location**: `src/renderer/upload/upload-service-factory.js`
+
+```javascript
+getAvailableServiceTypes() {
+    return ['zentransfer', 'aws-s3', 'azure-blob', 'gcp-storage', /* existing services */ '[service-type]'];
+}
+```
+
+### Step 6: Worker Integration
+
+#### 6.1 Import Worker Integration
+**Location**: `src/workers/import/import-worker-main.js`
+
+Add to enabled services logging:
+
+```javascript
+if (importSettings.uploadTo[ServiceName]) {
+    enabledServices.push('[Service Display Name]');
+}
+```
+
+Add to upload detection logic (both instances):
+
+```javascript
+const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || 
+                           importSettings.uploadToAzure || importSettings.uploadToGcp || 
+                           importSettings.uploadToMinio || importSettings.uploadTo[ServiceName];
+```
+
+#### 6.2 Import Worker Manager Integration
+**Location**: `src/main/workers/import-worker-manager.js`
+
+In the `handleUploadReady` method:
+
+```javascript
+if (importSettings?.uploadTo[ServiceName]) {
+    uploadServices.push({ type: '[service-type]', name: '[Service Display Name]' });
+}
+```
+
+#### 6.3 Upload Worker Integration
+**Location**: `src/workers/upload/upload-worker.js`
+
+Add service case:
+
+```javascript
+} else if (targetService === '[service-type]') {
+    // Use [Service Name] service
+    actualServiceName = '[Service Display Name]';
+    
+    console.log(`[Upload Worker] Processing [Service Name] upload for file: ${fileName}`);
+    
+    if (![serviceName]Service) {
+        // Validate configuration
+        if (!servicePreferences.[serviceName]Endpoint || !servicePreferences.[serviceName]Bucket || 
+            !servicePreferences.[serviceName]AccessKey || !servicePreferences.[serviceName]SecretKey) {
+            throw new Error('Incomplete [Service Name] configuration. Please check your settings.');
+        }
+        
+        [serviceName]Service = new [ServiceName]Service({
+            endpoint: servicePreferences.[serviceName]Endpoint,
+            bucket: servicePreferences.[serviceName]Bucket,
+            accessKey: servicePreferences.[serviceName]AccessKey,
+            secretKey: servicePreferences.[serviceName]SecretKey
+            // Map all configuration fields
+        });
+    }
+    
+    uploadService = [serviceName]Service;
+```
+
+Add service import at the top:
+
+```javascript
+const { [ServiceName]Service } = require('../services/[service-name]-service.js');
+```
+
+Add service variable declaration:
+
+```javascript
+let [serviceName]Service = null;
+```
+
+### Step 7: Configuration Migration
+
+#### 7.1 Add to Migration Logic
+**Location**: `src/main/services/config-manager.js`
+
+Add to localStorage migration keys:
+
+```javascript
+const importKeys = [
+    // ... existing keys
+    'zentransfer_import_upload_to_[service_name]'
+];
+```
+
+Add migration handler:
+
+```javascript
+} else if (importSettingKey === 'upload_to_[service_name]') {
+    this.set('importSettings.uploadTo[ServiceName]', value);
+```
+
+## Testing Checklist
+
+### Configuration Testing
+- [ ] Service configuration loads and saves correctly
+- [ ] Validation works for required fields
+- [ ] Test connection functionality works
+- [ ] Service can be enabled/disabled
+
+### Settings Screen Testing
+- [ ] Service section appears in alphabetical order
+- [ ] All configuration fields are present
+- [ ] Toggle functionality works
+- [ ] Test button provides feedback
+- [ ] Settings persist across app restarts
+
+### Import Screen Testing
+- [ ] Service checkbox appears in alphabetical order
+- [ ] Service availability detection works
+- [ ] Checkbox state persists
+- [ ] Service appears in enabled services log
+
+### Upload Testing
+- [ ] Service appears in upload screen dropdown
+- [ ] Direct uploads work correctly
+- [ ] Import uploads work correctly
+- [ ] Progress reporting works
+- [ ] Error handling works
+
+### Worker Testing
+- [ ] Import worker detects service correctly
+- [ ] Upload worker instantiates service correctly
+- [ ] Service preferences are passed correctly
+- [ ] Upload processing completes successfully
+
+## Best Practices
+
+### Code Organization
+1. **Consistent Naming**: Use consistent naming patterns across all files
+2. **Alphabetical Ordering**: Maintain alphabetical order in UI elements and arrays
+3. **Error Handling**: Implement comprehensive error handling and user feedback
+4. **Logging**: Add appropriate logging for debugging and monitoring
+
+### UI/UX Considerations
+1. **Visual Consistency**: Use consistent icons, colors, and styling
+2. **User Feedback**: Provide clear feedback for actions and errors
+3. **Accessibility**: Ensure proper labeling and keyboard navigation
+4. **Responsive Design**: Ensure UI works across different screen sizes
+
+### Security Considerations
+1. **Credential Storage**: Store credentials securely using the configuration system
+2. **Input Validation**: Validate all user inputs on both client and server side
+3. **Connection Security**: Use secure connections (HTTPS/TLS) when available
+4. **Sanitization**: Sanitize sensitive data in logs and error messages
+
+### Performance Considerations
+1. **Lazy Loading**: Only instantiate services when needed
+2. **Connection Pooling**: Reuse connections where possible
+3. **Progress Reporting**: Provide meaningful progress updates for long operations
+4. **Resource Cleanup**: Properly clean up resources after operations complete
+
+---
+
+## Appendix
+
+### File Locations Summary
+- Cloud Service Class: `src/shared/cloud-services/[service-name]-service.js`
+- Upload Service Class: `src/workers/services/[service-name]-service.js`
+- Settings Screen: `src/renderer/screens/settings-screen.js`
+- Import Screen: `src/renderer/screens/import-screen.js`
+- Upload Manager: `src/renderer/upload/upload-manager.js`
+- Upload Service Factory: `src/renderer/upload/upload-service-factory.js`
+- Upload Service Manager: `src/workers/upload-service-manager.js`
+- Import Worker: `src/workers/import/import-worker-main.js`
+- Import Worker Manager: `src/main/workers/import-worker-manager.js`
+- Upload Worker: `src/workers/upload/upload-worker.js`
+- Shared Configuration: `src/shared/configuration/shared-configuration.js`
+- Config Manager: `src/main/services/config-manager.js`
+
+### Common Issues and Solutions
+1. **Service Not Appearing**: Check alphabetical ordering in all UI components
+2. **Uploads Not Starting**: Verify upload detection logic in import worker
+3. **Configuration Not Saving**: Check event handlers and IPC communication
+4. **Test Connection Failing**: Verify service-specific API implementation
+5. **Missing in Dropdowns**: Check service registration in upload service factory
+
+This PRD provides a comprehensive guide for implementing new cloud service support. Follow each step methodically to ensure complete integration across all application layers. 
