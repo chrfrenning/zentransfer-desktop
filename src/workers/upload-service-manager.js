@@ -136,7 +136,7 @@ class UploadServiceManager {
             'minio': {
                 name: 'MinIO',
                 description: 'Upload to MinIO (S3-compatible)',
-                icon: '🗄️',
+                icon: '☁️',
                 color: 'purple'
             }
         };

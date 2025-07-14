@@ -352,18 +352,12 @@ export class SettingsScreen {
                             <p class="text-xs text-gray-500 mt-1">Bucket must exist and be accessible</p>
                         </div>
                         
-                        <!-- Region -->
-                        <div>
-                            <label for="minioRegion" class="block text-sm font-medium text-gray-700 mb-1">Region</label>
-                            <input 
-                                type="text" 
-                                id="minioRegion"
-                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm" 
-                                placeholder="us-east-1"
-                                value="us-east-1"
-                            >
-                            <p class="text-xs text-gray-500 mt-1">MinIO region (default: us-east-1)</p>
-                        </div>
+                        <!-- Region (hidden - not typically needed for MinIO) -->
+                        <input 
+                            type="hidden" 
+                            id="minioRegion"
+                            value="us-east-1"
+                        >
                         
                         <!-- Access Key -->
                         <div id="minioAccessKeyContainer"></div>
@@ -729,7 +723,6 @@ export class SettingsScreen {
         const minioPort = document.getElementById('minioPort');
         const minioUseSSL = document.getElementById('minioUseSSL');
         const minioBucket = document.getElementById('minioBucket');
-        const minioRegion = document.getElementById('minioRegion');
         const testMinioConnectionBtn = document.getElementById('testMinioConnectionBtn');
 
         // Track if MinIO connection was tested successfully
@@ -776,13 +769,6 @@ export class SettingsScreen {
         if (minioBucket) {
             minioBucket.addEventListener('input', (e) => {
                 this.updateCloudServiceSetting('minio', 'bucket', e.target.value);
-                this.resetMinioTestButton();
-            });
-        }
-
-        if (minioRegion) {
-            minioRegion.addEventListener('input', (e) => {
-                this.updateCloudServiceSetting('minio', 'region', e.target.value);
                 this.resetMinioTestButton();
             });
         }
@@ -1209,7 +1195,6 @@ export class SettingsScreen {
             const minioPort = document.getElementById('minioPort');
             const minioUseSSL = document.getElementById('minioUseSSL');
             const minioBucket = document.getElementById('minioBucket');
-            const minioRegion = document.getElementById('minioRegion');
             const minioAccessKey = document.getElementById('minioAccessKey');
             const minioSecretKey = document.getElementById('minioSecretKey');
 
@@ -1337,7 +1322,6 @@ export class SettingsScreen {
                 if (minioPort) minioPort.value = minioService.port || 9000;
                 if (minioUseSSL) minioUseSSL.checked = minioService.useSSL !== false;
                 if (minioBucket) minioBucket.value = minioService.bucket || '';
-                if (minioRegion) minioRegion.value = minioService.region || 'us-east-1';
                 
                 // Load secure fields with proper timing
                 if (minioAccessKey && minioService.accessKey) {
