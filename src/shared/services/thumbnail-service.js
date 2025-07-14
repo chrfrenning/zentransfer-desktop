@@ -1,6 +1,7 @@
 /**
  * Thumbnail Service
  * Handles thumbnail and preview generation using Sharp
+ * Automatically handles EXIF orientation metadata for proper image rotation
  */
 
 const path = require('path');
@@ -64,6 +65,7 @@ class ThumbnailService {
             console.log(`Generating thumbnail for ${filePath} (size: ${size}px, quality: ${quality})`);
             
             const buffer = await this.sharp(filePath)
+                .rotate() // Automatically handle EXIF orientation
                 .resize(size, size, {
                     fit: 'inside',
                     withoutEnlargement: true
@@ -116,6 +118,7 @@ class ThumbnailService {
             console.log(`Generating preview for ${filePath} (size: ${size}px, quality: ${quality})`);
             
             const buffer = await this.sharp(filePath)
+                .rotate() // Automatically handle EXIF orientation
                 .resize(size, size, {
                     fit: 'inside',
                     withoutEnlargement: true
