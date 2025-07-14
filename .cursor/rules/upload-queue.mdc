@@ -1,0 +1,61 @@
+---
+description:
+globs:
+alwaysApply: false
+---
+Implementation Plan for Upload Queue
+1. Database Schema & Main Process Queue Service
+Create: src/main/services/upload-queue.js
+Apply to upload-queue...
+Key Features:
+Follow same pattern as download-queue.js
+Global exponential backoff configuration
+Prepared statements for performance
+Methods: addFiles(), getReadyFiles(), startUpload(), completeUpload(), failUpload(), resetProcessingFiles()
+2. Modify Upload Worker Pool Manager
+Update: src/main/workers/upload-worker-pool.js
+Apply to upload-queue...
+3. Create Upload Queue Manager for Renderer
+Create: src/renderer/components/upload-queue-manager.js
+Apply to upload-queue...
+4. Update Upload Manager Integration
+Modify: src/renderer/upload/upload-manager.js
+Apply to upload-queue...
+5. Add IPC Handlers
+Update: src/main/ipc/ipc-handlers.js
+Apply to upload-queue...
+6. Update Preload Script
+Update: src/preload/index.js
+Apply to upload-queue...
+7. Exponential Backoff Manager
+Create: src/main/services/upload-backoff-manager.js
+Apply to upload-queue...
+8. Migration Strategy
+Phase 1: Create Infrastructure
+Create UploadQueue class with SQLite storage
+Create UploadQueueManager for renderer
+Add IPC handlers
+Create backoff manager
+Phase 2: Integration
+Modify UploadManager to use queue manager
+Update upload worker pool to process from database
+Add queue processing timer
+Update UI to show persistent queue status
+Phase 3: Enhanced Features
+Add retry logic with exponential backoff
+Implement app restart resume
+Add queue management UI (clear completed, retry failed)
+Add queue persistence across app updates
+9. Benefits of This Approach
+Renderer Interface Preservation: Existing UploadManager.addFiles() calls work unchanged
+Persistent Storage: Files survive app restarts and crashes
+Retry Logic: Automatic retry with exponential backoff for failed uploads
+Performance: SQLite with prepared statements and WAL mode
+Scalability: Can handle large queues efficiently
+Monitoring: Rich statistics and progress tracking
+Consistency: Follows same patterns as download queue
+10. Database Location
+Following the download queue pattern:
+Apply to upload-queue...
+This ensures per-server storage and follows existing configuration patterns.
+Would you like me to start implementing any specific component of this plan, or would you prefer to see more detailed code for particular parts?
