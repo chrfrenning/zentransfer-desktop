@@ -1,125 +1,33 @@
 const { parentPort, workerData } = require('worker_threads');
 const path = require('path');
+const logger = require('./WorkerLogger.js');
 
+// Let the world know we're here
 const { workerId } = workerData;
+logger.info(`Upload worker ${workerId} started`);
 
-console.log(`Upload worker ${workerId} started`);
+// Stuff we need
+const { MimeTypesService } = require('../services/MimeTypesService.js');
+const { getFolderName, formatDateForFolder, generateRemoteName } = require('../services/FileNamePathCreator.js');
 
-// Import upload services
-const { ZenTransferService } = require(path.join(__dirname, '..', 'services', 'zentransfer-service.js'));
-const { AwsS3Service } = require(path.join(__dirname, '..', 'services', 'aws-s3-service.js'));
-const { AzureBlobService } = require(path.join(__dirname, '..', 'services', 'azure-blob-service.js'));
-const { GcpStorageService } = require(path.join(__dirname, '..', 'services', 'gcp-storage-service.js'));
-const { MinioService } = require(path.join(__dirname, '..', 'services', 'minio-service.js'));
+// The upload services we'll use
+const { ZenTransferService } = require('./clouds/ZenTransferService.js');
+const { AWSService } = require('./clouds/AWSService.js');
+const { AzureService } = require('./clouds/AzureService.js');
+const { GoogleService } = require('./clouds/GoogleService.js');
+const { MinioService } = require('./clouds/MinioService.js');
 
-// Worker state
-let zenTransferService = null;
-let awsS3Service = null;
-let azureBlobService = null;
-let gcpStorageService = null;
-let minioService = null;
-let cancelledJobs = new Set();
-let storedSessionConfig = null; // Store the full session configuration
-
-// Get MIME type from file extension
-function getMimeTypeFromExtension(fileName) {
-  const fs = require('fs');
-  
+// Message handling
+parentPort.on('message', async ({ uploadRequest }) => {
   try {
-    const mimeTypesPath = path.join(__dirname, 'mime.types');
-    
-    // Check if file exists
-    if (!fs.existsSync(mimeTypesPath)) {
-      console.warn(`Worker ${workerId}: MIME types file does not exist, using default`);
-      return getDefaultMimeType(fileName);
-    }
-    
-    const content = fs.readFileSync(mimeTypesPath, 'utf8');
-    const ext = path.extname(fileName).toLowerCase().slice(1); // Remove the dot
-    
-    const lines = content.split('\n');
-    for (const line of lines) {
-      // Skip comments and empty lines
-      if (line.startsWith('#') || !line.trim()) continue;
-      
-      // Parse line: "mimetype\t\t\t\text1 ext2 ext3"
-      const parts = line.split(/\s+/).filter(part => part.length > 0);
-      if (parts.length >= 2) {
-        const mimeType = parts[0];
-        const extensions = parts.slice(1);
-        
-        if (extensions.includes(ext)) {
-          console.log(`Worker ${workerId}: File: ${fileName}, Extension: ${ext}, MIME type: ${mimeType}`);
-          return mimeType;
-        }
-      }
-    }
-    
-    // Fallback to default
-    return getDefaultMimeType(fileName);
-    
-  } catch (error) {
-    console.error(`Worker ${workerId}: Failed to load MIME types:`, error);
-    return getDefaultMimeType(fileName);
-  }
-}
-
-// Get default MIME type based on common extensions
-function getDefaultMimeType(fileName) {
-  const ext = path.extname(fileName).toLowerCase();
-  const defaultTypes = {
-    '.jpg': 'image/jpeg',
-    '.jpeg': 'image/jpeg',
-    '.png': 'image/png',
-    '.gif': 'image/gif',
-    '.pdf': 'application/pdf',
-    '.txt': 'text/plain',
-    '.doc': 'application/msword',
-    '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    '.zip': 'application/zip'
-  };
-  
-  return defaultTypes[ext] || 'application/octet-stream';
-}
-
-parentPort.on('message', async ({ type, jobId, ...data }) => {
-  try {
-    if (type === 'cancel') {
-      // Mark job as cancelled
-      cancelledJobs.add(jobId);
-      console.log(`Worker ${workerId}: Job ${jobId} marked for cancellation`);
-      return;
-    }
-    
     let result;
     
     switch (type) {
-      case 'upload':
-        if (data.type === 'create-session') {
-          result = await createUploadSession(data.sessionData);
-        } else if (data.type === 'upload-file') {
-          result = await uploadFile(data.fileData, data.sessionData, jobId);
-        }
-        break;
-      case 'create-session':
-        result = await createUploadSession(data.sessionData);
-        break;
       case 'upload-file':
-        result = await uploadFile(data.fileData, data.sessionData, jobId);
+        result = await uploadFile(uploadRequest);
         break;
       default:
         throw new Error(`Unknown job type: ${type}`);
-    }
-    
-    // Check if job was cancelled before sending result
-    if (cancelledJobs.has(jobId)) {
-      cancelledJobs.delete(jobId);
-      parentPort.postMessage({
-        type: 'error',
-        jobId,
-        error: 'Upload cancelled by user'
-      });
-      return;
     }
     
     parentPort.postMessage({
@@ -131,11 +39,6 @@ parentPort.on('message', async ({ type, jobId, ...data }) => {
   } catch (error) {
     console.error(`Worker ${workerId} job ${jobId} failed:`, error);
     
-    // Clean up cancelled job if it failed
-    if (cancelledJobs.has(jobId)) {
-      cancelledJobs.delete(jobId);
-    }
-    
     parentPort.postMessage({
       type: 'error',
       jobId,
@@ -144,60 +47,13 @@ parentPort.on('message', async ({ type, jobId, ...data }) => {
   }
 });
 
-/**
- * Create upload session using ZenTransfer service
- */
-async function createUploadSession(sessionData) {
-  const { serverBaseUrl, token, appName, appVersion, clientId } = sessionData;
-  
-  // Store the full session configuration for later use
-  storedSessionConfig = {
-    serverBaseUrl,
-    token,
-    appName,
-    appVersion,
-    clientId
-  };
-  
-  // Initialize ZenTransfer service if not already done
-  if (!zenTransferService) {
-    zenTransferService = new ZenTransferService({
-      apiBaseUrl: serverBaseUrl,
-      token: token,
-      appName: appName,
-      appVersion: appVersion,
-      clientId: clientId
-    });
-  } else {
-    // Update settings if they've changed
-    zenTransferService.updateSettings({
-      apiBaseUrl: serverBaseUrl,
-      token: token,
-      appName: appName,
-      appVersion: appVersion,
-      clientId: clientId
-    });
-  }
-  
-  // Test connection (which creates a session)
-  const testResult = await zenTransferService.testConnection();
-  
-  if (!testResult.success) {
-    throw new Error(`Failed to create upload session: ${testResult.message}`);
-  }
-  
-  // Return session data in the format expected by the worker
-  return {
-    parentId: testResult.details.parentId,
-    uploadUrl: zenTransferService.currentSession.uploadUrl,
-    expiresAt: zenTransferService.currentSession.expiresAt
-  };
+// Upload a single file using the specified service
+async function uploadFile(uploadRequest) {
+  logger.warn('UploadFile not implemented, received request:', uploadRequest);
+  throw new Error('UploadFile not implemented');
 }
 
-/**
- * Upload a single file using the specified service
- */
-async function uploadFile(fileData, sessionData, jobId) {
+async function uploadFile2(uploadRequest) {
   const { fileId, fileName, fileSize, fileType, fileBuffer, serviceType, serviceName, importSettings } = fileData;
   const { session, token, serverBaseUrl, appName, appVersion, clientId, servicePreferences, selectedService } = sessionData;
   
@@ -212,7 +68,7 @@ async function uploadFile(fileData, sessionData, jobId) {
     
     // Determine correct MIME type from file extension
     const correctMimeType = getMimeTypeFromExtension(fileName);
-    console.log(`Upload Worker ${workerId}: File ${fileName} - Browser type: ${fileType}, Detected type: ${correctMimeType}`);
+    logger.info(`Upload Worker ${workerId}: File ${fileName} - Browser type: ${fileType}, Detected type: ${correctMimeType}`);
     
     // Determine which service to use based on file's service type or selected service
     const targetService = serviceType || selectedService || 'zentransfer';
@@ -282,8 +138,8 @@ async function uploadFile(fileData, sessionData, jobId) {
         // Use MinIO service
         actualServiceName = 'MinIO';
         
-        console.log(`[Upload Worker] Processing MinIO upload for file: ${fileName}`);
-        console.log(`[Upload Worker] MinIO service preferences:`, {
+        logger.info(`[Upload Worker] Processing MinIO upload for file: ${fileName}`);
+        logger.info(`[Upload Worker] MinIO service preferences:`, {
             endpoint: servicePreferences.minioEndpoint,
             bucket: servicePreferences.minioBucket,
             port: servicePreferences.minioPort,
@@ -300,7 +156,7 @@ async function uploadFile(fileData, sessionData, jobId) {
                 throw new Error('Incomplete MinIO configuration. Please check your MinIO settings.');
             }
             
-            console.log(`[Upload Worker] Creating new MinIO service instance`);
+            logger.info(`[Upload Worker] Creating new MinIO service instance`);
             minioService = new MinioService({
                 endpoint: servicePreferences.minioEndpoint,
                 port: servicePreferences.minioPort || 9000,
@@ -311,7 +167,7 @@ async function uploadFile(fileData, sessionData, jobId) {
                 secretKey: servicePreferences.minioSecretKey
             });
         } else {
-            console.log(`[Upload Worker] Reusing existing MinIO service instance`);
+            logger.info(`[Upload Worker] Reusing existing MinIO service instance`);
         }
         
         uploadService = minioService;
@@ -343,16 +199,16 @@ async function uploadFile(fileData, sessionData, jobId) {
         uploadService = zenTransferService;
     }
     
-    console.log(`Worker ${workerId}: Using ${actualServiceName} for upload of ${fileName}`);
+    logger.info(`Worker ${workerId}: Using ${actualServiceName} for upload of ${fileName}`);
     
     const fs = require('fs');
     const os = require('os');
     let tempFilePath;
     let isTemporary = false;
     
-    console.log('=== UPLOAD WORKER: FILE HANDLING ===');
-    console.log(`Worker ${workerId}: Processing file upload for: ${fileName}`);
-    console.log(`Worker ${workerId}: File data details:`, {
+    logger.info('=== UPLOAD WORKER: FILE HANDLING ===');
+    logger.info(`Worker ${workerId}: Processing file upload for: ${fileName}`);
+    logger.info(`Worker ${workerId}: File data details:`, {
         hasFilePath: !!(fileData.filePath),
         hasFileBuffer: !!(fileBuffer),
         filePath: fileData.filePath || '(none)',
@@ -367,26 +223,26 @@ async function uploadFile(fileData, sessionData, jobId) {
       if (fileData.filePath) {
         // Local file - use the path directly (no copying needed)
         tempFilePath = fileData.filePath;
-        console.log(`Worker ${workerId}: ✓ Using local file path directly (NO TEMPORARY FILE NEEDED)`);
-        console.log(`Worker ${workerId}: Local file path: ${tempFilePath}`);
-        console.log(`Worker ${workerId}: Source: ${fileData.source || 'unknown'}`);
+        logger.info(`Worker ${workerId}: ✓ Using local file path directly (NO TEMPORARY FILE NEEDED)`);
+        logger.info(`Worker ${workerId}: Local file path: ${tempFilePath}`);
+        logger.info(`Worker ${workerId}: Source: ${fileData.source || 'unknown'}`);
         
         if (fileData.source === 'drag-drop-with-path') {
-          console.log(`Worker ${workerId}: 🎉 DRAG/DROP OPTIMIZATION: Using direct path instead of temporary file!`);
-          console.log(`Worker ${workerId}: This drag/drop file is processed as efficiently as import files`);
+          logger.info(`Worker ${workerId}: 🎉 DRAG/DROP OPTIMIZATION: Using direct path instead of temporary file!`);
+          logger.info(`Worker ${workerId}: This drag/drop file is processed as efficiently as import files`);
         }
         
-        console.log(`Worker ${workerId}: Benefits: No copying, no temporary files, direct file access`);
+        logger.info(`Worker ${workerId}: Benefits: No copying, no temporary files, direct file access`);
       } else if (fileBuffer) {
         // Web file or file object - create temporary file
         tempFilePath = path.join(os.tmpdir(), `zentransfer_${Date.now()}_${fileName}`);
-        console.log(`Worker ${workerId}: ⚠️ Creating temporary file (FILE OBJECT WITHOUT PATH)`);
-        console.log(`Worker ${workerId}: Source: ${fileData.source || 'unknown'}`);
-        console.log(`Worker ${workerId}: Temporary file path: ${tempFilePath}`);
-        console.log(`Worker ${workerId}: Writing ${fileBuffer.length} bytes to temporary file...`);
+        logger.info(`Worker ${workerId}: ⚠️ Creating temporary file (FILE OBJECT WITHOUT PATH)`);
+        logger.info(`Worker ${workerId}: Source: ${fileData.source || 'unknown'}`);
+        logger.info(`Worker ${workerId}: Temporary file path: ${tempFilePath}`);
+        logger.info(`Worker ${workerId}: Writing ${fileBuffer.length} bytes to temporary file...`);
         
         if (fileData.source === 'drag-drop-buffer') {
-          console.log(`Worker ${workerId}: This drag/drop file had no path property, using fallback buffer strategy`);
+          logger.info(`Worker ${workerId}: This drag/drop file had no path property, using fallback buffer strategy`);
         }
         
         const startTime = Date.now();
@@ -394,15 +250,15 @@ async function uploadFile(fileData, sessionData, jobId) {
         const writeTime = Date.now() - startTime;
         
         isTemporary = true;
-        console.log(`Worker ${workerId}: ✓ Temporary file created successfully in ${writeTime}ms`);
-        console.log(`Worker ${workerId}: This requires extra I/O - file is copied from memory to disk`);
+        logger.info(`Worker ${workerId}: ✓ Temporary file created successfully in ${writeTime}ms`);
+        logger.info(`Worker ${workerId}: This requires extra I/O - file is copied from memory to disk`);
       } else {
         throw new Error('No file path or file buffer provided');
       }
       
-      console.log(`Worker ${workerId}: Final file path for upload: ${tempFilePath}`);
-      console.log(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
-      console.log(`Worker ${workerId}: Processing efficiency: ${isTemporary ? 'LESS EFFICIENT (temp file)' : 'HIGHLY EFFICIENT (direct path)'}`);
+      logger.info(`Worker ${workerId}: Final file path for upload: ${tempFilePath}`);
+      logger.info(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
+      logger.info(`Worker ${workerId}: Processing efficiency: ${isTemporary ? 'LESS EFFICIENT (temp file)' : 'HIGHLY EFFICIENT (direct path)'}`);
       
       // Generate remote name with folder organization if needed
       //remoteName = generateRemoteName(fileData.filePath, importSettings);
@@ -479,32 +335,32 @@ async function uploadFile(fileData, sessionData, jobId) {
       
     } finally {
       // Clean up temporary file only if we created it
-      console.log(`Worker ${workerId}: === CLEANUP PHASE ===`);
-      console.log(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
-      console.log(`Worker ${workerId}: File path: ${tempFilePath}`);
+      logger.info(`Worker ${workerId}: === CLEANUP PHASE ===`);
+      logger.info(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
+      logger.info(`Worker ${workerId}: File path: ${tempFilePath}`);
       
       if (isTemporary) {
         try {
           if (fs.existsSync(tempFilePath)) {
-            console.log(`Worker ${workerId}: 🗑️ Removing temporary file: ${tempFilePath}`);
+            logger.info(`Worker ${workerId}: 🗑️ Removing temporary file: ${tempFilePath}`);
             const statsBefore = fs.statSync(tempFilePath);
-            console.log(`Worker ${workerId}: Temporary file size: ${statsBefore.size} bytes`);
+            logger.info(`Worker ${workerId}: Temporary file size: ${statsBefore.size} bytes`);
             
             fs.unlinkSync(tempFilePath);
-            console.log(`Worker ${workerId}: ✓ Temporary file successfully removed`);
-            console.log(`Worker ${workerId}: This frees up ${statsBefore.size} bytes of disk space`);
+            logger.info(`Worker ${workerId}: ✓ Temporary file successfully removed`);
+            logger.info(`Worker ${workerId}: This frees up ${statsBefore.size} bytes of disk space`);
           } else {
-            console.log(`Worker ${workerId}: Temporary file no longer exists: ${tempFilePath}`);
+            logger.info(`Worker ${workerId}: Temporary file no longer exists: ${tempFilePath}`);
           }
         } catch (cleanupError) {
           console.warn(`Worker ${workerId}: ❌ Failed to clean up temp file: ${cleanupError.message}`);
         }
       } else {
-        console.log(`Worker ${workerId}: ✓ Skipping cleanup for local file (no temporary file created)`);
-        console.log(`Worker ${workerId}: Local file remains at: ${tempFilePath}`);
+        logger.info(`Worker ${workerId}: ✓ Skipping cleanup for local file (no temporary file created)`);
+        logger.info(`Worker ${workerId}: Local file remains at: ${tempFilePath}`);
       }
       
-      console.log(`Worker ${workerId}: === END CLEANUP ===`);
+      logger.info(`Worker ${workerId}: === END CLEANUP ===`);
     }
     
   } catch (error) {
@@ -527,67 +383,7 @@ function sendProgress(fileId, progress, status) {
 
 // Handle worker shutdown
 process.on('SIGTERM', () => {
-  console.log(`Upload worker ${workerId} shutting down`);
+  logger.info(`Upload worker ${workerId} shutting down`);
   process.exit(0);
 });
 
-/**
- * Get folder name for file organization based on import settings
- */
-function getFolderName(file, importSettings) {
-    if (!importSettings || !importSettings.organizeIntoFolders) {
-        return ''; // No folder organization
-    }
-    
-    const { folderOrganizationType, customFolderName, dateFormat } = importSettings;
-    
-    if (folderOrganizationType === 'custom') {
-        return customFolderName || 'Imported Files';
-    } else {
-        // Use file creation/modification date or current date
-        const fileStats = require('fs').statSync(file.path);
-        const date = fileStats.birthtime || fileStats.mtime || new Date();
-        return formatDateForFolder(date, dateFormat);
-    }
-}
-
-/**
- * Format date according to the selected format
- */
-function formatDateForFolder(date, format) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 
-                       'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-    const monthName = monthNames[date.getMonth()];
-
-    switch (format) {
-        case '2025/05/26': return `${year}/${month}/${day}`;
-        case '2025-05-26': return `${year}-${month}-${day}`;
-        case '2025/2025-05-26': return `${year}/${year}-${month}-${day}`;
-        case '2025/may 26': return `${year}/${monthName} ${day}`;
-        case '2025/05': return `${year}/${month}`;
-        case '2025/may': return `${year}/${monthName}`;
-        case '2025/may/26': return `${year}/${monthName}/${day}`;
-        case '2025/2025-05/2025-05-26': return `${year}/${year}-${month}/${year}-${month}-${day}`;
-        case '2025 may 26': return `${year} ${monthName} ${day}`;
-        case '20250526': return `${year}${month}${day}`;
-        default: return `${year}/${month}/${day}`;
-    }
-}
-
-/**
- * Generate remote name with folder organization
- */
-function generateRemoteName(fileName, importSettings) {
-    // Get folder name based on import settings
-    const folderName = getFolderName({ path: fileName }, importSettings);
-    
-    if (folderName) {
-        // Use forward slashes for cloud storage paths (works for S3, Azure, GCP)
-        return `${folderName}/${fileName}`.replace(/\\/g, '/');
-    } else {
-        return fileName;
-    }
-}

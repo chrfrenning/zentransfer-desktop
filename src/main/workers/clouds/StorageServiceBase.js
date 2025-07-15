@@ -4,11 +4,11 @@
  * Maintains complete compatibility with existing upload interface
  */
 
-const { UploadServiceBase } = require('./upload-service-base.js');
-const { ThumbnailService } = require('../../shared/services/thumbnail-service.js');
-const { MetadataService } = require('../../shared/services/metadata-service.js');
+const { UploadServiceBase } = require('./UploadServiceBase.js');
+const { ThumbnailService } = require('../../services/ThumbnailService.js');
+const { MetadataService } = require('../../services/MetadataService.js');
 
-class EnhancedUploadServiceBase extends UploadServiceBase {
+class StorageServiceBase extends UploadServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.thumbnailService = new ThumbnailService();
@@ -425,4 +425,4 @@ class EnhancedUploadServiceBase extends UploadServiceBase {
     }
 }
 
-module.exports = { EnhancedUploadServiceBase }; 
+module.exports = { StorageServiceBase }; 

@@ -443,11 +443,6 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
        return false;
      }
    });
-   
-   // App version handler
-   ipcMain.handle('get-app-version', async () => {
-     return app.getVersion();
-   });
 
 
 

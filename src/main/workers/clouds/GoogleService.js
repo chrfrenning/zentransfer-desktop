@@ -3,9 +3,9 @@
  * Handles uploads to Google Cloud Storage
  */
 
-const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
+const { StorageServiceBase } = require('./StorageServiceBase.js');
 
-class GcpStorageService extends EnhancedUploadServiceBase {
+class GoogleService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -796,4 +796,4 @@ class GcpStorageService extends EnhancedUploadServiceBase {
     }
 }
 
-module.exports = { GcpStorageService }; 
+module.exports = { GoogleService }; 

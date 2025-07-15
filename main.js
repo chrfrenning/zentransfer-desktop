@@ -94,6 +94,10 @@ function setupAuthenticationAndTokenRefresh() {
   const { ZenTransferAuthenticationService } = require('./src/main/services/auth/ZenTransferAuthenticationService.js');
   app.authenticationService = new ZenTransferAuthenticationService(app.configurationManager);
 
+  // Upload session
+  const { UploadSession } = require('./src/main/services/auth/UploadSession.js');
+  app.uploadSession = new UploadSession();
+
   // Import Token Manager
   const { TokenManager } = require('./src/main/services/auth/TokenManager.js');
   app.tokenManager = new TokenManager(app.configurationManager, app.authenticationService);
@@ -122,13 +126,11 @@ function setupWorkerPools() {
   const { UploadWorkerPool } = require('./src/main/pools/UploadWorkerPool.js');
   app.uploadWorkerPool = new UploadWorkerPool(uploadWorkerPoolSize);
 
-  /* const { ImportWorkerPool } = require('./src/main/pools/ImportWorkerPool.js');
-  app.importWorkerPool = new ImportWorkerPool(importWorkerPoolSize);
-
   const { DownloadWorkerPool } = require('./src/main/pools/DownloadWorkerPool.js');
   app.downloadWorkerPool = new DownloadWorkerPool(downloadWorkerPoolSize);
 
-  process.exit(0); */
+  const { ImportWorkerPool } = require('./src/main/pools/ImportWorkerPool.js');
+  app.importWorkerPool = new ImportWorkerPool(importWorkerPoolSize);
 
   setupHandlersBetweenRendererAndMainProcess();
 }
@@ -146,8 +148,10 @@ function setupHandlersBetweenRendererAndMainProcess() {
   
   // Set up IPC handlers
   logger.info('Setting up IPC handlers...');
-  setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool, uploadServiceManager, mainTokenManager, mainAuthService);
+  setupIpcHandlers(app.uploadWorkerPool, app.importWorkerPool, app.downloadWorkerPool, app.uploadServiceManager, app.mainTokenManager, app.mainAuthService);
   logger.info('IPC handlers configured');
+
+  createAndShowMainWindow();
 }
 
 

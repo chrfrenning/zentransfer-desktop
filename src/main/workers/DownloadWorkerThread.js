@@ -4,17 +4,19 @@
  */
 
 const { parentPort, workerData } = require('worker_threads');
+const logger = require('./WorkerLogger.js');
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const http = require('http');
 
-const workerId = workerData.workerId;
+// Let the world know we're here
+const { workerId } = workerData;
+logger.info(`Download worker ${workerId} started`);
+
 let currentJob = null;
 let isProcessing = false;
 let shouldCancel = false;
-
-console.log(`Download worker ${workerId} started`);
 
 // Message handler
 parentPort.on('message', async (message) => {

@@ -3,9 +3,9 @@
  * Handles uploads to Amazon S3
  */
 
-const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
+const { StorageServiceBase } = require('./StorageServiceBase.js');
 
-class AwsS3Service extends EnhancedUploadServiceBase {
+class AWSService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -804,4 +804,4 @@ class AwsS3Service extends EnhancedUploadServiceBase {
     }
 }
 
-module.exports = { AwsS3Service }; 
+module.exports = { AWSService }; 

@@ -10,11 +10,13 @@ const path = require('path');
 
 class ImportWorkerPool {
   constructor(poolSize = 3) {
+    this.poolSize = poolSize;
     this.worker = null;
     this.isImporting = false;
     this.currentResolve = null;
     this.currentReject = null;
     
+    this.createWorker()
     console.log('Import worker manager initialized');
   }
   
@@ -25,7 +27,7 @@ class ImportWorkerPool {
     }
     
     console.log('Creating import worker...');
-    const workerPath = path.join(__dirname, '../../workers/import', 'import-worker-main.js');
+    const workerPath = path.join(__dirname, '../workers', 'ImportWorkerThread.js');
     
     this.worker = new Worker(workerPath, {
       workerData: { workerId: 0 }
@@ -189,4 +191,4 @@ class ImportWorkerPool {
   }
 }
 
-module.exports = { ImportWorkerManager: ImportWorkerPool }; 
+module.exports = { ImportWorkerPool }; 

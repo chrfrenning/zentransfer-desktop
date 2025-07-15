@@ -3,9 +3,9 @@
  * Handles uploads to the ZenTransfer platform
  */
 
-const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
+const { StorageServiceBase } = require('./StorageServiceBase.js');
 
-class ZenTransferService extends EnhancedUploadServiceBase {
+class ZenTransferService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.apiBaseUrl = settings.apiBaseUrl || 'https://api.zentransfer.io';
@@ -252,46 +252,6 @@ class ZenTransferService extends EnhancedUploadServiceBase {
     }
 
     /**
-     * Create upload session - Step 0
-     * @returns {Promise<Object>} Session data
-     * @private
-     */
-    async _createUploadSession() {
-        this._log('info', 'Creating ZenTransfer upload session');
-
-        const postData = JSON.stringify({
-            app_name: this.settings.appName,
-            app_version: this.settings.appVersion,
-            client_id: this.settings.clientId
-        });
-
-        const response = await this._fetch(`${this.apiBaseUrl}/api/upload/startsession`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.settings.token}`,
-                'Content-Length': Buffer.byteLength(postData)
-            },
-            body: postData
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to create upload session: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-
-        const session = {
-            parentId: data.parent_id,
-            uploadUrl: data.upload_url,
-            expiresAt: new Date(data.expires_at).getTime()
-        };
-
-        this._log('info', 'ZenTransfer upload session created', { parentId: session.parentId });
-        return session;
-    }
-
-    /**
      * Initialize file upload - Step 1
      * @param {string} fileName - File name
      * @param {number} fileSize - File size in bytes
@@ -395,22 +355,6 @@ class ZenTransferService extends EnhancedUploadServiceBase {
         }
 
         return data;
-    }
-
-    /**
-     * Check if session is expired
-     * @param {Object} session - Session to check
-     * @returns {boolean} True if expired
-     * @private
-     */
-    _isSessionExpired(session) {
-        if (!session || !session.expiresAt) {
-            return true;
-        }
-        
-        // Add 5 minute buffer before expiration
-        const bufferMs = 5 * 60 * 1000;
-        return Date.now() >= (session.expiresAt - bufferMs);
     }
 
     /**

@@ -3,9 +3,9 @@
  * Handles uploads to MinIO (S3-compatible storage)
  */
 
-const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
+const { StorageServiceBase } = require('./StorageServiceBase.js');
 
-class MinioService extends EnhancedUploadServiceBase {
+class MinioService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();

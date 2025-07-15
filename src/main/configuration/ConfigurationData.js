@@ -1,7 +1,7 @@
-const { AWSConfiguration } = require('./cloudservices/AWSConfiguration.js');
-const { AzureConfiguration } = require('./cloudservices/AzureConfiguration.js');
-const { GoogleConfiguration } = require('./cloudservices/GoogleConfiguration.js');
-const { MinioConfiguration } = require('./cloudservices/MinioConfiguration.js');
+const { AWSConfiguration } = require('./clouds/AWSConfiguration.js');
+const { AzureConfiguration } = require('./clouds/AzureConfiguration.js');
+const { GoogleConfiguration } = require('./clouds/GoogleConfiguration.js');
+const { MinioConfiguration } = require('./clouds/MinioConfiguration.js');
 const { UUIDGenerator } = require('../utils/UUIDGenerator.js');
 
 /**
@@ -26,17 +26,11 @@ class ConfigurationData {
         this.downloadSettings = {
             downloadPath: '',
             lastSyncTime: null,
-            // Download queue settings
-            downloadQueue: {
-                maxRetries: 5,
-                initialRetryDelay: 1000,        // 1 second
-                maxRetryDelay: 300000,          // 5 minutes (300 seconds)
-                retryBackoffMultiplier: 2.0,
-                maxConcurrentDownloads: 3,
-                retryOn404: false               // Don't retry 404 errors
-            },
+            isDownloadEnabled: false,
+            retryOn404: false,
+            maxRetries: 5,
             // Server polling settings with exponential backoff
-            serverPolling: {
+            downloadBackoff: {
                 initialInterval: 1000,          // 1 second (immediate responsiveness)
                 maxInterval: 1800000,           // 30 minutes (1800 seconds)
                 multiplier: 2.0,                // Double interval each time

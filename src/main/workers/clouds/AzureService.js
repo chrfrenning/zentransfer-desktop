@@ -3,9 +3,9 @@
  * Handles uploads to Azure Blob Storage
  */
 
-const { EnhancedUploadServiceBase } = require('./enhanced-upload-service-base.js');
+const { StorageServiceBase } = require('./StorageServiceBase.js');
 
-class AzureBlobService extends EnhancedUploadServiceBase {
+class AzureService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
         this.activeUploads = new Map();
@@ -729,4 +729,4 @@ class AzureBlobService extends EnhancedUploadServiceBase {
     }
 }
 
-module.exports = { AzureBlobService }; 
+module.exports = { AzureService }; 

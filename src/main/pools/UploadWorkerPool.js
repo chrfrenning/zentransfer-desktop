@@ -268,7 +268,7 @@ class UploadWorkerPool {
   
   createWorker(id) {
     console.log(`Creating upload worker ${id}...`);
-    const workerPath = path.join(__dirname, '../../workers/upload', 'upload-worker.js');
+    const workerPath = path.join(__dirname, '..', 'workers', 'UploadWorkerThread.js');
     console.log(`Worker path: ${workerPath}`);
     
     const worker = new Worker(workerPath, {

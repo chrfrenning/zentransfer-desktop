@@ -4,7 +4,7 @@
  */
 
 class UploadServiceBase {
-    /**
+    /**./UploadServiceBase.js
      * Create an upload service instance
      * @param {Object} settings - Service-specific settings
      */

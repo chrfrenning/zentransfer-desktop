@@ -4,8 +4,9 @@
  * Now with SQLite-based persistent queue and retry logic
  */
 
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const { Worker } = require('worker_threads');
+const logger = require('../utils/Logger.js');
 const path = require('path');
 
 // Import shared configuration
@@ -16,65 +17,28 @@ const getConfig = () => sharedConfig;
 
 class DownloadWorkerPool {
   constructor(poolSize = 3) {
+    this.poolSize = poolSize;
     this.workers = [];
     this.activeJobs = new Map(); // Currently downloading files
-    this.jobIdCounter = 0;
     this.isMonitoring = false;
     this.pollingTimeout = null;
     this.queueProcessingInterval = null; // Timer for processing queue every second
     this.newFilePollingInterval = null; // Timer for checking new files every second
     this.lastSyncTime = null;
-    this.latestDownloadedFileTime = null;
     this.downloadPath = null;
-    this.mainTokenManager = app.tokenManager;
     
     // Exponential backoff for server polling
     this.lastServerCheckTime = 0;
     this.currentBackoffInterval = 1000; // Start with 1 second
-    this.backoffConfig = {
-      initialInterval: 1000,    // 1 second
-      maxInterval: 1800000,     // 30 minutes
-      multiplier: 2.0,          // Double each time
-      resetOnActivity: true
-    };
+    this.backoffConfig = app.configurationManager.get('downloadSettings.downloadBackoff');
     
     // SQLite queue manager
     this.queueManager = null;
-    this.maxCompletedItems = 20; // Maximum completed items to keep for display
-    
-    // Legacy arrays for UI compatibility (populated from database)
-    this.completedFiles = [];
-    this.failedFiles = [];
-    
-    // Load backoff configuration
-    this.loadBackoffConfiguration();
     
     // Create workers (number configurable via config)
     this.createWorkers();
     
-    console.log('Download worker manager initialized with SQLite queue');
-  }
-  
-  /**
-   * Load exponential backoff configuration from config system
-   */
-  loadBackoffConfiguration() {
-    try {
-      const downloadSettings = require('../app/main-config-setup.js').getConfig('downloadSettings');
-      if (downloadSettings && downloadSettings.serverPolling) {
-        this.backoffConfig = { 
-          ...this.backoffConfig, 
-          ...downloadSettings.serverPolling 
-        };
-      }
-      
-      // Reset current interval to initial value
-      this.currentBackoffInterval = this.backoffConfig.initialInterval;
-      
-      console.log('Loaded server polling backoff config:', this.backoffConfig);
-    } catch (error) {
-      console.warn('Failed to load server polling configuration, using defaults:', error);
-    }
+    logger.info('Download worker manager initialized with SQLite queue');
   }
   
   /**
@@ -86,27 +50,12 @@ class DownloadWorkerPool {
       this.createWorker(i);
     }
     
-    console.log(`Download worker manager initialized with ${workerCount} workers`);
-  }
-  
-  /**
-   * Initialize queue manager
-   */
-  initializeQueue(configManager) {
-    if (!this.queueManager) {
-      this.queueManager = new DownloadQueue();
-      this.queueManager.initialize(configManager);
-      
-      // Reset any files that were downloading when app shut down
-      this.queueManager.resetDownloadingFiles();
-      
-      console.log('Download queue manager initialized');
-    }
+    logger.info(`Download worker manager initialized with ${this.poolSize} workers`);
   }
   
   createWorker(id) {
-    console.log(`Creating download worker ${id}...`);
-    const workerPath = path.join(__dirname, '../../workers/download', 'download-worker-main.js');
+    logger.info(`Creating download worker ${id}...`);
+    const workerPath = path.join(__dirname, '../workers', 'DownloadWorkerThread.js');
     
     const worker = new Worker(workerPath, {
       workerData: { workerId: id }
@@ -122,7 +71,7 @@ class DownloadWorkerPool {
     });
     
     worker.on('exit', (code) => {
-      console.log(`Download worker ${id} exited with code ${code}`);
+      logger.info(`Download worker ${id} exited with code ${code}`);
       if (code !== 0) {
         console.error(`Download worker ${id} stopped with exit code ${code}`);
         // Recreate worker
@@ -139,7 +88,22 @@ class DownloadWorkerPool {
       currentJob: null
     });
     
-    console.log(`Download worker ${id} created successfully`);
+    logger.info(`Download worker ${id} created successfully`);
+  }
+  
+  /**
+   * Initialize queue manager
+   */
+  initializeQueue(configManager) {
+    if (!this.queueManager) {
+      this.queueManager = new DownloadQueue();
+      this.queueManager.initialize(configManager);
+      
+      // Reset any files that were downloading when app shut down
+      this.queueManager.resetDownloadingFiles();
+      
+      logger.info('Download queue manager initialized');
+    }
   }
   
   async startMonitoring(downloadPath, lastSyncTime = null) {
@@ -157,7 +121,7 @@ class DownloadWorkerPool {
     this.downloadPath = downloadPath;
     this.lastSyncTime = lastSyncTime || '2025-01-01T00:00:00.000Z';
     
-    console.log(`Starting download monitoring with sync time: ${this.lastSyncTime}`);
+    logger.info(`Starting download monitoring with sync time: ${this.lastSyncTime}`);
     
     // Check if we have token access
     if (!this.mainTokenManager) {
@@ -177,7 +141,7 @@ class DownloadWorkerPool {
   }
   
   stopMonitoring() {
-    console.log('Stopping download monitoring...');
+    logger.info('Stopping download monitoring...');
     this.isMonitoring = false;
     
     // Clear all timers
@@ -197,11 +161,11 @@ class DownloadWorkerPool {
     // Get active downloads
     const activeDownloads = this.activeJobs.size;
     
-    console.log(`Stopping monitoring: ${activeDownloads} active downloads will finish`);
+    logger.info(`Stopping monitoring: ${activeDownloads} active downloads will finish`);
     
     // Send cancel messages to all active workers to stop their current downloads
     for (const [jobId, { workerInfo, job }] of this.activeJobs) {
-      console.log(`Sending cancel message to worker for job ${jobId} (${job.file.name})`);
+      logger.info(`Sending cancel message to worker for job ${jobId} (${job.file.name})`);
       workerInfo.worker.postMessage({
         type: 'cancel-download',
         jobId: jobId
@@ -244,7 +208,7 @@ class DownloadWorkerPool {
       }
     }, 1000);
     
-    console.log('Started two monitoring timers: queue processing and new file polling');
+    logger.info('Started two monitoring timers: queue processing and new file polling');
   }
   
   updateFileProgress(jobId, progressData) {
@@ -345,7 +309,7 @@ class DownloadWorkerPool {
       const stats = this.queueManager.getStats();
       stats.downloading = this.activeJobs.size; // Override with actual active downloads
       
-      console.log('Sending queue update to renderer:', stats, 'Total files:', allFiles.length);
+      logger.info('Sending queue update to renderer:', stats, 'Total files:', allFiles.length);
       
       this.sendDownloadUpdate({
         type: 'queue-update',
@@ -377,7 +341,7 @@ class DownloadWorkerPool {
     }
     
     try {
-      console.log(`Checking for new files (backoff: ${this.currentBackoffInterval}ms)...`);
+      logger.info(`Checking for new files (backoff: ${this.currentBackoffInterval}ms)...`);
       
       // Update last server check time
       this.lastServerCheckTime = now;
@@ -392,7 +356,7 @@ class DownloadWorkerPool {
       const { files: newFiles, hasMoreItems } = result;
       
       if (newFiles.length > 0) {
-        console.log(`Found ${newFiles.length} new files - resetting backoff`);
+        logger.info(`Found ${newFiles.length} new files - resetting backoff`);
         
         // Reset backoff when files are found
         this.resetBackoff();
@@ -401,7 +365,7 @@ class DownloadWorkerPool {
         const addResults = this.queueManager.addFiles(newFiles);
         const addedCount = addResults.filter(r => r.added).length;
         
-        console.log(`Added ${addedCount} new files to database queue`);
+        logger.info(`Added ${addedCount} new files to database queue`);
         
         // Send queue update to renderer
         this.sendQueueUpdate();
@@ -409,7 +373,7 @@ class DownloadWorkerPool {
         // Note: No need to call processQueue here since timer will handle it
         
       } else {
-        console.log('No new files found - increasing backoff');
+        logger.info('No new files found - increasing backoff');
         
         // Increase backoff when no files found
         this.increaseBackoff();
@@ -431,7 +395,7 @@ class DownloadWorkerPool {
    */
   resetBackoff() {
     this.currentBackoffInterval = this.backoffConfig.initialInterval;
-    console.log(`Backoff reset to ${this.currentBackoffInterval}ms`);
+    logger.info(`Backoff reset to ${this.currentBackoffInterval}ms`);
   }
   
   /**
@@ -445,9 +409,9 @@ class DownloadWorkerPool {
     
     if (newInterval !== this.currentBackoffInterval) {
       this.currentBackoffInterval = newInterval;
-      console.log(`Backoff increased to ${this.currentBackoffInterval}ms`);
+      logger.info(`Backoff increased to ${this.currentBackoffInterval}ms`);
     } else {
-      console.log(`Backoff at maximum: ${this.currentBackoffInterval}ms`);
+      logger.info(`Backoff at maximum: ${this.currentBackoffInterval}ms`);
     }
   }
   
@@ -456,7 +420,7 @@ class DownloadWorkerPool {
       // Use the latest downloaded file time if available, otherwise use the initial sync time
       const syncTime = this.latestDownloadedFileTime || this.lastSyncTime || '2025-01-01T00:00:00.000Z';
       
-      console.log(`Checking server for files since: ${syncTime}`);
+      logger.info(`Checking server for files since: ${syncTime}`);
       
       // Get server configuration
       const config = getConfig();
@@ -464,7 +428,7 @@ class DownloadWorkerPool {
       // Get authentication token from token manager
       const authToken = await this.mainTokenManager.getValidToken();
       if (!authToken) {
-        console.log('No valid authentication token available for download monitoring');
+        logger.info('No valid authentication token available for download monitoring');
         return { files: [], hasMoreItems: false };
       }
       
@@ -479,7 +443,7 @@ class DownloadWorkerPool {
       
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('No new files found on server');
+          logger.info('No new files found on server');
           return { files: [], hasMoreItems: false };
         }
         throw new Error(`Server responded with status ${response.status}: ${response.statusText}`);
@@ -490,11 +454,11 @@ class DownloadWorkerPool {
       const hasMoreItems = moreItemsHeader && parseInt(moreItemsHeader, 10) > 0;
       
       if (hasMoreItems) {
-        console.log(`Server indicates ${moreItemsHeader} more items available after this batch`);
+        logger.info(`Server indicates ${moreItemsHeader} more items available after this batch`);
       }
       
       const data = await response.json();
-      console.log('Server response:', data);
+      logger.info('Server response:', data);
       
       // Handle both array response and object with files property
       let files = [];
@@ -521,7 +485,7 @@ class DownloadWorkerPool {
     const availableWorkers = this.workers.filter(w => !w.busy);
     const readyFiles = this.queueManager.getReadyFiles(availableWorkers.length);
     
-    console.log(`Processing queue: ${availableWorkers.length} available workers, ${readyFiles.length} ready files`);
+    logger.info(`Processing queue: ${availableWorkers.length} available workers, ${readyFiles.length} ready files`);
     
     for (let i = 0; i < Math.min(availableWorkers.length, readyFiles.length); i++) {
       const worker = availableWorkers[i];
@@ -561,7 +525,7 @@ class DownloadWorkerPool {
       downloadPath: this.downloadPath
     });
     
-    console.log(`Started download: ${file.name} (jobId: ${jobId})`);
+    logger.info(`Started download: ${file.name} (jobId: ${jobId})`);
     
     // Send immediate notification that download started
     this.sendDownloadUpdate({
@@ -606,17 +570,17 @@ class DownloadWorkerPool {
         // Update sync time based on file's created timestamp
         if (file.created_at) {
           const fileCreatedTime = file.created_at;
-          console.log(`Download completed for ${file.name}, created: ${fileCreatedTime}`);
+          logger.info(`Download completed for ${file.name}, created: ${fileCreatedTime}`);
           
           if (!this.latestDownloadedFileTime || fileCreatedTime > this.latestDownloadedFileTime) {
             this.latestDownloadedFileTime = fileCreatedTime;
-            console.log(`Updated latest downloaded file time to: ${this.latestDownloadedFileTime}`);
+            logger.info(`Updated latest downloaded file time to: ${this.latestDownloadedFileTime}`);
             
             // Save to config system
             try {
               const { setConfig } = require('../app/main-config-setup.js');
               setConfig('downloadSettings.lastSyncTime', this.latestDownloadedFileTime);
-              console.log('Saved updated sync time to config');
+              logger.info('Saved updated sync time to config');
             } catch (error) {
               console.error('Failed to save sync time to config:', error);
             }
@@ -687,7 +651,7 @@ class DownloadWorkerPool {
         }
       } catch (error) {
         // Silently ignore IPC errors - the window may have been disposed
-        console.log('IPC send failed (window disposed):', error.message);
+        logger.info('IPC send failed (window disposed):', error.message);
       }
     });
   }
@@ -738,4 +702,4 @@ class DownloadWorkerPool {
   }
 }
 
-module.exports = { DownloadWorkerManager: DownloadWorkerPool }; 
+module.exports = { DownloadWorkerPool }; 
