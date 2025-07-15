@@ -4,14 +4,12 @@
  */
 
 import { UIComponents } from '../components/ui-components.js';
-import { config } from '../config/app-config.js';
-import { TokenManager } from '../auth/token-manager.js';
 import { StorageManager } from '../components/storage-manager.js';
 import { DownloadQueueManager } from '../components/download-queue-manager.js';
 
 export class DownloadScreen {
     constructor(showLoginCallback = null) {
-        console.log('DownloadScreen constructor called!');
+        window.logger.info('DownloadScreen constructor called!');
         this.isVisible = false;
         this.elements = {};
         this.isMonitoring = false;
@@ -298,19 +296,19 @@ export class DownloadScreen {
      * Setup download manager callbacks (now just handles IPC from main process)
      */
     setupDownloadManager() {
-        console.log('Setting up download manager IPC listeners...');
+        window.logger.info('Setting up download manager IPC listeners...');
 
         // Listen for download updates from main process
         if (window.electronAPI) {
             try {
-                console.log('IPC renderer available, setting up download-update listener');
+                window.logger.info('IPC renderer available, setting up download-update listener');
 
                 this.downloadUpdateCleanup = window.electronAPI.download.onUpdate((data) => {
-                    console.log('IPC listener received download-update:', data.type);
+                    window.logger.info('IPC listener received download-update:', data.type);
                     this.handleDownloadUpdate(data);
                 });
 
-                console.log('Download IPC listener setup complete');
+                window.logger.info('Download IPC listener setup complete');
             } catch (error) {
                 console.error('Failed to setup IPC listeners:', error);
             }
@@ -325,15 +323,15 @@ export class DownloadScreen {
     async handleDownloadUpdate(data) {
         const { type } = data;
 
-        console.log('Renderer received download update:', type, data);
+        window.logger.info('Renderer received download update:', type, data);
 
         switch (type) {
             case 'monitoring-check':
-                console.log('Monitoring check:', data.timestamp);
+                window.logger.info('Monitoring check:', data.timestamp);
                 break;
 
             case 'download-started':
-                console.log('Download started:', data.file.name);
+                window.logger.info('Download started:', data.file.name);
                 // Update the file in our local queue to show it's downloading
                 if (this.downloadQueue.has(data.file.id)) {
                     const file = this.downloadQueue.get(data.file.id);
@@ -347,11 +345,11 @@ export class DownloadScreen {
                     this.downloadQueue.set(data.file.id, data.file);
                 }
                 this.updateFileListWithOrdering();
-                console.log(`Started downloading: ${data.file.name}`);
+                window.logger.info(`Started downloading: ${data.file.name}`);
                 break;
 
             case 'download-completed':
-                console.log('Download completed:', data.file.name);
+                window.logger.info('Download completed:', data.file.name);
                 // Update the file in our local queue to show it's completed
                 if (this.downloadQueue.has(data.file.id)) {
                     const file = this.downloadQueue.get(data.file.id);
@@ -362,11 +360,11 @@ export class DownloadScreen {
                     this.downloadQueue.set(data.file.id, file);
                 }
                 this.updateFileListWithOrdering();
-                console.log(`Download completed: ${data.file.name}`);
+                window.logger.info(`Download completed: ${data.file.name}`);
                 break;
 
             case 'download-failed':
-                console.log('Download failed:', data.file.name, data.error);
+                window.logger.info('Download failed:', data.file.name, data.error);
                 // Update the file in our local queue to show it's failed
                 if (this.downloadQueue.has(data.file.id)) {
                     const file = this.downloadQueue.get(data.file.id);
@@ -380,20 +378,20 @@ export class DownloadScreen {
                 break;
 
             case 'queue-update':
-                console.log('Queue update received in renderer:', data.stats);
+                window.logger.info('Queue update received in renderer:', data.stats);
                 this.updateQueueFromMain(data.files, data.stats);
                 break;
 
             case 'queue-cleared':
-                console.log('Download queue cleared:', data.message);
+                window.logger.info('Download queue cleared:', data.message);
                 // Clear the local download queue
                 this.downloadQueue.clear();
                 this.updateFileListWithOrdering();
-                console.log(data.message);
+                window.logger.info(data.message);
                 break;
 
             case 'sync-time-update':
-                console.log('Sync time updated:', data.syncTime);
+                window.logger.info('Sync time updated:', data.syncTime);
                 await window.electronAPI.config.set('downloadSettings.lastSyncTime', data.syncTime);
                 this.updateLastSyncDisplay(data.syncTime);
                 break;
@@ -404,7 +402,7 @@ export class DownloadScreen {
                 break;
 
             default:
-                console.log('Unknown download update type:', type, data);
+                window.logger.info('Unknown download update type:', type, data);
         }
     }
 
@@ -451,11 +449,11 @@ export class DownloadScreen {
                         this.queueManager.setDownloadPath(selectedPath);
                         await window.electronAPI.config.set('downloadSettings.downloadPath', selectedPath);
                         this.updateStartButtonState();
-                        console.log('Download directory selected: ' + selectedPath);
+                        window.logger.info('Download directory selected: ' + selectedPath);
                     }
                     return;
                 } catch (error) {
-                    console.log('IPC not available, trying direct access');
+                    window.logger.info('IPC not available, trying direct access');
 
                     // Fallback: try to use a simple prompt for path input
                     const path = prompt('Enter download directory path:', this.elements.downloadPathInput.value || '');
@@ -471,7 +469,7 @@ export class DownloadScreen {
                                 this.queueManager.setDownloadPath(trimmedPath);
                                 await window.electronAPI.config.set('downloadSettings.downloadPath', trimmedPath);
                                 this.updateStartButtonState();
-                                console.log('Download directory set: ' + trimmedPath);
+                                window.logger.info('Download directory set: ' + trimmedPath);
                                 return;
                             } else {
                                 console.error('Directory does not exist: ' + trimmedPath);
@@ -494,7 +492,7 @@ export class DownloadScreen {
                     this.queueManager.setDownloadPath(path);
                     await window.electronAPI.config.set('downloadSettings.downloadPath', path);
                     this.updateStartButtonState();
-                    console.log('Download directory selected: ' + path);
+                    window.logger.info('Download directory selected: ' + path);
                     return;
                 } catch (err) {
                     if (err.name !== 'AbortError') {
@@ -517,7 +515,7 @@ export class DownloadScreen {
                 this.queueManager.setDownloadPath(defaultPath);
                 await window.electronAPI.config.set('downloadSettings.downloadPath', defaultPath);
                 this.updateStartButtonState();
-                console.log('Using browser default download directory');
+                window.logger.info('Using browser default download directory');
             }
 
         } catch (error) {
@@ -549,13 +547,13 @@ export class DownloadScreen {
             if (window.electronAPI) {
                 try {
                     await window.electronAPI.download.resetSyncTime(resetTime);
-                    console.log('Sync time reset in main process');
+                    window.logger.info('Sync time reset in main process');
                 } catch (error) {
                     console.error('Failed to reset sync time in main process:', error);
                 }
             }
 
-            console.log('Sync time reset');
+            window.logger.info('Sync time reset');
         }
     }
 
@@ -590,7 +588,7 @@ export class DownloadScreen {
                 }
             }
 
-            console.log('File monitoring started');
+            window.logger.info('File monitoring started');
 
         } catch (error) {
             console.error('Failed to start monitoring:', error);
@@ -618,7 +616,7 @@ export class DownloadScreen {
                 }
             }
 
-            console.log('File monitoring stopped');
+            window.logger.info('File monitoring stopped');
         } catch (error) {
             console.error('Failed to stop monitoring:', error);
             console.error('Failed to stop monitoring: ' + error.message);
@@ -647,7 +645,7 @@ export class DownloadScreen {
      */
     updateStatsFromData(stats) {
         // Stats grid has been removed - this method is kept for compatibility
-        console.log('Stats update (grid removed):', stats);
+        window.logger.info('Stats update (grid removed):', stats);
     }
 
     /**
@@ -656,7 +654,7 @@ export class DownloadScreen {
     updateStats() {
         // This method is kept for compatibility but stats are now managed by main process
         // The actual stats updates come through updateStatsFromData()
-        console.log('updateStats() called - stats are now managed by main process');
+        window.logger.info('updateStats() called - stats are now managed by main process');
     }
 
 
@@ -925,7 +923,7 @@ export class DownloadScreen {
                 const tokenResult = await TokenManager.ensureValidToken();
                 isAuthenticated = tokenResult && tokenResult.valid;
             } catch (error) {
-                console.log('Authentication check failed:', error);
+                window.logger.info('Authentication check failed:', error);
                 isAuthenticated = false;
             }
 
@@ -1039,7 +1037,7 @@ export class DownloadScreen {
                         this.showLoginCallback();
                     } else {
                         // Fallback: navigate to login screen via screen manager
-                        console.log('Navigating to login screen from download page');
+                        window.logger.info('Navigating to login screen from download page');
                         // The screen manager should handle this through auth state changes
                         window.location.reload(); // Simple fallback
                     }

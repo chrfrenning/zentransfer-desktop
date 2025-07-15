@@ -7,6 +7,7 @@ const { app } = require('electron');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
+const logger = require('../utils/logger.js');
 
 class UploadQueue {
     constructor() {
@@ -43,7 +44,7 @@ class UploadQueue {
             this.prepareStatements();
             
             this.isInitialized = true;
-            console.log(`Upload queue database initialized: ${this.databasePath}`);
+            logger.info(`Upload queue database initialized: ${this.databasePath}`);
             
         } catch (error) {
             console.error('Failed to initialize upload queue database:', error);
@@ -290,13 +291,13 @@ class UploadQueue {
     clearAll() {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         
-        console.log('UploadQueue.clearAll() called');
+        logger.info('UploadQueue.clearAll() called');
         const result = this.db.prepare('DELETE FROM upload_queue').run();
-        console.log('UploadQueue.clearAll() result:', result);
+        logger.info('UploadQueue.clearAll() result:', result);
         
         // Verify the deletion worked
         const count = this.db.prepare('SELECT COUNT(*) as count FROM upload_queue').get();
-        console.log('Rows remaining after clearAll():', count.count);
+        logger.info('Rows remaining after clearAll():', count.count);
         
         return result;
     }

@@ -29,7 +29,7 @@ export class ImportManager {
                     this.handleImportUpdate(data);
                 });
                 
-                console.log('Import manager IPC initialized');
+                window.logger.info('Import manager IPC initialized');
             } else {
                 throw new Error('IPC not available - not in Electron environment');
             }

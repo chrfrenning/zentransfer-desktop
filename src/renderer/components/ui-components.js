@@ -3,8 +3,6 @@
  * Reusable UI components for the ZenTransfer app
  */
 
-import { config } from '../config/app-config.js';
-
 export class UIComponents {
     
     /**

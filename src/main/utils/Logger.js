@@ -43,8 +43,40 @@ function setupLogger() {
       return 'main';
     };
 
-    log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] [{processType}] {text}';
-    log.transports.console.format = '[{h}:{i}:{s}.{ms}] [{level}] [{processType}] {text}';
+    log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}.{ms}] [{level}] {text}';
+    log.transports.console.format = '[{h}:{i}:{s}.{ms}] [{level}] {text}';
+
+    /* // Custom format function that checks meta data for process type
+    const createFormatFunction = (includeDate = true) => {
+      return (info) => {
+        console.log("Info", info);
+        // Extract process type from meta if available
+        let processType = getProcessType();
+        
+        // Check if any of the data arguments contains meta with _module
+        if (info.data && info.data.length > 1) {
+          //console.log(info.data);
+          const meta = info.data[info.data.length - 1];
+          if (meta && typeof meta === 'object' && meta._module) {
+            processType = meta._module.toLowerCase();
+          }
+        }
+        
+        let timestamp = '';
+        if (includeDate) {
+          const date = info.date;
+          timestamp = `[${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} ${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}:${date.getSeconds().toString().padStart(2,'0')}.${date.getMilliseconds().toString().padStart(3,'0')}] `;
+        } else {
+          const date = info.date;
+          timestamp = `[${date.getHours().toString().padStart(2,'0')}:${date.getMinutes().toString().padStart(2,'0')}:${date.getSeconds().toString().padStart(2,'0')}.${date.getMilliseconds().toString().padStart(3,'0')}] `;
+        }
+        
+        return `${timestamp}[${info.level}] [${processType}] ${info.data[0]}`;
+      };
+    };
+
+    log.transports.file.format = createFormatFunction(true);
+    log.transports.console.format = createFormatFunction(false); */
 
     // Override the default variables to include process type
     log.variables.processType = getProcessType();

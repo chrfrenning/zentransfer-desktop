@@ -4,11 +4,9 @@
  * Now uses main process worker pool for actual upload processing
  */
 
-import { config } from '../config/app-config.js';
-import { TokenManager } from '../auth/token-manager.js';
 import { UIComponents } from '../components/ui-components.js';
 import { StorageManager } from '../components/storage-manager.js';
-import { logger } from '../logger.js';
+import { logger } from '../RendererLogger.js';
 
 export class UploadManager {
     constructor() {
@@ -39,7 +37,7 @@ export class UploadManager {
                     this.handleProgressUpdate(progressData);
                 });
             } catch (error) {
-                console.log('IPC not available for progress updates');
+                window.logger.info('IPC not available for progress updates');
             }
         }
     }
@@ -85,17 +83,17 @@ export class UploadManager {
             const maxRetries = 3;
             
             while (retryCount < maxRetries) {
-                console.log(`Attempting to get valid token (attempt ${retryCount + 1}/${maxRetries})...`);
+                window.logger.info(`Attempting to get valid token (attempt ${retryCount + 1}/${maxRetries})...`);
                 tokenResult = await TokenManager.ensureValidToken();
                 
                 if (tokenResult.valid) {
-                    console.log('Valid token obtained successfully');
+                    window.logger.info('Valid token obtained successfully');
                     break;
                 }
                 
                 retryCount++;
                 if (retryCount < maxRetries) {
-                    console.log(`Token not available yet, waiting 500ms before retry...`);
+                    window.logger.info(`Token not available yet, waiting 500ms before retry...`);
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
             }
@@ -105,7 +103,7 @@ export class UploadManager {
             }
 
             if (window.electronAPI) {
-                console.log('Creating upload session via main process...');
+                window.logger.info('Creating upload session via main process...');
                 const result = await window.electronAPI.upload.createSession({
                     serverBaseUrl: config.SERVER_BASE_URL,
                     token: tokenResult.token,
@@ -117,7 +115,7 @@ export class UploadManager {
                 if (result.success) {
                     this.uploadSession = result.session;
                     this.isSessionInitialized = true;
-                    console.log('Upload session created via main process successfully');
+                    window.logger.info('Upload session created via main process successfully');
                     return true;
                 } else {
                     throw new Error(result.error);
@@ -169,7 +167,7 @@ export class UploadManager {
             };
             
             this.isSessionInitialized = true;
-            console.log('Upload session created directly');
+            window.logger.info('Upload session created directly');
             return true;
         } catch (error) {
             console.error('Direct upload session creation failed:', error);
@@ -198,27 +196,27 @@ export class UploadManager {
      * @param {Object} authState - Authentication state
      */
     async handleAuthStateChange(authState) {
-        console.log('UploadManager: Auth state changed to:', authState.status);
+        window.logger.info('UploadManager: Auth state changed to:', authState.status);
         
         if (authState.status === 'authenticated' && !this.isSessionInitialized) {
             // User just logged in, give token management a moment to complete then initialize upload session
-            console.log('UploadManager: User authenticated, waiting briefly then initializing upload session...');
+            window.logger.info('UploadManager: User authenticated, waiting briefly then initializing upload session...');
             
             // Small delay to ensure token is fully saved in main process
             await new Promise(resolve => setTimeout(resolve, 100));
             
             const success = await this.initializeSession();
             if (success) {
-                console.log('UploadManager: Upload session initialized successfully');
+                window.logger.info('UploadManager: Upload session initialized successfully');
             } else {
-                console.log('UploadManager: Failed to initialize upload session');
+                window.logger.info('UploadManager: Failed to initialize upload session');
             }
         } else if (authState.status === 'unauthenticated') {
             // User logged out, clear session
-            console.log('UploadManager: User logged out, clearing upload session...');
+            window.logger.info('UploadManager: User logged out, clearing upload session...');
             this.clearSession();
         } else if (authState.status === 'checking') {
-            console.log('UploadManager: Authentication check in progress, waiting...');
+            window.logger.info('UploadManager: Authentication check in progress, waiting...');
         }
     }
 
@@ -240,9 +238,9 @@ export class UploadManager {
      * @param {FileList|Array} files - Files to add (File objects or file paths)
      */
     async addFiles(files) {
-        console.log('=== UPLOAD MANAGER: addFiles called ===');
-        console.log('Input type:', files.constructor.name);
-        console.log('Number of files:', files.length);
+        window.logger.info('=== UPLOAD MANAGER: addFiles called ===');
+        window.logger.info('Input type:', files.constructor.name);
+        window.logger.info('Number of files:', files.length);
         
         // Check if user is authenticated only for ZenTransfer uploads
         if (this.selectedService === 'zentransfer') {
@@ -255,7 +253,7 @@ export class UploadManager {
 
         // Get current skip duplicates setting from preferences
         const skipDuplicates = await window.electronAPI.config.get('preferences.skipDuplicates') || false;
-        console.log('Upload Manager: addFiles - skipDuplicates from preferences:', skipDuplicates);
+        window.logger.info('Upload Manager: addFiles - skipDuplicates from preferences:', skipDuplicates);
         
         // Create import settings for upload worker (similar to import screen)
         const importSettings = {
@@ -270,10 +268,10 @@ export class UploadManager {
         const fileArray = Array.from(files);
         const validFiles = [];
 
-        console.log('=== PROCESSING FILES ===');
+        window.logger.info('=== PROCESSING FILES ===');
         for (let i = 0; i < fileArray.length; i++) {
             const file = fileArray[i];
-            console.log(`Processing file ${i + 1}/${fileArray.length}:`, {
+            window.logger.info(`Processing file ${i + 1}/${fileArray.length}:`, {
                 name: typeof file === 'string' ? file : file.name,
                 type: typeof file,
                 isString: typeof file === 'string',
@@ -286,11 +284,11 @@ export class UploadManager {
             
             if (typeof file === 'string') {
                 // Handle file path (from import system)
-                console.log('  -> Creating file item from path (no temporary file needed)');
+                window.logger.info('  -> Creating file item from path (no temporary file needed)');
                 fileItem = await this.createFileItemFromPath(file);
             } else {
                 // Handle File object (from file input/drag-drop)
-                console.log('  -> Creating file item from File object (may need temporary file)');
+                window.logger.info('  -> Creating file item from File object (may need temporary file)');
                 fileItem = this.createFileItemFromFile(file);
             }
             
@@ -299,7 +297,7 @@ export class UploadManager {
                 continue;
             }
 
-            console.log(`  -> File item created:`, {
+            window.logger.info(`  -> File item created:`, {
                 id: fileItem.id,
                 name: fileItem.name,
                 size: fileItem.size,
@@ -321,21 +319,21 @@ export class UploadManager {
             validFiles.push(fileItem);
         }
 
-        console.log(`=== ADDING ${validFiles.length} VALID FILES TO QUEUE ===`);
+        window.logger.info(`=== ADDING ${validFiles.length} VALID FILES TO QUEUE ===`);
         if (validFiles.length > 0) {
             this.queue.push(...validFiles);
-            console.log('Queue updated. Total files in queue:', this.queue.length);
+            window.logger.info('Queue updated. Total files in queue:', this.queue.length);
             this.notifyQueueUpdate();
 
             // Start processing if not already running
             if (!this.isProcessing) {
-                console.log('Starting upload processing...');
+                window.logger.info('Starting upload processing...');
                 this.startProcessing();
             } else {
-                console.log('Processing already running, files added to queue');
+                window.logger.info('Processing already running, files added to queue');
             }
         } else {
-            console.log('No valid files to add to queue');
+            window.logger.info('No valid files to add to queue');
         }
     }
 
@@ -345,8 +343,8 @@ export class UploadManager {
      * @returns {Object} File item
      */
     createFileItemFromFile(file) {
-        console.log('=== CREATING FILE ITEM FROM FILE OBJECT ===');
-        console.log('File object details:', {
+        window.logger.info('=== CREATING FILE ITEM FROM FILE OBJECT ===');
+        window.logger.info('File object details:', {
             name: file.name,
             size: file.size,
             type: file.type,
@@ -362,7 +360,7 @@ export class UploadManager {
         
         // Check if File object has a path property (Electron drag/drop files)
         const hasPath = file.path && typeof file.path === 'string';
-        console.log('File path analysis:', {
+        window.logger.info('File path analysis:', {
             hasPath: hasPath,
             pathValue: file.path || '(none)',
             canUseDirectPath: hasPath
@@ -372,7 +370,7 @@ export class UploadManager {
         
         if (hasPath) {
             // File has a real path - use it directly like import files (no temporary file needed!)
-            console.log('✓ File has path property - using direct path strategy (EFFICIENT)');
+            window.logger.info('✓ File has path property - using direct path strategy (EFFICIENT)');
             fileItem = {
                 id: this.generateFileId(),
                 filePath: file.path,  // Use the real file path
@@ -390,7 +388,7 @@ export class UploadManager {
             };
         } else {
             // File object without path - fallback to buffer strategy (needs temporary file)
-            console.log('⚠️ File has no path property - using buffer strategy (REQUIRES TEMPORARY FILE)');
+            window.logger.info('⚠️ File has no path property - using buffer strategy (REQUIRES TEMPORARY FILE)');
             fileItem = {
                 id: this.generateFileId(),
                 file: file,  // Store the File object for buffer extraction
@@ -408,7 +406,7 @@ export class UploadManager {
             };
         }
         
-        console.log('File item created:', {
+        window.logger.info('File item created:', {
             id: fileItem.id,
             name: fileItem.name,
             size: fileItem.size,
@@ -495,10 +493,10 @@ export class UploadManager {
         const serviceName = options.serviceName || 'ZenTransfer';
         const importSettings = options.importSettings || {};
         
-        console.log(`Adding files from import for ${serviceName}:`, filePaths.length, 'files');
+        window.logger.info(`Adding files from import for ${serviceName}:`, filePaths.length, 'files');
         
         if (!Array.isArray(filePaths) || filePaths.length === 0) {
-            console.log('No files to add from import');
+            window.logger.info('No files to add from import');
             return;
         }
 
@@ -537,7 +535,7 @@ export class UploadManager {
         }
         
         // Log without showing notification to avoid spam during import
-        console.log(`${validFiles.length} imported file${validFiles.length > 1 ? 's' : ''} queued for upload to ${serviceName}`);
+        window.logger.info(`${validFiles.length} imported file${validFiles.length > 1 ? 's' : ''} queued for upload to ${serviceName}`);
     }
 
     /**
@@ -556,7 +554,7 @@ export class UploadManager {
         }
 
         this.isProcessing = true;
-        console.log('Starting upload processing with concurrency');
+        window.logger.info('Starting upload processing with concurrency');
 
         try {
             // Check if we need to initialize session (only for ZenTransfer uploads)
@@ -594,7 +592,7 @@ export class UploadManager {
         // Check if we're done processing
         if (this.queue.length === 0 && this.activeUploads.size === 0) {
             this.isProcessing = false;
-            console.log('Upload processing completed');
+            window.logger.info('Upload processing completed');
         }
 
         this.notifyQueueUpdate();
@@ -626,8 +624,8 @@ export class UploadManager {
      * Upload file via main process worker
      */
     async uploadFileViaMainProcess(fileItem) {
-        console.log('=== UPLOAD MANAGER: uploadFileViaMainProcess ===');
-        console.log('File item details:', {
+        window.logger.info('=== UPLOAD MANAGER: uploadFileViaMainProcess ===');
+        window.logger.info('File item details:', {
             id: fileItem.id,
             name: fileItem.name,
             size: fileItem.size,
@@ -643,44 +641,44 @@ export class UploadManager {
                 let fileBuffer = null;
                 let useFilePath = false;
                 
-                console.log('=== DETERMINING FILE HANDLING STRATEGY ===');
+                window.logger.info('=== DETERMINING FILE HANDLING STRATEGY ===');
                 
                 if (fileItem.filePath) {
                     // File path upload (from import system or drag/drop with path)
                     // Pass file path directly to worker - no need to read into memory
                     useFilePath = true;
-                    console.log('✓ Using file path strategy (EFFICIENT - NO TEMPORARY FILES)');
-                    console.log('  - File path:', fileItem.filePath);
-                    console.log('  - Source:', fileItem.source);
-                    console.log('  - Benefits: No memory usage, no temporary files, direct file access');
+                    window.logger.info('✓ Using file path strategy (EFFICIENT - NO TEMPORARY FILES)');
+                    window.logger.info('  - File path:', fileItem.filePath);
+                    window.logger.info('  - Source:', fileItem.source);
+                    window.logger.info('  - Benefits: No memory usage, no temporary files, direct file access');
                     
                     if (fileItem.source === 'drag-drop-with-path') {
-                        console.log('  - 🎉 OPTIMIZATION: Drag/drop file using direct path (like import files)!');
+                        window.logger.info('  - 🎉 OPTIMIZATION: Drag/drop file using direct path (like import files)!');
                     }
                 } else if (fileItem.file) {
                     // File object upload (from web-based drag-drop without path)
                     // Only read into buffer for web files that don't have a local path
-                    console.log('⚠️ Using file buffer strategy (DRAG/DROP - REQUIRES TEMPORARY FILE)');
-                    console.log('  - File object:', fileItem.file);
-                    console.log('  - Source:', fileItem.source);
-                    console.log('  - Reason: File object has no path property');
-                    console.log('  - Will read file into memory buffer...');
+                    window.logger.info('⚠️ Using file buffer strategy (DRAG/DROP - REQUIRES TEMPORARY FILE)');
+                    window.logger.info('  - File object:', fileItem.file);
+                    window.logger.info('  - Source:', fileItem.source);
+                    window.logger.info('  - Reason: File object has no path property');
+                    window.logger.info('  - Will read file into memory buffer...');
                     
                     const bufferStart = Date.now();
                     fileBuffer = await this.fileToBuffer(fileItem.file);
                     const bufferTime = Date.now() - bufferStart;
                     
-                    console.log('  - Buffer created:', {
+                    window.logger.info('  - Buffer created:', {
                         size: fileBuffer.length,
                         timeToCreate: bufferTime + 'ms',
                         memoryUsage: (fileBuffer.length / 1024 / 1024).toFixed(2) + 'MB'
                     });
-                    console.log('  - This buffer will be written to temporary file by worker');
+                    window.logger.info('  - This buffer will be written to temporary file by worker');
                 } else {
                     throw new Error('No file or file path available for upload');
                 }
                 
-                console.log('File handling strategy determined:', {
+                window.logger.info('File handling strategy determined:', {
                     useFilePath: useFilePath,
                     willNeedTemporaryFile: !useFilePath,
                     bufferSize: fileBuffer ? fileBuffer.length : 0,
@@ -700,7 +698,7 @@ export class UploadManager {
                 // Get service preferences from config system
                 const servicePreferences = await this.getServicePreferences();
                 
-                console.log('Calling upload worker with:', {
+                window.logger.info('Calling upload worker with:', {
                     fileId: fileItem.id,
                     fileName: fileItem.name,
                     hasFileBuffer: !!(fileBuffer),
@@ -730,7 +728,7 @@ export class UploadManager {
                     selectedService: fileItem.serviceType || this.selectedService
                 });
                 
-                console.log('Upload worker result:', result);
+                window.logger.info('Upload worker result:', result);
                 
                 if (!result.success) {
                     throw new Error(result.error);
@@ -798,7 +796,7 @@ export class UploadManager {
         if (index !== -1) {
             this.queue.splice(index, 1);
             this.notifyQueueUpdate();
-            console.log('File removed from queue.');
+            window.logger.info('File removed from queue.');
         }
     }
 
@@ -810,7 +808,7 @@ export class UploadManager {
         this.uploadLog = this.uploadLog.filter(item => item.status !== 'completed');
         
         if (completedCount > 0) {
-            console.log(`Cleared ${completedCount} completed upload${completedCount > 1 ? 's' : ''}.`);
+            window.logger.info(`Cleared ${completedCount} completed upload${completedCount > 1 ? 's' : ''}.`);
         }
     }
 
@@ -822,7 +820,7 @@ export class UploadManager {
         this.uploadLog = [];
         this.activeUploads.clear();
         this.notifyQueueUpdate();
-        console.log('All uploads cleared.');
+        window.logger.info('All uploads cleared.');
     }
 
     /**
@@ -842,14 +840,14 @@ export class UploadManager {
         // Notify UI of changes
         this.notifyQueueUpdate();
         
-        console.log('Upload history cleared');
+        window.logger.info('Upload history cleared');
     }
 
     /**
      * Stop all uploads and clear queue
      */
     async stopAllUploads() {
-        console.log('Stopping all uploads...');
+        window.logger.info('Stopping all uploads...');
         
         try {
             // Cancel all active uploads via main process
@@ -870,7 +868,7 @@ export class UploadManager {
             this.isProcessing = false;
             
             this.notifyQueueUpdate();
-            console.log('All uploads stopped.');
+            window.logger.info('All uploads stopped.');
             
         } catch (error) {
             console.error('Failed to stop uploads:', error);
@@ -971,10 +969,10 @@ export class UploadManager {
     async getServicePreferences() {
         try {
             // Get cloud service configurations from config
-            const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
-            const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
-            const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
-            const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+            const awsS3Service = await window.electronAPI.config.getCloudSettings('aws-s3');
+            const azureService = await window.electronAPI.config.getCloudSettings('azure-blob');
+            const gcpService = await window.electronAPI.config.getCloudSettings('gcp-storage');
+            const minioService = await window.electronAPI.config.getCloudSettings('minio');
             
             // Get thumbnail/preview preferences
             const createPreviews = await window.electronAPI.config.get('preferences.createPreviews');
@@ -1044,7 +1042,7 @@ export class UploadManager {
      */
     setSelectedService(serviceType) {
         this.selectedService = serviceType;
-        console.log('Upload service changed to:', serviceType);
+        window.logger.info('Upload service changed to:', serviceType);
     }
 
     /**

@@ -102,7 +102,7 @@ export class BackupDestination extends BaseDestination {
             if (fs.existsSync(backupPath)) {
                 // Generate unique filename
                 const uniquePath = this.generateUniqueFilename(backupPath);
-                console.log(`Backup file exists, using unique name: ${uniquePath}`);
+                window.logger.info(`Backup file exists, using unique name: ${uniquePath}`);
                 fs.copyFileSync(sourcePath, uniquePath);
                 return uniquePath;
             } else {

@@ -4,9 +4,7 @@
  */
 
 import { UIComponents } from '../components/ui-components.js';
-import { config } from '../config/app-config.js';
 import { StorageManager } from '../components/storage-manager.js';
-import { logger } from '../logger.js';
 
 export class SettingsScreen {
     constructor(authManager, onNavigateToLogin = null) {
@@ -17,6 +15,9 @@ export class SettingsScreen {
         this.onSettingsChangeCallback = null;
         
         this.initializeElements();
+        this.appVersion = window.electronAPI.app.getVersion();
+        this.isDevelopmentMode = window.electronAPI.app.getIsDevelopmentMode();
+        this.serverUrl = window.electronAPI.app.getServerUrl();
         // setupEventListeners is no longer needed - all handled in setupAdditionalEventListeners
     }
 
@@ -411,15 +412,15 @@ export class SettingsScreen {
                     <div class="space-y-3">
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-gray-600">Version</span>
-                            <span class="text-sm font-medium text-gray-900">${config.APP_VERSION}</span>
+                            <span class="text-sm font-medium text-gray-900">${this.appVersion}</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-sm text-gray-600">Build</span>
-                            <span class="text-sm font-medium text-gray-900">${config.IS_DEVELOPMENT ? 'Development' : 'Production'}</span>
+                            <span class="text-sm font-medium text-gray-900">${this.isDevelopmentMode ? 'Development' : 'Production'}</span>
                         </div>
                         <div class="flex items-center justify-between">
                             <span id="serverLabel" class="text-sm text-gray-600 select-none" style="cursor: default">Server</span>
-                            <span class="text-sm font-medium text-gray-900">${config.SERVER_BASE_URL}</span>
+                            <span class="text-sm font-medium text-gray-900">${this.serverUrl}</span>
                         </div>
                     </div>
                 </div>
@@ -471,7 +472,7 @@ export class SettingsScreen {
                 </div>
 
                 <!-- Debug Section (Development Only) -->
-                ${config.IS_DEVELOPMENT ? `
+                ${this.isDevelopmentMode ? `
                     <div class="bg-white rounded-lg p-4 shadow-sm border-2 border-yellow-200">
                         <h3 class="text-lg font-semibold text-gray-900 mb-3 flex items-center">
                             <span class="mr-2">🔧</span>
@@ -550,7 +551,7 @@ export class SettingsScreen {
                     
                     // Dev tools functionality removed for security reasons
                     // Use F12 or right-click -> Inspect Element to open dev tools
-                    console.log('Developer tools can be opened using F12 or right-click -> Inspect Element');
+                    window.logger.info('Developer tools can be opened using F12 or right-click -> Inspect Element');
                 }
             });
         }
@@ -565,7 +566,7 @@ export class SettingsScreen {
             skipDuplicatesToggle.addEventListener('change', async (e) => {
                 // Save skip duplicates setting to config system
                 await window.electronAPI.config.set('preferences.skipDuplicates', e.target.checked);
-                console.log(`Skip duplicates setting updated: ${e.target.checked}`);
+                window.logger.info(`Skip duplicates setting updated: ${e.target.checked}`);
             });
         }
 
@@ -577,21 +578,21 @@ export class SettingsScreen {
         if (createPreviewsToggle) {
             createPreviewsToggle.addEventListener('change', async (e) => {
                 await window.electronAPI.config.set('preferences.createPreviews', e.target.checked);
-                console.log(`Create previews setting updated: ${e.target.checked}`);
+                window.logger.info(`Create previews setting updated: ${e.target.checked}`);
             });
         }
 
         if (extractMetaDataToggle) {
             extractMetaDataToggle.addEventListener('change', async (e) => {
                 await window.electronAPI.config.set('preferences.extractMetaData', e.target.checked);
-                console.log(`Extract metadata setting updated: ${e.target.checked}`);
+                window.logger.info(`Extract metadata setting updated: ${e.target.checked}`);
             });
         }
 
         if (createIndexfilesToggle) {
             createIndexfilesToggle.addEventListener('change', async (e) => {
                 await window.electronAPI.config.set('preferences.createIndexfiles', e.target.checked);
-                console.log(`Create index files setting updated: ${e.target.checked}`);
+                window.logger.info(`Create index files setting updated: ${e.target.checked}`);
             });
         }
 
@@ -789,25 +790,25 @@ export class SettingsScreen {
         // Support section buttons
         if (this.elements.downloadLatestBtn) {
             this.elements.downloadLatestBtn.addEventListener('click', () => {
-                this.openExternal('https://zentransfer.io/download/');
+                this.openExternal(window.electronAPI.config.getUrls().download);
             });
         }
 
         if (this.elements.helpBtn) {
             this.elements.helpBtn.addEventListener('click', () => {
-                this.openExternal(config.URLS.HELP);
+                this.openExternal(window.electronAPI.config.getUrls().support);
             });
         }
 
         if (this.elements.privacyBtn) {
             this.elements.privacyBtn.addEventListener('click', () => {
-                this.openExternal(config.URLS.PRIVACY);
+                this.openExternal(window.electronAPI.config.getUrls().privacy);
             });
         }
 
         if (this.elements.termsBtn) {
             this.elements.termsBtn.addEventListener('click', () => {
-                this.openExternal(config.URLS.TERMS);
+                this.openExternal(window.electronAPI.config.getUrls().terms);
             });
         }
 
@@ -828,7 +829,7 @@ export class SettingsScreen {
         }
 
         // Debug buttons (development only)
-        if (config.IS_DEVELOPMENT) {
+        if (this.isDevelopmentMode) {
             const showTokenBtn = document.getElementById('showTokenBtn');
             const testNotificationBtn = document.getElementById('testNotificationBtn');
             const simulateErrorBtn = document.getElementById('simulateErrorBtn');
@@ -990,7 +991,7 @@ export class SettingsScreen {
         if (confirmed) {
             try {
                 // Clear all stored data
-                console.log('Clearing all stored data...');
+                window.logger.info('Clearing all stored data...');
                 
                 // Clear localStorage
                 localStorage.clear();
@@ -1007,7 +1008,7 @@ export class SettingsScreen {
                 // Sign out through auth manager
                 this.authManager.logout();
                 
-                console.log('Data cleared, signing out...');
+                window.logger.info('Data cleared, signing out...');
                 
                 // Exit the application if in Electron environment
                 if (window.electronAPI) {
@@ -1077,9 +1078,9 @@ export class SettingsScreen {
         try {
             await window.electronAPI.config.set(`preferences.${key}`, value);
             
-            console.log(`Preference "${key}" updated.`);
+            window.logger.info(`Preference "${key}" updated.`);
             
-            console.log(`General preference updated: ${key} = ${value}`);
+            window.logger.info(`General preference updated: ${key} = ${value}`);
         } catch (error) {
             console.error('Failed to update general preference:', error);
         }
@@ -1094,7 +1095,7 @@ export class SettingsScreen {
     async updateCloudServiceSetting(serviceType, property, value) {
         try {
             // Get the current cloud service configuration (full config including credentials)
-            const currentService = await window.electronAPI.config.getCloudServiceFull(serviceType);
+            const currentService = await window.electronAPI.config.getCloudSettings(serviceType);
             
             if (currentService) {
                 // Update the specific property
@@ -1103,14 +1104,14 @@ export class SettingsScreen {
                 // Save the updated configuration
                 await window.electronAPI.config.updateCloudService(serviceType, currentService);
                 
-                console.log(`Cloud service ${serviceType} updated: ${property} = ${value}`);
+                window.logger.info(`Cloud service ${serviceType} updated: ${property} = ${value}`);
                 
                 // Call settings change callback for cloud service settings
                 if (this.onSettingsChangeCallback) {
                     this.onSettingsChangeCallback();
                 }
                 
-                console.log(`${serviceType.toUpperCase()} setting updated.`);
+                window.logger.info(`${serviceType.toUpperCase()} setting updated.`);
             } else {
                 throw new Error(`Cloud service ${serviceType} not found`);
             }
@@ -1133,31 +1134,6 @@ export class SettingsScreen {
     }
 
     /**
-     * Get user preferences (deprecated - settings now loaded from config system)
-     * @returns {Object} User preferences
-     * @deprecated Settings are now loaded directly from config system
-     */
-    getPreferences() {
-        console.warn('getPreferences is deprecated. Settings are now loaded directly from config system.');
-        
-        // Return empty object for backward compatibility
-        return {
-            azureEnabled: false,
-            azureContainer: '',
-            azureConnectionString: '',
-            gcpEnabled: false,
-            gcpBucket: '',
-            gcpServiceAccountKey: '',
-            awsS3Enabled: false,
-            awsS3Region: '',
-            awsS3Bucket: '',
-            awsS3StorageTier: 'STANDARD',
-            awsS3AccessKey: '',
-            awsS3SecretKey: ''
-        };
-    }
-
-    /**
      * Load preferences into UI
      */
     async loadPreferences() {
@@ -1165,10 +1141,10 @@ export class SettingsScreen {
             // Load general preferences from config
             
             // Load cloud service configurations from config (full config including credentials)
-            const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
-            const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
-            const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
-            const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+            const awsS3Service = await window.electronAPI.config.getCloudSettings('aws-s3');
+            const azureService = await window.electronAPI.config.getCloudSettings('azure-blob');
+            const gcpService = await window.electronAPI.config.getCloudSettings('gcp-storage');
+            const minioService = await window.electronAPI.config.getCloudSettings('minio');
             
             // Wait a bit to ensure DOM elements are ready
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -1247,11 +1223,11 @@ export class SettingsScreen {
                 // Load secure fields with proper timing
                 if (awsS3AccessKey && awsS3Service.accessKey) {
                     awsS3AccessKey.value = awsS3Service.accessKey;
-                    console.log('AWS S3 Access Key loaded from config');
+                    window.logger.info('AWS S3 Access Key loaded from config');
                 }
                 if (awsS3SecretKey && awsS3Service.secretKey) {
                     awsS3SecretKey.value = awsS3Service.secretKey;
-                    console.log('AWS S3 Secret Key loaded from config');
+                    window.logger.info('AWS S3 Secret Key loaded from config');
                 }
             }
             
@@ -1274,7 +1250,7 @@ export class SettingsScreen {
                 // Load secure connection string with proper timing
                 if (azureConnectionString && azureService.connectionString) {
                     azureConnectionString.value = azureService.connectionString;
-                    console.log('Azure Connection String loaded from config');
+                    window.logger.info('Azure Connection String loaded from config');
                 }
             }
             
@@ -1299,7 +1275,7 @@ export class SettingsScreen {
                     // Use setTimeout to ensure the button text update happens after DOM is ready
                     setTimeout(() => {
                         this.updateGcpFileButtonText('✓ Service account key loaded');
-                        console.log('GCP Service Account Key loaded from config');
+                        window.logger.info('GCP Service Account Key loaded from config');
                     }, 50);
                 }
             }
@@ -1326,11 +1302,11 @@ export class SettingsScreen {
                 // Load secure fields with proper timing
                 if (minioAccessKey && minioService.accessKey) {
                     minioAccessKey.value = minioService.accessKey;
-                    console.log('MinIO Access Key loaded from config');
+                    window.logger.info('MinIO Access Key loaded from config');
                 }
                 if (minioSecretKey && minioService.secretKey) {
                     minioSecretKey.value = minioService.secretKey;
-                    console.log('MinIO Secret Key loaded from config');
+                    window.logger.info('MinIO Secret Key loaded from config');
                 }
             }
             
@@ -1371,7 +1347,7 @@ export class SettingsScreen {
                 // Clear session storage
                 sessionStorage.clear();
 
-                console.log('Cache cleared successfully.');
+                window.logger.info('Cache cleared successfully.');
             } catch (error) {
                 console.error('Failed to clear cache:', error);
                 console.error('Failed to clear cache.');
@@ -1407,7 +1383,7 @@ export class SettingsScreen {
                     await Promise.all(cacheNames.map(name => caches.delete(name)));
                 }
 
-                console.log('All data cleared. You will be signed out.');
+                window.logger.info('All data cleared. You will be signed out.');
                 
                 // Sign out user
                 setTimeout(() => {
@@ -1478,54 +1454,6 @@ export class SettingsScreen {
     }
 
     /**
-     * Get app statistics
-     * @returns {Object} App statistics
-     */
-    getAppStats() {
-        const preferences = this.getPreferences();
-        const user = this.authManager.getCurrentUser();
-        
-        return {
-            isLoggedIn: this.authManager.isLoggedIn(),
-            userEmail: user?.email,
-            preferences,
-            storageUsed: this.getStorageUsage(),
-            appVersion: config.APP_VERSION,
-            environment: config.IS_DEVELOPMENT ? 'development' : 'production'
-        };
-    }
-
-    /**
-     * Get storage usage information
-     * @returns {Object} Storage usage stats
-     */
-    getStorageUsage() {
-        try {
-            let totalSize = 0;
-            let itemCount = 0;
-
-            for (let key in localStorage) {
-                if (localStorage.hasOwnProperty(key)) {
-                    totalSize += localStorage[key].length;
-                    itemCount++;
-                }
-            }
-
-            return {
-                totalSize,
-                itemCount,
-                formattedSize: this.formatBytes(totalSize)
-            };
-        } catch (error) {
-            return {
-                totalSize: 0,
-                itemCount: 0,
-                formattedSize: '0 B'
-            };
-        }
-    }
-
-    /**
      * Format bytes for display
      * @param {number} bytes - Number of bytes
      * @returns {string} Formatted string
@@ -1549,18 +1477,6 @@ export class SettingsScreen {
     }
 
     /**
-     * Export settings for backup
-     * @returns {Object} Exportable settings
-     */
-    exportSettings() {
-        return {
-            preferences: this.getPreferences(),
-            appVersion: config.APP_VERSION,
-            exportedAt: new Date().toISOString()
-        };
-    }
-
-    /**
      * Import settings from backup
      * @param {Object} settings - Settings to import
      */
@@ -1576,7 +1492,7 @@ export class SettingsScreen {
                 }
                 
                 await this.loadPreferences();
-                console.log('Settings imported successfully. Cloud service settings need to be configured separately.');
+                window.logger.info('Settings imported successfully. Cloud service settings need to be configured separately.');
             } else {
                 throw new Error('Invalid settings format');
             }
@@ -1696,7 +1612,7 @@ export class SettingsScreen {
             this.updateGcpFileButtonText('✓ Service account key loaded');
             this.resetGcpTestButton();
 
-                            console.log('GCP service account key uploaded and validated successfully.');
+                            window.logger.info('GCP service account key uploaded and validated successfully.');
 
         } catch (error) {
             console.error('Failed to process GCP key file:', error);
@@ -1712,7 +1628,7 @@ export class SettingsScreen {
                 errorMessage = 'Invalid JSON file format. Please ensure the file contains valid JSON syntax.';
             }
             
-            console.log('About to show error notification:', errorMessage);
+            window.logger.info('About to show error notification:', errorMessage);
             
             // Log the error
             console.error(errorMessage);
@@ -1774,7 +1690,7 @@ export class SettingsScreen {
             gcpKeyFile.value = '';
         }
 
-        console.log('GCP service account key cleared.');
+        window.logger.info('GCP service account key cleared.');
     }
 
     /**
@@ -1786,7 +1702,7 @@ export class SettingsScreen {
         const testText = document.getElementById('testGcpText');
         
         // Get current GCP service configuration (full config including credentials)
-        const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+        const gcpService = await window.electronAPI.config.getCloudSettings('gcp-storage');
 
         // Validate required fields
         if (!gcpService || !gcpService.bucketName || !gcpService.serviceAccountKey) {
@@ -1870,7 +1786,7 @@ export class SettingsScreen {
                 this.gcpConnectionTested = true;
                 
                 // Show success notification
-                console.log('GCP Cloud Storage connection test successful! 🎉');
+                window.logger.info('GCP Cloud Storage connection test successful! 🎉');
             }
             
         } catch (error) {
@@ -1994,21 +1910,8 @@ export class SettingsScreen {
         try {
             // Use AWS's public endpoint to get regions
             // This endpoint provides region information without requiring authentication
-            const response = await fetch('https://ip-ranges.amazonaws.com/ip-ranges.json');
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            // Extract unique regions from the IP ranges data
-            const regions = new Set();
-            data.prefixes.forEach(prefix => {
-                if (prefix.region && prefix.service === 'S3') {
-                    regions.add(prefix.region);
-                }
-            });
+            const regions = await window.electronAPI.clouds.getAwsRegions();
+            //window.logger.silly('AWS regions:', regions);
 
             // Convert to array and sort
             const sortedRegions = Array.from(regions).sort();
@@ -2024,13 +1927,7 @@ export class SettingsScreen {
                 regionSelect.appendChild(option);
             });
 
-            // Restore saved preference if any
-            const preferences = this.getPreferences();
-            if (preferences.awsS3Region) {
-                regionSelect.value = preferences.awsS3Region;
-            }
-
-            console.log(`Loaded ${sortedRegions.length} AWS regions`);
+            window.logger.debug(`Loaded ${sortedRegions.length} AWS regions`);
 
         } catch (error) {
             console.error('Failed to load AWS regions:', error);
@@ -2056,12 +1953,6 @@ export class SettingsScreen {
                 option.textContent = `${region.name} - ${region.code}`;
                 regionSelect.appendChild(option);
             });
-
-            // Restore saved preference if any
-            const preferences = this.getPreferences();
-            if (preferences.awsS3Region) {
-                regionSelect.value = preferences.awsS3Region;
-            }
 
             console.warn('Using fallback region list. Check your internet connection.');
         }
@@ -2112,7 +2003,7 @@ export class SettingsScreen {
         const testText = document.getElementById('testS3Text');
         
         // Get current AWS S3 service configuration (full config including credentials)
-        const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
+        const awsS3Service = await window.electronAPI.config.getCloudSettings('aws-s3');
 
         // Validate required fields
         if (!awsS3Service || !awsS3Service.region || !awsS3Service.bucket || !awsS3Service.accessKey || !awsS3Service.secretKey) {
@@ -2188,7 +2079,7 @@ export class SettingsScreen {
                 this.s3ConnectionTested = true;
                 
                 // Show success notification
-                console.log('AWS S3 connection test successful! 🎉');
+                window.logger.info('AWS S3 connection test successful! 🎉');
             }
             
         } catch (error) {
@@ -2262,7 +2153,7 @@ export class SettingsScreen {
         const testText = document.getElementById('testAzureText');
         
         // Get current Azure service configuration (full config including credentials)
-        const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
+        const azureService = await window.electronAPI.config.getCloudSettings('azure-blob');
 
         // Validate required fields
         if (!azureService || !azureService.containerName || !azureService.connectionString) {
@@ -2335,7 +2226,7 @@ export class SettingsScreen {
                 this.azureConnectionTested = true;
                 
                 // Show success notification
-                console.log('Azure Blob Storage connection test successful! 🎉');
+                window.logger.info('Azure Blob Storage connection test successful! 🎉');
             }
             
         } catch (error) {
@@ -2433,7 +2324,7 @@ export class SettingsScreen {
             
             // With no-cors mode, we can't read the response status directly
             // But if the request completes without throwing, the endpoint is reachable
-            console.log('S3 endpoint is reachable');
+            window.logger.info('S3 endpoint is reachable');
             
         } catch (error) {
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -2502,7 +2393,7 @@ export class SettingsScreen {
                 mode: 'no-cors'
             });
             
-            console.log('Azure endpoint is reachable');
+            window.logger.info('Azure endpoint is reachable');
             
         } catch (error) {
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -2569,7 +2460,7 @@ export class SettingsScreen {
                 mode: 'no-cors'
             });
             
-            console.log('GCP endpoint is reachable');
+            window.logger.info('GCP endpoint is reachable');
             
         } catch (error) {
             if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
@@ -2612,27 +2503,27 @@ export class SettingsScreen {
      * Debug method to check if secure input fields are properly accessible
      */
     debugSecureFields() {
-        console.log('=== Debug Secure Fields ===');
+        window.logger.info('=== Debug Secure Fields ===');
         
         const awsS3AccessKey = document.getElementById('awsS3AccessKey');
         const awsS3SecretKey = document.getElementById('awsS3SecretKey');
         const azureConnectionString = document.getElementById('azureConnectionString');
         
-        console.log('AWS S3 Access Key field:', awsS3AccessKey ? 'Found' : 'NOT FOUND');
-        console.log('AWS S3 Secret Key field:', awsS3SecretKey ? 'Found' : 'NOT FOUND');
-        console.log('Azure Connection String field:', azureConnectionString ? 'Found' : 'NOT FOUND');
+        window.logger.info('AWS S3 Access Key field:', awsS3AccessKey ? 'Found' : 'NOT FOUND');
+        window.logger.info('AWS S3 Secret Key field:', awsS3SecretKey ? 'Found' : 'NOT FOUND');
+        window.logger.info('Azure Connection String field:', azureConnectionString ? 'Found' : 'NOT FOUND');
         
         if (awsS3AccessKey) {
-            console.log('AWS S3 Access Key value:', awsS3AccessKey.value ? '[HAS VALUE]' : '[EMPTY]');
+            window.logger.info('AWS S3 Access Key value:', awsS3AccessKey.value ? '[HAS VALUE]' : '[EMPTY]');
         }
         if (awsS3SecretKey) {
-            console.log('AWS S3 Secret Key value:', awsS3SecretKey.value ? '[HAS VALUE]' : '[EMPTY]');
+            window.logger.info('AWS S3 Secret Key value:', awsS3SecretKey.value ? '[HAS VALUE]' : '[EMPTY]');
         }
         if (azureConnectionString) {
-            console.log('Azure Connection String value:', azureConnectionString.value ? '[HAS VALUE]' : '[EMPTY]');
+            window.logger.info('Azure Connection String value:', azureConnectionString.value ? '[HAS VALUE]' : '[EMPTY]');
         }
         
-        console.log('=== End Debug ===');
+        window.logger.info('=== End Debug ===');
     }
 
     /**
@@ -2646,11 +2537,10 @@ export class SettingsScreen {
                 try {
                     const result = await logger.showLogsFolder();
                     if (!result.success) {
-                        console.error('Failed to open logs folder: ' + result.error);
+                        window.logger.error('Failed to open logs folder: ' + result.error);
                     }
                 } catch (error) {
-                    logger.error('Error opening logs folder from settings', { error: error.message });
-                    console.error('Failed to open logs folder');
+                    window.logger.error('Error opening logs folder from settings', { error: error.message });
                 }
             });
         }
@@ -2760,7 +2650,7 @@ export class SettingsScreen {
         const testText = document.getElementById('testMinioText');
         
         // Get current MinIO service configuration (full config including credentials)
-        const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+        const minioService = await window.electronAPI.config.getCloudSettings('minio');
 
         // Validate required fields
         if (!minioService || !minioService.endpoint || !minioService.bucket || !minioService.accessKey || !minioService.secretKey) {
@@ -2809,7 +2699,7 @@ export class SettingsScreen {
                     testText.textContent = 'Connection Successful!';
                 }
                 
-                console.log('MinIO connection test successful:', testResult.message);
+                window.logger.info('MinIO connection test successful:', testResult.message);
                 
                 // Reset button after delay
                 setTimeout(() => {

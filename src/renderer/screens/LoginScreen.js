@@ -4,7 +4,6 @@
  */
 
 import { UIComponents } from '../components/ui-components.js';
-import { config } from '../config/app-config.js';
 
 export class LoginScreen {
     constructor(authManager) {
@@ -36,8 +35,9 @@ export class LoginScreen {
      * Initialize version display
      */
     initializeVersion() {
-        if (this.elements.versionElement && config.APP_VERSION) {
-            this.elements.versionElement.textContent = `v${config.APP_VERSION}`;
+        const appVersion = window.electronAPI.app.getVersion();
+        if (this.elements.versionElement && appVersion) {
+            this.elements.versionElement.textContent = `v${appVersion}`;
         }
     }
 

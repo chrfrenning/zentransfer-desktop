@@ -4,9 +4,7 @@
  */
 
 import { UIComponents } from '../components/ui-components.js';
-import { config } from '../config/app-config.js';
-import { TokenManager } from '../auth/token-manager.js';
-import { uploadServiceFactory } from '../upload/upload-service-factory.js';
+import { CloudFacade } from '../clouds/CloudFacade.js';
 
 export class UploadScreen {
     constructor(uploadManager) {
@@ -23,6 +21,10 @@ export class UploadScreen {
         this.createFileInput();
         
         // Load saved service preference and update available services
+        
+        
+        this.initialize().then(() => {
+        }
         this.loadSavedService().then(() => {
             return this.updateAvailableServices();
         }).then(() => {
@@ -31,6 +33,12 @@ export class UploadScreen {
                 this.uploadManager.setSelectedService(this.selectedService);
             }
         });
+    }
+
+    async initialize() {
+        this.selectedService = await window.electronAPI.config.get('uploadSettings.lastSelectedService');
+        this.availableServices = await window.electronAPI.clouds.getEnabledServices();
+        if (this.selectedService in this.availableServices) {
     }
 
     /**
@@ -218,14 +226,14 @@ export class UploadScreen {
      */
     createFileInput() {
         // No longer creating HTML file input - using native Electron dialog
-        console.log('Upload screen: Using native Electron file dialog');
+        window.logger.info('Upload screen: Using native Electron file dialog');
     }
 
     /**
      * Open native file dialog for file selection
      */
     async openFileDialog() {
-        console.log('=== OPENING NATIVE FILE DIALOG ===');
+        window.logger.info('=== OPENING NATIVE FILE DIALOG ===');
         
         // Check if any services are available
         if (this.availableServices.length === 0) {
@@ -249,18 +257,18 @@ export class UploadScreen {
                 });
                 
                 if (result && result.length > 0) {
-                    console.log('Files selected via native dialog:', result);
+                    window.logger.info('Files selected via native dialog:', result);
                     
                     try {
-                        console.log('Calling uploadManager.addFiles with file paths...');
+                        window.logger.info('Calling uploadManager.addFiles with file paths...');
                         await this.uploadManager.addFiles(result);
-                        console.log('uploadManager.addFiles completed');
+                        window.logger.info('uploadManager.addFiles completed');
                     } catch (error) {
                         console.error('Error calling uploadManager.addFiles:', error);
                         console.error('Failed to add files: ' + error.message);
                     }
                 } else {
-                    console.log('No files selected or dialog cancelled');
+                    window.logger.info('No files selected or dialog cancelled');
                 }
                 
             } catch (error) {
@@ -269,11 +277,11 @@ export class UploadScreen {
             }
         } else {
             // Fallback for non-Electron environments
-            console.log('Not in Electron environment, using HTML file input fallback');
+            window.logger.info('Not in Electron environment, using HTML file input fallback');
             this.createHTMLFileInputFallback();
         }
         
-        console.log('=== END NATIVE FILE DIALOG ===');
+        window.logger.info('=== END NATIVE FILE DIALOG ===');
     }
 
     /**
@@ -311,14 +319,14 @@ export class UploadScreen {
         // Global drag and drop handlers for full-screen drop zone
         document.addEventListener('dragenter', (e) => {
             e.preventDefault();
-            console.log('=== DRAG ENTER EVENT ===');
-            console.log('Event target:', e.target);
-            console.log('Related target:', e.relatedTarget);
-            console.log('DataTransfer types:', e.dataTransfer.types);
-            console.log('DataTransfer items length:', e.dataTransfer.items.length);
+            window.logger.info('=== DRAG ENTER EVENT ===');
+            window.logger.info('Event target:', e.target);
+            window.logger.info('Related target:', e.relatedTarget);
+            window.logger.info('DataTransfer types:', e.dataTransfer.types);
+            window.logger.info('DataTransfer items length:', e.dataTransfer.items.length);
             
             if (this.isVisible && !this.isDragOver) {
-                console.log('Showing drop overlay (upload screen is visible)');
+                window.logger.info('Showing drop overlay (upload screen is visible)');
                 this.showDropOverlay();
             }
         });
@@ -327,43 +335,43 @@ export class UploadScreen {
             e.preventDefault();
             // Only log occasionally to avoid spam
             if (Math.random() < 0.01) {
-                console.log('Drag over - DataTransfer types:', e.dataTransfer.types);
+                window.logger.info('Drag over - DataTransfer types:', e.dataTransfer.types);
             }
         });
 
         document.addEventListener('dragleave', (e) => {
             e.preventDefault();
-            console.log('=== DRAG LEAVE EVENT ===');
-            console.log('Event target:', e.target);
-            console.log('Related target:', e.relatedTarget);
+            window.logger.info('=== DRAG LEAVE EVENT ===');
+            window.logger.info('Event target:', e.target);
+            window.logger.info('Related target:', e.relatedTarget);
             
             // Only hide if we're leaving the document entirely
             if (!e.relatedTarget || e.relatedTarget.nodeName === 'HTML') {
-                console.log('Hiding drop overlay (leaving document)');
+                window.logger.info('Hiding drop overlay (leaving document)');
                 this.hideDropOverlay();
             }
         });
 
         document.addEventListener('drop', async (e) => {
             e.preventDefault();
-            console.log('=== DROP EVENT ===');
-            console.log('Event target:', e.target);
-            console.log('Upload screen visible:', this.isVisible);
+            window.logger.info('=== DROP EVENT ===');
+            window.logger.info('Event target:', e.target);
+            window.logger.info('Upload screen visible:', this.isVisible);
             
             this.hideDropOverlay();
             
             if (this.isVisible && e.dataTransfer.files.length > 0) {
-                console.log('=== ANALYZING DROPPED FILES ===');
-                console.log('Number of files:', e.dataTransfer.files.length);
-                console.log('DataTransfer types:', e.dataTransfer.types);
-                console.log('DataTransfer items:', e.dataTransfer.items);
+                window.logger.info('=== ANALYZING DROPPED FILES ===');
+                window.logger.info('Number of files:', e.dataTransfer.files.length);
+                window.logger.info('DataTransfer types:', e.dataTransfer.types);
+                window.logger.info('DataTransfer items:', e.dataTransfer.items);
                 
                 // Log detailed information about each file
                 for (let i = 0; i < e.dataTransfer.files.length; i++) {
                     const file = e.dataTransfer.files[i];
                     const hasPath = file.path && typeof file.path === 'string';
                     
-                    console.log(`File ${i + 1}:`, {
+                    window.logger.info(`File ${i + 1}:`, {
                         name: file.name,
                         size: file.size,
                         type: file.type,
@@ -383,21 +391,21 @@ export class UploadScreen {
                     });
                     
                     if (hasPath) {
-                        console.log(`  🎉 File ${i + 1} OPTIMIZATION: Has path property - will use direct file access!`);
-                        console.log(`  📁 Direct path: ${file.path}`);
-                        console.log(`  ✅ Benefits: No memory buffer, no temporary file, efficient like import`);
+                        window.logger.info(`  🎉 File ${i + 1} OPTIMIZATION: Has path property - will use direct file access!`);
+                        window.logger.info(`  📁 Direct path: ${file.path}`);
+                        window.logger.info(`  ✅ Benefits: No memory buffer, no temporary file, efficient like import`);
                     } else {
-                        console.log(`  ⚠️ File ${i + 1} FALLBACK: No path property - will need buffer + temporary file`);
-                        console.log(`  📦 Will read ${file.size} bytes into memory buffer`);
+                        window.logger.info(`  ⚠️ File ${i + 1} FALLBACK: No path property - will need buffer + temporary file`);
+                        window.logger.info(`  📦 Will read ${file.size} bytes into memory buffer`);
                     }
                 }
                 
                 // Log DataTransfer items for additional context
                 if (e.dataTransfer.items) {
-                    console.log('=== DATATRANSFER ITEMS ===');
+                    window.logger.info('=== DATATRANSFER ITEMS ===');
                     for (let i = 0; i < e.dataTransfer.items.length; i++) {
                         const item = e.dataTransfer.items[i];
-                        console.log(`Item ${i + 1}:`, {
+                        window.logger.info(`Item ${i + 1}:`, {
                             kind: item.kind,
                             type: item.type,
                             // Try to get file info if available
@@ -406,11 +414,11 @@ export class UploadScreen {
                     }
                 }
                 
-                console.log('Calling uploadManager.addFiles with File objects...');
+                window.logger.info('Calling uploadManager.addFiles with File objects...');
                 await this.uploadManager.addFiles(e.dataTransfer.files);
-                console.log('uploadManager.addFiles completed');
+                window.logger.info('uploadManager.addFiles completed');
             } else {
-                console.log('Not processing drop - either screen not visible or no files');
+                window.logger.info('Not processing drop - either screen not visible or no files');
             }
         });
 
@@ -885,7 +893,7 @@ export class UploadScreen {
             // Update available services to refresh the UI
             this.updateAvailableServices();
             
-            console.log('Upload history cleared.');
+            window.logger.info('Upload history cleared.');
         } catch (error) {
             console.error('Failed to clear upload history:', error);
                             console.error('Failed to clear upload history: ' + error.message);
@@ -917,25 +925,13 @@ export class UploadScreen {
         this.availableServices = [];
         
         try {
-            // Get service preferences from config system
-            const preferences = await this.getServicePreferences();
-            
-            // Add authentication info for ZenTransfer
-            const tokenResult = await TokenManager.ensureValidToken();
-            if (tokenResult.valid) {
-                preferences.token = tokenResult.token;
-                preferences.apiBaseUrl = config.SERVER_BASE_URL;
-                preferences.appName = config.APP_NAME;
-                preferences.appVersion = config.APP_VERSION;
-                preferences.clientId = config.CLIENT_ID;
-            }
-            
-            // Create services from preferences in main process
-            const services = await uploadServiceFactory.createServicesFromPreferences(preferences);
+            // Get all enabled cloud services
+            const enabledServices = await window.electronAPI.clouds.getEnabledServices();
             
             // Convert service info to available services format
-            for (const serviceInfo of services) {
-                const displayInfo = await uploadServiceFactory.getServiceDisplayInfo(serviceInfo.type);
+            for (const serviceName of enabledServices) {
+                const displayInfo = await new CloudFacade(serviceName).getDisplayInfo();
+                window.logger.debug('UploadScreen: Available service:', displayInfo);
                 this.availableServices.push({
                     type: serviceInfo.type,
                     name: displayInfo.name,
@@ -977,7 +973,7 @@ export class UploadScreen {
             const savedService = await window.electronAPI.config.get('uploadSettings.lastSelectedService');
             if (savedService) {
                 this.selectedService = savedService;
-                console.log('Loaded saved upload service:', savedService);
+                window.logger.info('Loaded saved upload service:', savedService);
             }
         } catch (error) {
             console.error('Failed to load saved upload service:', error);
@@ -991,7 +987,7 @@ export class UploadScreen {
     async saveSelectedService() {
         try {
             await window.electronAPI.config.set('uploadSettings.lastSelectedService', this.selectedService);
-            console.log('Saved upload service preference:', this.selectedService);
+            window.logger.info('Saved upload service preference:', this.selectedService);
         } catch (error) {
             console.error('Failed to save upload service preference:', error);
         }
@@ -1004,10 +1000,10 @@ export class UploadScreen {
     async getServicePreferences() {
         try {
             // Get cloud service configurations from config
-            const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
-            const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
-            const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
-            const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+            const awsS3Service = await window.electronAPI.config.getCloudSettings('aws-s3');
+            const azureService = await window.electronAPI.config.getCloudSettings('azure-blob');
+            const gcpService = await window.electronAPI.config.getCloudSettings('gcp-storage');
+            const minioService = await window.electronAPI.config.getCloudSettings('minio');
             
             // Convert to the format expected by uploadServiceFactory
             const preferences = {};
@@ -1178,7 +1174,7 @@ export class UploadScreen {
                     // Save the service preference
                     this.saveSelectedService();
                     
-                    console.log('Selected service changed to:', this.selectedService);
+                    window.logger.info('Selected service changed to:', this.selectedService);
                 });
             }
         }

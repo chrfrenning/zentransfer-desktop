@@ -43,13 +43,13 @@ export class DownloadQueueManager {
      * @param {Array} files - Array of file objects
      */
     addFiles(files) {
-        console.log('Queue manager addFiles called with:', files);
+        window.logger.info('Queue manager addFiles called with:', files);
         
         const newFiles = files.filter(file => 
             !this.queue.some(queuedFile => queuedFile.id === file.id)
         );
 
-        console.log('New files to add (after filtering):', newFiles);
+        window.logger.info('New files to add (after filtering):', newFiles);
 
         newFiles.forEach(file => {
             this.queue.push({
@@ -60,23 +60,23 @@ export class DownloadQueueManager {
             });
         });
 
-        console.log('Queue after adding files:', this.queue);
+        window.logger.info('Queue after adding files:', this.queue);
 
         this.saveQueue();
         this.notifyQueueUpdate();
 
         if (newFiles.length > 0) {
-            console.log(`Added ${newFiles.length} file(s) to download queue`);
+            window.logger.info(`Added ${newFiles.length} file(s) to download queue`);
             
             // Start processing if not already processing
             if (!this.isProcessing) {
-                console.log('Starting processing after adding new files');
+                window.logger.info('Starting processing after adding new files');
                 this.startProcessing().catch(error => {
                     console.error('Failed to start processing:', error);
                 });
             }
         } else {
-            console.log('No new files to add (all already in queue)');
+            window.logger.info('No new files to add (all already in queue)');
         }
     }
 
@@ -112,7 +112,7 @@ export class DownloadQueueManager {
      * Start processing the download queue
      */
     async startProcessing() {
-        console.log('startProcessing called, isProcessing:', this.isProcessing);
+        window.logger.info('startProcessing called, isProcessing:', this.isProcessing);
         
         if (this.isProcessing) return;
         
@@ -120,15 +120,15 @@ export class DownloadQueueManager {
             throw new Error('Download path not set. Please configure download directory.');
         }
 
-        console.log('Starting queue processing, queue length:', this.queue.length);
+        window.logger.info('Starting queue processing, queue length:', this.queue.length);
         this.isProcessing = true;
         
         while (this.queue.length > 0 && this.isProcessing) {
             const nextFile = this.queue.find(file => file.status === 'queued');
-            console.log('Next file to download:', nextFile);
+            window.logger.info('Next file to download:', nextFile);
             
             if (!nextFile) {
-                console.log('No queued files found, breaking');
+                window.logger.info('No queued files found, breaking');
                 break;
             }
 
@@ -140,7 +140,7 @@ export class DownloadQueueManager {
             }
         }
 
-        console.log('Queue processing finished');
+        window.logger.info('Queue processing finished');
         this.isProcessing = false;
         this.currentDownload = null;
     }
@@ -162,16 +162,16 @@ export class DownloadQueueManager {
      * @param {Object} file - File object to download
      */
     async downloadFile(file) {
-        console.log('Starting download for file:', file);
+        window.logger.info('Starting download for file:', file);
         
         this.currentDownload = file;
         this.updateFileStatus(file.id, 'downloading');
 
         try {
             // Check what URL properties are available
-            console.log('File properties:', Object.keys(file));
-            console.log('File url:', file.url);
-            console.log('File download_url:', file.download_url);
+            window.logger.info('File properties:', Object.keys(file));
+            window.logger.info('File url:', file.url);
+            window.logger.info('File download_url:', file.download_url);
             
             // Use the appropriate URL property
             const downloadUrl = file.download_url || file.url;
@@ -180,7 +180,7 @@ export class DownloadQueueManager {
                 throw new Error('No download URL found for file');
             }
             
-            console.log('Using download URL:', downloadUrl);
+            window.logger.info('Using download URL:', downloadUrl);
             
             // Download the file
             await this.performDownload(downloadUrl, file);
@@ -219,7 +219,7 @@ export class DownloadQueueManager {
                     const fileName = this.sanitizeFileName(file.name);
                     const filePath = path.join(this.downloadPath, fileName);
                     
-                    console.log('Downloading to:', filePath);
+                    window.logger.info('Downloading to:', filePath);
                     
                     // Create write stream
                     const fileStream = fs.createWriteStream(filePath);
@@ -239,7 +239,7 @@ export class DownloadQueueManager {
                         
                         fileStream.on('finish', () => {
                             fileStream.close();
-                            console.log('File downloaded successfully:', filePath);
+                            window.logger.info('File downloaded successfully:', filePath);
                             resolve();
                         });
                         

@@ -38,7 +38,7 @@ export class UploadQueueManager {
                 });
                 
                 this.isInitialized = true;
-                console.log('Upload queue manager IPC initialized');
+                window.logger.info('Upload queue manager IPC initialized');
             } else {
                 throw new Error('IPC not available - not in Electron environment');
             }
@@ -54,7 +54,7 @@ export class UploadQueueManager {
     handleUploadUpdate(data) {
         const { type } = data;
         
-        console.log('Upload queue update received:', type);
+        window.logger.info('Upload queue update received:', type);
         
         switch (type) {
             case 'queue-update':

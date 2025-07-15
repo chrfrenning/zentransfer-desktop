@@ -2,6 +2,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
+const logger = require('../utils/logger.js');
 
 // Import the configuration data class
 const { ConfigurationData } = require('./ConfigurationData.js');
@@ -50,7 +51,7 @@ class ConfigurationManager {
         directories.forEach(dir => {
             if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir, { recursive: true });
-                console.log(`Created directory: ${dir}`);
+                logger.info(`Created directory: ${dir}`);
             }
         });
     }
@@ -64,9 +65,9 @@ class ConfigurationManager {
                 const configData = fs.readFileSync(this.configFilePath, 'utf8');
                 const parsedConfig = JSON.parse(configData);
                 this.config.fromConfig(parsedConfig);
-                console.log(`Configuration loaded for ${this.hostname}`);
+                logger.info(`Configuration loaded for ${this.hostname}`);
             } else {
-                console.log(`No existing configuration found for ${this.hostname}, using defaults`);
+                logger.info(`No existing configuration found for ${this.hostname}, using defaults`);
                 this.saveConfiguration(); // Save default configuration
             }
         } catch (error) {
@@ -82,7 +83,7 @@ class ConfigurationManager {
         try {
             const configData = this.config.toConfig();
             fs.writeFileSync(this.configFilePath, JSON.stringify(configData, null, 2), 'utf8');
-            console.log(`Configuration saved for ${this.hostname}`);
+            logger.info(`Configuration saved for ${this.hostname}`);
         } catch (error) {
             console.error('Failed to save configuration:', error);
             throw error;
@@ -165,7 +166,7 @@ class ConfigurationManager {
      * @returns {Object} Cloud services with display info
      */
     getCloudServicesDisplayInfo() {
-        return this.config.getCloudServicesDisplayInfo();
+        return this.config.getCloudSettingssDisplayInfo();
     }
 
     /**

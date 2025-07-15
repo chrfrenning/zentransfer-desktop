@@ -19,27 +19,19 @@ class RendererLogger {
     // Validate level
     if (!this.levels.includes(level)) {
       level = 'info';
+      console.log("Level not valid, setting to info");
     }
 
     // Log to console for immediate feedback
     const consoleMethod = ['error', 'warn'].includes(level) ? level : 'log';
-    console[consoleMethod](`[${level.toUpperCase()}]`, message, meta);
+    if (meta) {
+      console[consoleMethod](`[${level.toUpperCase()}]`, message, meta);
+    } else {
+      console[consoleMethod](`[${level.toUpperCase()}]`, message);
+    }
     
     // Send to main process for file logging
-    if (window.electronAPI && window.electronAPI.app.log) {
-      try {
-        window.electronAPI.app.log(level, message, meta);
-      } catch (error) {
-        // Fallback to legacy method if new API fails
-        console.warn('Failed to use new logging API, falling back to legacy method');
-        if (window.electronAPI.app.logMessage) {
-          window.electronAPI.app.logMessage(`[${level.toUpperCase()}] ${message}`);
-        }
-      }
-    } else {
-      // Fallback when electronAPI is not available
-      console.warn('ElectronAPI not available, logging only to console');
-    }
+    window.electronAPI.app.log(level, message, meta);
   }
 
   /**
@@ -158,7 +150,5 @@ class RendererLogger {
 }
 
 // Create and export a singleton logger instance
-export const logger = new RendererLogger();
-
-// Also export the class for cases where multiple instances are needed
-export { RendererLogger }; 
+window.logger = new RendererLogger();
+console.log('RendererLogger: Module loaded successfully'); 

@@ -102,7 +102,7 @@ export class LocalDestination extends BaseDestination {
             if (fs.existsSync(destinationPath)) {
                 // Generate unique filename
                 const uniquePath = this.generateUniqueFilename(destinationPath);
-                console.log(`File exists, using unique name: ${uniquePath}`);
+                window.logger.info(`File exists, using unique name: ${uniquePath}`);
                 fs.copyFileSync(sourcePath, uniquePath);
                 return uniquePath;
             } else {

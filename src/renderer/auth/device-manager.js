@@ -18,7 +18,7 @@ export class DeviceManager {
                 if (!deviceId) {
                     // Generate new device ID
                     deviceId = this.generateGUID();
-                    console.log('Generated new device ID:', deviceId);
+                    window.logger.info('Generated new device ID:', deviceId);
                 }
                 
                 // Save to configuration system
@@ -36,7 +36,7 @@ export class DeviceManager {
             if (!deviceId) {
                 deviceId = this.generateGUID();
                 localStorage.setItem(this.DEVICE_ID_KEY, deviceId);
-                console.log('Generated new device ID (localStorage fallback):', deviceId);
+                window.logger.info('Generated new device ID (localStorage fallback):', deviceId);
             }
             return deviceId;
         }
@@ -46,11 +46,11 @@ export class DeviceManager {
         try {
             await window.electronAPI.config.set('deviceId', '');
             localStorage.removeItem(this.DEVICE_ID_KEY);
-            console.log('Device ID cleared from configuration and localStorage');
+            window.logger.info('Device ID cleared from configuration and localStorage');
         } catch (error) {
             console.error('Failed to clear device ID from configuration:', error);
             localStorage.removeItem(this.DEVICE_ID_KEY);
-            console.log('Device ID cleared from localStorage only');
+            window.logger.info('Device ID cleared from localStorage only');
         }
     }
 } 

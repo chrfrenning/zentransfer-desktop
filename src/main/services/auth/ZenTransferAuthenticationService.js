@@ -6,6 +6,7 @@
 
 const sharedConfig = require('../../configuration/Globals.js');
 const { AuthenticationServiceBase } = require('./AuthenticationServiceBase.js');
+const logger = require('../../utils/logger.js');
 
 class ZenTransferAuthenticationService extends AuthenticationServiceBase {
     constructor(configManager) {
@@ -17,8 +18,8 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
         this.appVersion = sharedConfig.appVersion;
         this.clientId = sharedConfig.clientId;
         
-        console.log(`MainAuthService initialized for server: ${this.serverBaseUrl}`);
-        console.log(`MainAuthService: app_name=${this.appName}, app_version=${this.appVersion}, client_id=${this.clientId}`);
+        logger.info(`MainAuthService initialized for server: ${this.serverBaseUrl}`);
+        logger.info(`MainAuthService: app_name=${this.appName}, app_version=${this.appVersion}, client_id=${this.clientId}`);
     }
     
     /**
@@ -48,7 +49,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
             }
             
             const data = await response.json();
-            console.log('Login initialization successful');
+            logger.info('Login initialization successful');
             return data;
         } catch (error) {
             console.error('Login initialization failed:', error);
@@ -80,7 +81,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
             }
             
             const data = await response.json();
-            console.log('Login finalization successful');
+            logger.info('Login finalization successful');
             return data;
         } catch (error) {
             console.error('Login finalization failed:', error);
@@ -95,8 +96,8 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
      */
     async verifyToken(token) {
         try {
-            console.log('AuthService: Verifying token with server...');
-            console.log('AuthService: Token being sent:', token ? `${token.substring(0, 20)}...` : 'null');
+            logger.info('AuthService: Verifying token with server...');
+            logger.info('AuthService: Token being sent:', token ? `${token.substring(0, 20)}...` : 'null');
             
             const requestBody = {
                 token: token,
@@ -105,7 +106,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
                 client_id: this.clientId
             };
             
-            console.log('AuthService: Request body for /verify:', {
+            logger.info('AuthService: Request body for /verify:', {
                 token: token ? `${token.substring(0, 20)}...` : 'null',
                 app_name: this.appName,
                 app_version: this.appVersion,
@@ -121,7 +122,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
             });
             
             const isValid = response.status === 200;
-            console.log(`AuthService: Token verification result: ${isValid ? 'valid' : 'invalid'} (status: ${response.status})`);
+            logger.info(`AuthService: Token verification result: ${isValid ? 'valid' : 'invalid'} (status: ${response.status})`);
             return isValid;
         } catch (error) {
             console.error('AuthService: Token verification failed:', error);
@@ -136,8 +137,8 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
      */
     async refreshToken(token) {
         try {
-            console.log('AuthService: Refreshing token with server...');
-            console.log('AuthService: Token being sent for refresh:', token ? `${token.substring(0, 20)}...` : 'null');
+            logger.info('AuthService: Refreshing token with server...');
+            logger.info('AuthService: Token being sent for refresh:', token ? `${token.substring(0, 20)}...` : 'null');
             
             const requestBody = {
                 token: token,
@@ -146,7 +147,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
                 client_id: this.clientId
             };
             
-            console.log('AuthService: Request body for /refresh:', {
+            logger.silly('AuthService: Request body for /refresh:', {
                 token: token ? `${token.substring(0, 20)}...` : 'null',
                 app_name: this.appName,
                 app_version: this.appVersion,
@@ -163,8 +164,8 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.log('AuthService: Token refresh failed with status:', response.status);
-                console.log('AuthService: Error response:', errorText.substring(0, 200));
+                logger.info('AuthService: Token refresh failed with status:', response.status);
+                logger.info('AuthService: Error response:', errorText.substring(0, 200));
                 return {
                     success: false,
                     error: `HTTP error ${response.status}: ${errorText}`
@@ -174,15 +175,15 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
             const data = await response.json();
             
             if (data.result === 'ok' && data.token) {
-                console.log('AuthService: Token refresh successful');
-                console.log('AuthService: New token received:', data.token ? `${data.token.substring(0, 20)}...` : 'null');
+                logger.info('AuthService: Token refresh successful');
+                logger.info('AuthService: New token received:', data.token ? `${data.token.substring(0, 20)}...` : 'null');
                 return {
                     success: true,
                     token: data.token,
                     result: data.result
                 };
             } else {
-                console.log('AuthService: Token refresh failed:', data.message);
+                logger.info('AuthService: Token refresh failed:', data.message);
                 return {
                     success: false,
                     error: data.message || 'Token refresh failed'
@@ -211,7 +212,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
             });
             
             const isConnected = response.ok;
-            console.log(`Server connectivity test: ${isConnected ? 'connected' : 'failed'}`);
+            logger.info(`Server connectivity test: ${isConnected ? 'connected' : 'failed'}`);
             return isConnected;
         } catch (error) {
             console.error('Server connectivity test failed:', error);

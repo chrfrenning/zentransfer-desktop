@@ -12,6 +12,8 @@ const { ipcMain, dialog, app, BrowserWindow, shell } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const logger = require('../utils/Logger.js');
+const { awsLoadRegions } = require('../services/AWSRegions.js');
+const { CloudFactory } = require('../services/CloudFactory.js');
 
 function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool) {
   logger.info('Setting up IPC handlers...');
@@ -27,6 +29,10 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
 
   ipcMain.handle('get-app-devmode', async () => {
     return app.isDevelopmentMode;
+  });
+
+  ipcMain.handle('get-server-url', async () => {
+    return app.globals.serverBaseUrl;
   });
 
    // App quit handler
@@ -62,8 +68,9 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
     }
   });
 
-  ipcMain.handle('log-from-renderer', async (event, { level, message, meta = {} }) => {
-    logger[level](`[Renderer] ${message}`, meta);
+  ipcMain.on('log-from-renderer', (event, { level, message, meta = {} }) => {
+    meta.process = 'renderer';
+    logger[level](`${message}`, meta);
   });
 
   ipcMain.handle('show-logs-folder', async () => {
@@ -114,6 +121,18 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
 
   ipcMain.handle('config-set', async (event, section, value) => {
     app.configurationManager.set(section, value);
+  });
+
+  ipcMain.handle('config-get-cloud-settings', async (event, serviceType) => {
+    return app.configurationManager.getCloudService(serviceType);
+  });
+
+  ipcMain.on('config-update-cloud-settings', async (event, serviceType, settings) => {
+    app.configurationManager.updateCloudService(serviceType, settings);
+  });
+
+  ipcMain.handle('config-get-urls', async (event) => {
+    return app.globals.urls;
   });
 
 
@@ -184,6 +203,34 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
     // TODO: We should let the server know that we're logging out
     await app.tokenManager.clearToken();
     return true;
+  });
+
+
+
+
+  /*
+   * Cloud services APIs
+   *
+   */
+  
+  ipcMain.handle('clouds-get-services', async (event) => {
+    return CloudFactory.listCloudServices();
+  });
+  
+  ipcMain.handle('clouds-get-enabled-services', async (event) => {
+   let enabledServices = [];
+   for (const serviceType of CloudFactory.listCloudServices()) {
+    const service = app.configurationManager.getCloudService(serviceType);
+    if (service && service.enabled) {
+      enabledServices.push(service);
+    }
+   }
+
+    return enabledServices;
+  });
+
+  ipcMain.handle('clouds-get-aws-regions', async (event) => {
+    return awsLoadRegions();
   });
 
 

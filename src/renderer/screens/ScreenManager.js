@@ -3,12 +3,14 @@
  * Coordinates all screen modules and provides centralized screen management
  */
 
-import { LoginScreen } from './login-screen.js';
-import { ImportScreen } from './import-screen.js';
-import { UploadScreen } from './upload-screen.js';
-import { DownloadScreen } from './download-screen.js';
-import { SettingsScreen } from './settings-screen.js';
-import { LoaderScreen } from './loader-screen.js';
+window.logger.info("In ScreenManager.js")
+
+import { LoginScreen } from './LoginScreen.js';
+import { ImportScreen } from './ImportScreen.js';
+import { UploadScreen } from './UploadScreen.js';
+import { DownloadScreen } from './DownloadScreen.js';
+import { SettingsScreen } from './SettingsScreen.js';
+import { LoaderScreen } from './LoaderScreen.js';
 import { UIComponents } from '../components/ui-components.js';
 
 export class ScreenManager {
@@ -87,7 +89,7 @@ export class ScreenManager {
         if (this.screens[screenName]) {
             await this.screens[screenName].show();
             this.currentScreen = screenName;
-            console.log(`Switched to ${screenName} screen`);
+            window.logger.info(`Switched to ${screenName} screen`);
         } else {
             console.warn(`Screen "${screenName}" not found`);
         }
@@ -135,16 +137,16 @@ export class ScreenManager {
      * @param {Object} state - Authentication state
      */
     async handleAuthStateChange(state) {
-        console.log('ScreenManager: handleAuthStateChange called with state:', state);
+        window.logger.info('ScreenManager: handleAuthStateChange called with state:', state);
         
         switch (state.status) {
             case 'checking':
-                console.log('ScreenManager: Handling checking state');
+                window.logger.info('ScreenManager: Handling checking state');
                 this.screens.login.showLoading(state.message);
                 break;
 
             case 'unauthenticated':
-                console.log('ScreenManager: Handling unauthenticated state');
+                window.logger.info('ScreenManager: Handling unauthenticated state');
                 this.screens.login.hideLoading();
                 await this.showLoginScreen();
                 // Refresh import screen service availability when user logs out
@@ -152,13 +154,13 @@ export class ScreenManager {
                 break;
 
             case 'otp_required':
-                console.log('ScreenManager: Handling otp_required state');
+                window.logger.info('ScreenManager: Handling otp_required state');
                 this.screens.login.hideLoading();
                 this.screens.login.switchToOTPStep(state.email);
                 break;
 
             case 'authenticated':
-                console.log('ScreenManager: Handling authenticated state');
+                window.logger.info('ScreenManager: Handling authenticated state');
                 this.screens.login.hideLoading();
                 this.hideLoginScreen();
                 setTimeout(async () => {
@@ -172,12 +174,12 @@ export class ScreenManager {
                 break;
 
             case 'offline':
-                console.log('ScreenManager: Handling offline state');
+                window.logger.info('ScreenManager: Handling offline state');
                 this.screens.login.hideLoading();
                 this.hideLoginScreen();
-                console.log('ScreenManager: About to show main app in offline mode');
+                window.logger.info('ScreenManager: About to show main app in offline mode');
                 setTimeout(async () => {
-                    console.log('ScreenManager: Showing main app after timeout');
+                    window.logger.info('ScreenManager: Showing main app after timeout');
                     await this.showMainApp();
                     if (this.appController && this.appController.initializeMainApp) {
                         this.appController.initializeMainApp();
@@ -198,7 +200,7 @@ export class ScreenManager {
      * Show login screen
      */
     async showLoginScreen() {
-        console.log('Showing login screen...');
+        window.logger.info('Showing login screen...');
         
         // First hide all main app screens
         this.hideAllScreens();
@@ -210,20 +212,20 @@ export class ScreenManager {
         // Hide main app screen
         if (mainAppScreen) {
             mainAppScreen.classList.add('hidden');
-            console.log('Main app screen hidden');
+            window.logger.info('Main app screen hidden');
         }
         
         // Show login screen
         if (loginScreen) {
             loginScreen.style.display = 'flex';
-            console.log('Login screen displayed');
+            window.logger.info('Login screen displayed');
         } else {
             console.error('Login screen element not found!');
         }
 
         // Show the login screen component
         await this.screens.login.show();
-        console.log('Login screen component shown');
+        window.logger.info('Login screen component shown');
     }
 
     /**

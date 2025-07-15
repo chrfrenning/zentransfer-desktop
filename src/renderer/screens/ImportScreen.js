@@ -4,10 +4,8 @@
  */
 
 import { UIComponents } from '../components/ui-components.js';
-import { config } from '../config/app-config.js';
 import { StorageManager } from '../components/storage-manager.js';
 import { ImportManager } from '../import/import-manager.js';
-import { TokenManager } from '../auth/token-manager.js';
 
 export class ImportScreen {
     constructor(uploadManager) {
@@ -722,17 +720,17 @@ export class ImportScreen {
         try {
             switch (serviceType) {
                 case 'aws-s3':
-                    const awsS3Service = await window.electronAPI.config.getCloudServiceFull('aws-s3');
+                    const awsS3Service = await window.electronAPI.config.getCloudSettings('aws-s3');
                     return !!(awsS3Service && awsS3Service.enabled && awsS3Service.region && awsS3Service.bucket && 
                              awsS3Service.accessKey && awsS3Service.secretKey);
                 case 'azure-blob':
-                    const azureService = await window.electronAPI.config.getCloudServiceFull('azure-blob');
+                    const azureService = await window.electronAPI.config.getCloudSettings('azure-blob');
                     return !!(azureService && azureService.enabled && azureService.connectionString && azureService.containerName);
                 case 'gcp-storage':
-                    const gcpService = await window.electronAPI.config.getCloudServiceFull('gcp-storage');
+                    const gcpService = await window.electronAPI.config.getCloudSettings('gcp-storage');
                     return !!(gcpService && gcpService.enabled && gcpService.bucketName && gcpService.serviceAccountKey);
                 case 'minio':
-                    const minioService = await window.electronAPI.config.getCloudServiceFull('minio');
+                    const minioService = await window.electronAPI.config.getCloudSettings('minio');
                     return !!(minioService && minioService.enabled && minioService.endpoint && minioService.bucket && 
                              minioService.accessKey && minioService.secretKey);
                 case 'zentransfer':
@@ -777,7 +775,7 @@ export class ImportScreen {
             const tokenResult = await TokenManager.ensureValidToken();
             return tokenResult.valid;
         } catch (error) {
-            console.log('ZenTransfer authentication check failed:', error);
+            window.logger.info('ZenTransfer authentication check failed:', error);
             return false;
         }
     }
@@ -889,7 +887,7 @@ export class ImportScreen {
                 await window.electronAPI.config.set('importSettings.enableCloudUpload', this.elements.enableCloudUploadCheckbox.checked);
             }
 
-            console.log('Import settings saved to configuration system');
+            window.logger.info('Import settings saved to configuration system');
         } catch (error) {
             console.error('Failed to save import settings to configuration:', error);
         }
@@ -914,7 +912,7 @@ export class ImportScreen {
                         userCancelled = true;
                     }
                 } catch (error) {
-                    console.log('IPC not available, trying direct access');
+                    window.logger.info('IPC not available, trying direct access');
                     
                     const currentPath = this.getCurrentPath(type);
                     const path = prompt(`Enter ${type} directory path:`, currentPath || '');
@@ -982,7 +980,7 @@ export class ImportScreen {
                 this.savePath(type, selectedPath);
                 this.validateInputs();
                 this.saveAllSettings();
-                console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} directory selected: ${selectedPath}`);
+                window.logger.info(`${type.charAt(0).toUpperCase() + type.slice(1)} directory selected: ${selectedPath}`);
             }
             // If user cancelled, do nothing - keep existing path value
 
@@ -1043,7 +1041,7 @@ export class ImportScreen {
                     await window.electronAPI.config.set('importSettings.importBackupPath', path);
                     break;
             }
-            console.log(`Import ${type} path saved to configuration: ${path}`);
+            window.logger.info(`Import ${type} path saved to configuration: ${path}`);
         } catch (error) {
             console.error(`Failed to save import ${type} path to configuration:`, error);
         }
@@ -1282,7 +1280,7 @@ export class ImportScreen {
     async collectImportSettings() {
         // Get the current skipDuplicates setting from configuration
         const skipDuplicates = await window.electronAPI.config.get('preferences.skipDuplicates');
-        console.log('Import screen: collectImportSettings - skipDuplicates from configuration:', skipDuplicates);
+        window.logger.info('Import screen: collectImportSettings - skipDuplicates from configuration:', skipDuplicates);
         
         // Check if cloud upload is enabled
         const enableCloudUpload = this.elements.enableCloudUploadCheckbox?.checked || false;
@@ -1352,7 +1350,7 @@ export class ImportScreen {
                 await window.electronAPI.config.set('importSettings.dateFormat', settings.dateFormat);
             }
             
-            console.log('Import settings saved to configuration system');
+            window.logger.info('Import settings saved to configuration system');
         } catch (error) {
             console.error('Failed to save import settings to configuration:', error);
         }
@@ -1395,7 +1393,7 @@ export class ImportScreen {
      * @param {Object} data - Completion data from worker
      */
     handleImportCompleted(data) {
-        console.log('Import screen handling completion:', data);
+        window.logger.info('Import screen handling completion:', data);
         
         this.isImporting = false;
         this.importProgress.current = null;
@@ -1410,10 +1408,10 @@ export class ImportScreen {
             if (results.failedFiles > 0) {
                 this.addLogEntry(`${results.failedFiles} files failed to process`);
             }
-                            console.log(message);
+                            window.logger.info(message);
         } else {
             this.addLogEntry('Import process finished');
-                            console.log('Import completed!');
+                            window.logger.info('Import completed!');
         }
         
         this.updateProgressDisplay();
@@ -1453,7 +1451,7 @@ export class ImportScreen {
         this.switchMode(false);
 
         this.addLogEntry('Import cancelled by user');
-                        console.log('Import cancelled');
+                        window.logger.info('Import cancelled');
         this.updateProgressDisplay();
         
         // Clear log entries after a delay to allow user to see cancellation message

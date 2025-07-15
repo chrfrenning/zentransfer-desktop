@@ -14,7 +14,16 @@ const ZenTransferGlobals = {
     appVersion: app.getVersion(),
 
     // Server settings
-    serverBaseUrl: app.isDevelopmentMode ? SERVER_URLS.development : SERVER_URLS.production
+    serverBaseUrl: app.isDevelopmentMode ? SERVER_URLS.development : SERVER_URLS.production,
+
+    // urls
+    urls: {
+        support: 'https://zentransfer.io/support',
+        privacy: 'https://zentransfer.io/privacy-policy',
+        terms: 'https://zentransfer.io/terms-of-service',
+        download: 'https://zentransfer.io/download',
+        donate: 'https://zentransfer.io/blog/supporting-the-zentransfer-app',
+    }
 };
 
 module.exports = ZenTransferGlobals;

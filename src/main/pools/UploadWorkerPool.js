@@ -6,9 +6,10 @@
 
 const { BrowserWindow, app } = require('electron');
 const { Worker } = require('worker_threads');
-const path = require('path');
 const { UploadQueue } = require('../queues/UploadQueue.js');
 const { BackoffManager } = require('../services/BackoffManager.js');
+const path = require('path');
+const logger = require('../utils/logger.js');
 
 class UploadWorkerPool {
   constructor(poolSize = 3) {
@@ -43,7 +44,7 @@ class UploadWorkerPool {
       this.createWorker(i);
     }
     
-    console.log(`Upload worker pool initialized with ${poolSize} workers and SQLite queue`);
+    logger.info(`Upload worker pool initialized with ${poolSize} workers and SQLite queue`);
   }
   
   /**
@@ -60,7 +61,7 @@ class UploadWorkerPool {
       }
     }, 1000); // Check every second
     
-    console.log('Started upload queue processing timer');
+    logger.info('Started upload queue processing timer');
   }
   
   /**
@@ -70,7 +71,7 @@ class UploadWorkerPool {
     if (this.queueProcessingInterval) {
       clearInterval(this.queueProcessingInterval);
       this.queueProcessingInterval = null;
-      console.log('Stopped upload queue processing timer');
+      logger.info('Stopped upload queue processing timer');
     }
   }
   
@@ -87,7 +88,7 @@ class UploadWorkerPool {
     const readyFiles = this.uploadQueue.getReadyFiles(availableWorkers.length);
     if (readyFiles.length === 0) return;
     
-    console.log(`Processing upload queue: ${availableWorkers.length} available workers, ${readyFiles.length} ready files`);
+    logger.info(`Processing upload queue: ${availableWorkers.length} available workers, ${readyFiles.length} ready files`);
     
     // Start uploads for available workers
     for (let i = 0; i < Math.min(availableWorkers.length, readyFiles.length); i++) {
@@ -120,10 +121,10 @@ class UploadWorkerPool {
       if (this.configManager) {
         try {
           // Get cloud service configurations using config manager
-          const awsS3ServiceObj = this.configManager.getCloudService('aws-s3');
-          const azureServiceObj = this.configManager.getCloudService('azure-blob');
-          const gcpServiceObj = this.configManager.getCloudService('gcp-storage');
-          const minioServiceObj = this.configManager.getCloudService('minio');
+          const awsS3ServiceObj = this.configManager.getClou('aws-s3');
+          const azureServiceObj = this.configManager.getCloudSettings('azure-blob');
+          const gcpServiceObj = this.configManager.getCloudSettings('gcp-storage');
+          const minioServiceObj = this.configManager.getCloudSettings('minio');
           
           // Convert to full config objects
           const awsS3Service = awsS3ServiceObj ? awsS3ServiceObj.toConfig() : null;
@@ -170,7 +171,7 @@ class UploadWorkerPool {
             servicePreferences.minioPort = minioService.port;
           }
           
-          console.log('Service preferences loaded:', {
+          logger.info('Service preferences loaded:', {
             hasAWS: !!servicePreferences.awsS3Enabled,
             hasAzure: !!servicePreferences.azureEnabled,
             hasGCP: !!servicePreferences.gcpEnabled,
@@ -251,7 +252,7 @@ class UploadWorkerPool {
       sessionData: sessionData
     });
     
-    console.log(`Started upload: ${file.filename} (jobId: ${jobId}, fileId: ${file.id})`);
+    logger.info(`Started upload: ${file.filename} (jobId: ${jobId}, fileId: ${file.id})`);
     
     // Send progress update to renderer
     this.sendProgressUpdate({
@@ -267,9 +268,9 @@ class UploadWorkerPool {
   }
   
   createWorker(id) {
-    console.log(`Creating upload worker ${id}...`);
+    logger.info(`Creating upload worker ${id}...`);
     const workerPath = path.join(__dirname, '..', 'workers', 'UploadWorkerThread.js');
-    console.log(`Worker path: ${workerPath}`);
+    logger.info(`Worker path: ${workerPath}`);
     
     const worker = new Worker(workerPath, {
       workerData: { workerId: id }
@@ -285,7 +286,7 @@ class UploadWorkerPool {
     });
     
     worker.on('exit', (code) => {
-      console.log(`Upload worker ${id} exited with code ${code}`);
+      logger.info(`Upload worker ${id} exited with code ${code}`);
       if (code !== 0) {
         console.error(`Upload worker ${id} stopped with exit code ${code}`);
         // Recreate worker
@@ -302,7 +303,7 @@ class UploadWorkerPool {
       currentJob: null
     });
     
-    console.log(`Upload worker ${id} created successfully`);
+    logger.info(`Upload worker ${id} created successfully`);
   }
   
   /**
@@ -415,7 +416,7 @@ class UploadWorkerPool {
           this.uploadQueue.failUpload(job.file.id, message.error);
           this.backoffManager.onUploadFailure();
           
-          console.log(`Upload failed: ${job.file.filename} - ${message.error}`);
+          logger.info(`Upload failed: ${job.file.filename} - ${message.error}`);
           
           // Send error to renderer
           this.sendProgressUpdate({
@@ -431,7 +432,7 @@ class UploadWorkerPool {
           this.uploadQueue.completeUpload(job.file.id, message.result.finalUrl);
           this.backoffManager.onUploadSuccess();
           
-          console.log(`Upload completed: ${job.file.filename}`);
+          logger.info(`Upload completed: ${job.file.filename}`);
           
           // Send success to renderer
           this.sendProgressUpdate({
@@ -466,7 +467,7 @@ class UploadWorkerPool {
           this.uploadQueue.failUpload(job.file.id, `Worker error: ${error.message}`);
           this.backoffManager.onUploadFailure();
           
-          console.log(`Upload worker error for ${job.file.filename}:`, error);
+          logger.info(`Upload worker error for ${job.file.filename}:`, error);
           
           // Send error to renderer
           this.sendProgressUpdate({
@@ -562,7 +563,7 @@ class UploadWorkerPool {
   }
 
   cancelAllJobs() {
-    console.log('Cancelling all upload jobs...');
+    logger.info('Cancelling all upload jobs...');
     
     // Cancel all active jobs
     for (const [jobId, { workerInfo, job }] of this.activeJobs) {
@@ -591,7 +592,7 @@ class UploadWorkerPool {
     // Reset backoff (user action)
     this.backoffManager.reset();
     
-    console.log('All upload jobs cancelled');
+    logger.info('All upload jobs cancelled');
     
     // Send queue update
     this.sendQueueUpdate();

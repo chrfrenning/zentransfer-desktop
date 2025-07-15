@@ -30,7 +30,7 @@ export class DownloadManager {
                     this.handleDownloadUpdate(updateData);
                 });
                 
-                console.log('Download Manager: IPC initialized');
+                window.logger.info('Download Manager: IPC initialized');
             } else {
                 console.warn('Download Manager: IPC not available (not in Electron)');
             }
@@ -45,7 +45,7 @@ export class DownloadManager {
     handleDownloadUpdate(updateData) {
         const { type } = updateData;
         
-        console.log('Download Manager: Received update:', type, updateData);
+        window.logger.info('Download Manager: Received update:', type, updateData);
         
         switch (type) {
             case 'monitoring-check':
@@ -92,7 +92,7 @@ export class DownloadManager {
                 break;
                 
             default:
-                console.log('Download Manager: Unknown update type:', type);
+                window.logger.info('Download Manager: Unknown update type:', type);
         }
     }
 
@@ -109,12 +109,12 @@ export class DownloadManager {
         }
         
         try {
-            console.log('Download Manager: Starting monitoring...');
+            window.logger.info('Download Manager: Starting monitoring...');
             const result = await window.electronAPI.download.startMonitoring(downloadPath, lastSyncTime, authToken);
             
             if (result.success) {
                 this.isMonitoring = true;
-                console.log('Download Manager: Monitoring started successfully');
+                window.logger.info('Download Manager: Monitoring started successfully');
                 return result;
             } else {
                 throw new Error(result.error || 'Failed to start monitoring');
@@ -134,17 +134,17 @@ export class DownloadManager {
         }
         
         if (!this.isMonitoring) {
-            console.log('Download Manager: No monitoring in progress');
+            window.logger.info('Download Manager: No monitoring in progress');
             return;
         }
         
         try {
-            console.log('Download Manager: Stopping monitoring...');
+            window.logger.info('Download Manager: Stopping monitoring...');
             const result = await window.electronAPI.download.stopMonitoring();
             
             if (result.success) {
                 this.isMonitoring = false;
-                console.log('Download Manager: Monitoring stopped successfully');
+                window.logger.info('Download Manager: Monitoring stopped successfully');
                 return result;
             } else {
                 throw new Error(result.error || 'Failed to stop monitoring');
@@ -264,6 +264,6 @@ export class DownloadManager {
             onSyncTimeUpdate: null
         };
         
-        console.log('Download Manager: Destroyed');
+        window.logger.info('Download Manager: Destroyed');
     }
 } 

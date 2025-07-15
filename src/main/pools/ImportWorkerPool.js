@@ -7,6 +7,7 @@
 const { BrowserWindow } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
+const logger = require('../utils/logger.js');
 
 class ImportWorkerPool {
   constructor(poolSize = 3) {
@@ -17,16 +18,16 @@ class ImportWorkerPool {
     this.currentReject = null;
     
     this.createWorker()
-    console.log('Import worker manager initialized');
+    logger.info('Import worker manager initialized');
   }
   
   createWorker() {
     if (this.worker) {
-      console.log('Import worker already exists');
+      logger.info('Import worker already exists');
       return;
     }
     
-    console.log('Creating import worker...');
+    logger.info('Creating import worker...');
     const workerPath = path.join(__dirname, '../workers', 'ImportWorkerThread.js');
     
     this.worker = new Worker(workerPath, {
@@ -43,12 +44,12 @@ class ImportWorkerPool {
     });
     
     this.worker.on('exit', (code) => {
-      console.log(`Import worker exited with code ${code}`);
+      logger.info(`Import worker exited with code ${code}`);
       this.worker = null;
       this.isImporting = false;
     });
     
-    console.log('Import worker created successfully');
+    logger.info('Import worker created successfully');
   }
   
   async startImport(importSettings) {
@@ -71,16 +72,16 @@ class ImportWorkerPool {
   }
   
   stopImport() {
-    console.log(`Stopping import... isImporting: ${this.isImporting}, worker exists: ${!!this.worker}`);
+    logger.info(`Stopping import... isImporting: ${this.isImporting}, worker exists: ${!!this.worker}`);
     
     // Always send cancel message to worker if it exists, regardless of isImporting flag
     if (this.worker) {
-      console.log('Sending cancel-import message to worker');
+      logger.info('Sending cancel-import message to worker');
       this.worker.postMessage({
         type: 'cancel-import'
       });
     } else {
-      console.log('No worker to send cancel message to');
+      logger.info('No worker to send cancel message to');
     }
     
     // Don't set isImporting to false here - let the worker response handle it
@@ -89,7 +90,7 @@ class ImportWorkerPool {
   handleWorkerMessage(message) {
     const { type } = message;
     
-    console.log('Import worker message:', type);
+    logger.info('Import worker message:', type);
     
     if (type === 'progress' || type === 'log') {
       // Forward progress and log updates to renderer
@@ -136,7 +137,7 @@ class ImportWorkerPool {
   
   handleUploadReady(message) {
     const { filePaths, count, importSettings } = message;
-    console.log(`Import worker: ${count} files ready for upload`);
+    logger.info(`Import worker: ${count} files ready for upload`);
     
     // Determine which upload services are enabled
     const uploadServices = [];
@@ -161,7 +162,7 @@ class ImportWorkerPool {
       uploadServices.push({ type: 'minio', name: 'MinIO' });
     }
     
-    console.log(`Upload services enabled: ${uploadServices.map(s => s.name).join(', ')}`);
+    logger.info(`Upload services enabled: ${uploadServices.map(s => s.name).join(', ')}`);
     
     // Forward to renderer for upload manager integration
     this.sendImportUpdate({

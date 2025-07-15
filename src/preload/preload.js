@@ -12,6 +12,7 @@ const electronAPI = {
   app: {
     getVersion: () => ipcRenderer.invoke('get-app-version'),
     getIsDevelopmentMode: () => ipcRenderer.invoke('get-app-devmode'),
+    getServerUrl: () => ipcRenderer.invoke('get-server-url'),
     quit: () => ipcRenderer.invoke('app-quit'),
     
     // Enhanced logging API
@@ -25,6 +26,9 @@ const electronAPI = {
   config: {
     get: (section) => ipcRenderer.invoke('config-get', section),
     set: (section, value) => ipcRenderer.invoke('config-set', section, value),
+    getCloudSettings: (serviceType) => ipcRenderer.invoke('config-get-cloud-settings', serviceType),
+    updateCloudSettings: (serviceType, settings) => ipcRenderer.send('config-update-cloud-settings', serviceType, settings),
+    getUrls: () => ipcRenderer.invoke('config-get-urls')
   },
 
   auth: {
@@ -35,6 +39,12 @@ const electronAPI = {
     finalizeLogin: (otp) => ipcRenderer.invoke('auth-finalize-login', otp),
     validateConnection: () => ipcRenderer.invoke('auth-validate-connection'),
     logout: () => ipcRenderer.invoke('auth-logout'),
+  },
+
+  clouds: {
+    getServices: () => ipcRenderer.invoke('clouds-get-services'),
+    getEnabledServices: () => ipcRenderer.invoke('clouds-get-enabled-services'),
+    getAwsRegions: () => ipcRenderer.invoke('clouds-get-aws-regions')
   },
 
   // Dialog APIs

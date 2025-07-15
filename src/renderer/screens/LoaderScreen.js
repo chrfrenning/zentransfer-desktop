@@ -3,7 +3,6 @@
  * Shows the ZenTransfer logo and performs version checking
  */
 
-import { config } from '../config/app-config.js';
 import { UIComponents } from '../components/ui-components.js';
 
 export class LoaderScreen {
@@ -15,6 +14,7 @@ export class LoaderScreen {
         this.minDisplayTime = 3000; // Minimum 3 seconds
         
         this.initializeElements();
+        this.appVersion = window.electronAPI.app.getVersion();
     }
 
     /**
@@ -66,7 +66,7 @@ export class LoaderScreen {
 
                 <!-- Version Info -->
                 <div class="mt-8 text-purple-300 text-xs">
-                    Version ${config.APP_VERSION}
+                    Version ${this.appVersion}
                 </div>
             </div>
         `;
@@ -132,7 +132,7 @@ export class LoaderScreen {
                 platform: platform
             };
 
-            console.log('Performing version check with payload:', payload);
+            window.logger.info('Performing version check with payload:', payload);
 
             // Make API call to version check endpoint
             const response = await fetch(`${config.SERVER_BASE_URL}/api/versioncheck`, {
@@ -148,7 +148,7 @@ export class LoaderScreen {
             }
 
             const result = await response.json();
-            console.log('Version check result:', result);
+            window.logger.info('Version check result:', result);
 
             // Handle the response based on status
             await this.handleVersionCheckResult(result);

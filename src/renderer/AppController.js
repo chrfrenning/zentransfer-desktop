@@ -2,23 +2,18 @@
  * Application Controller
  * Main controller that orchestrates all modules and manages app state
  */
+window.logger.debug("In AppController.js")
 
-import { AuthManager } from './auth/auth-manager.js';
-import { UploadManager } from './upload/upload-manager.js';
-import { UIComponents } from './components/ui-components.js';
-import { config } from './config/app-config.js';
-import { ScreenManager } from './screens/screen-manager.js';
+import { AuthenticationBridge } from './bridges/AuthenticationBridge.js';
+window.logger.debug('AuthenticationBridge loaded');
 
-import { logger } from './logger.js';
+import { ScreenManager } from './screens/ScreenManager.js';
+window.logger.debug('ScreenManager loaded');
 
-export class AppController {
+class AppController {
     constructor() {
-        this.authManager = new AuthManager();
-        this.uploadManager = new UploadManager();
-
         this.currentTab = 'import';
         this.isInitialized = false;
-        
         this.initializeApp();
     }
 
@@ -28,25 +23,16 @@ export class AppController {
     async initializeApp() {
         try {
             // Initialize version from main process BEFORE version check
-            logger.info('Initializing ZenTransfer app...');
+            window.logger.info('Initializing ZenTransfer Renderer...');
             const result = await window.electronAPI.app.getVersion();
-            logger.info('ZenTransfer renderer initialized', { version: result });
-            config.setVersion(result);
+            window.logger.info(`We're good to go, version: ${result}, type of result ${typeof result}`);
 
-            // Get the configuration from the main process
-            const inheritedConfig = await window.electronAPI.app.getConfig();
-            logger.info('AppController: Configuration received from main process', { config: config });
-            config.APP_NAME = inheritedConfig.APP_NAME;
-            config.CLIENT_ID = inheritedConfig.CLIENT_ID;
-            config.SERVER_BASE_URL = inheritedConfig.serverBaseUrl;
-            config.IS_DEVELOPMENT = inheritedConfig.isDevelopment;
-            
             // Initialize screen manager
             this.screenManager = new ScreenManager(this.authManager, this.uploadManager, this);
-            
+
             // Show loader screen and perform version check
             const shouldProceed = await this.screenManager.showLoaderAndCheckVersion();
-            
+
             if (!shouldProceed) {
                 logger.info('App initialization stopped due to version check failure');
                 // Exit the app if in Electron environment
@@ -61,7 +47,7 @@ export class AppController {
                 }
                 return;
             }
-            
+
             // Set up authentication state change handler
             logger.info('AppController: Setting up auth state change callback');
             this.authManager.setAuthStateChangeCallback((state) => {
@@ -84,7 +70,7 @@ export class AppController {
 
         } catch (error) {
             logger.error('App initialization failed', { error });
-                            console.error('Failed to initialize app. Please refresh the page.');
+            console.error('Failed to initialize app. Please refresh the page.');
         }
     }
 
@@ -97,9 +83,9 @@ export class AppController {
 
         // Log messages for certain states
         if (state.status === 'otp_required' && state.message) {
-            console.log(state.message);
+            window.logger.info(state.message);
         } else if (state.status === 'authenticated' && state.message) {
-            console.log(state.message);
+            window.logger.info(state.message);
         }
 
         // Handle upload manager auth state changes
@@ -119,18 +105,18 @@ export class AppController {
 
         // External link handling
         this.setupExternalLinks();
-        
+
         // UI activity detection for download backoff reset
         this.setupUIActivityDetection();
     }
-    
+
     /**
      * Setup UI activity detection to reset download polling backoff
      */
     setupUIActivityDetection() {
         let lastActivitySignal = 0;
         const throttleDelay = 5000; // Only signal every 5 seconds max
-        
+
         const signalActivity = () => {
             const now = Date.now();
             if (now - lastActivitySignal > throttleDelay) {
@@ -143,13 +129,13 @@ export class AppController {
                 }
             }
         };
-        
+
         // Listen for mouse and keyboard activity
         document.addEventListener('mousemove', signalActivity, { passive: true });
         document.addEventListener('click', signalActivity, { passive: true });
         document.addEventListener('keydown', signalActivity, { passive: true });
         document.addEventListener('scroll', signalActivity, { passive: true });
-        
+
         logger.info('UI activity detection setup for download backoff reset');
     }
 
