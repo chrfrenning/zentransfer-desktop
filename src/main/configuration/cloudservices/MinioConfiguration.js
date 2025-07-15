@@ -1,10 +1,10 @@
-const { CloudService } = require('./cloud-service.js');
+const { CloudServiceConfiguration } = require('./CloudServiceConfiguration.js');
 
 /**
  * MinIO Cloud Service
  * Handles MinIO (S3-compatible) specific configuration and validation
  */
-class MinioService extends CloudService {
+class MinioConfiguration extends CloudServiceConfiguration {
     constructor() {
         super('minio');
         this.endpoint = '';
@@ -111,4 +111,4 @@ class MinioService extends CloudService {
     }
 }
 
-module.exports = { MinioService }; 
+module.exports = { MinioConfiguration }; 

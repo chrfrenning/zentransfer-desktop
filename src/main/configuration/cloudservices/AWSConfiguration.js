@@ -1,10 +1,10 @@
-const { CloudService } = require('./cloud-service.js');
+const { CloudServiceConfiguration } = require('./CloudServiceConfiguration.js');
 
 /**
  * AWS S3 Cloud Service
  * Handles AWS S3 specific configuration and validation
  */
-class AwsS3Service extends CloudService {
+class AWSConfiguration extends CloudServiceConfiguration {
     constructor() {
         super('aws-s3');
         this.region = '';
@@ -66,4 +66,4 @@ class AwsS3Service extends CloudService {
     }
 }
 
-module.exports = { AwsS3Service }; 
+module.exports = { AWSConfiguration }; 

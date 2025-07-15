@@ -5,8 +5,9 @@
  */
 
 const { BrowserWindow } = require('electron');
+const logger = require('../../utils/Logger.js');
 
-class MainTokenManager {
+class TokenManager {
     constructor(configManager, authService) {
         this.configManager = configManager;
         this.authService = authService;
@@ -21,8 +22,13 @@ class MainTokenManager {
             maxRetries: 3,
             retryDelay: 5000 // 5 seconds
         };
+
+        this.performTokenRefresh().then((token) => {
+            logger.info('MainTokenManager: Token refreshed successfully');
+            this.startTokenRefreshTimer();
+        });
         
-        console.log('MainTokenManager initialized');
+        logger.info('MainTokenManager initialized');
     }
     
     /**
@@ -30,44 +36,44 @@ class MainTokenManager {
      * @returns {Promise<string|null>} Valid token or null
      */
     async getValidToken() {
-        console.log('MainTokenManager: Getting valid token...');
+        logger.info('MainTokenManager: Getting valid token...');
         
         const token = await this.getToken();
         if (!token) {
-            console.log('MainTokenManager: No token found in config');
+            logger.info('MainTokenManager: No token found in config');
             return null;
         }
         
-        console.log('MainTokenManager: Token found, checking validity...');
+        logger.info('MainTokenManager: Token found, checking validity...');
         
         // Check if token is expired
         if (this.isTokenExpired(token)) {
-            console.log('MainTokenManager: Token is expired, attempting refresh...');
+            logger.info('MainTokenManager: Token is expired, attempting refresh...');
             const refreshed = await this.performTokenRefresh();
             if (refreshed) {
-                console.log('MainTokenManager: Token refreshed successfully');
+                logger.info('MainTokenManager: Token refreshed successfully');
                 return refreshed;
             } else {
-                console.log('MainTokenManager: Token refresh failed, returning null');
+                logger.info('MainTokenManager: Token refresh failed, returning null');
                 return null;
             }
         }
         
         // Check if token is expiring soon and needs refresh
         if (this.isTokenExpiringSoon(token, 10)) {
-            console.log('MainTokenManager: Token expiring soon, attempting refresh...');
+            logger.info('MainTokenManager: Token expiring soon, attempting refresh...');
             const refreshed = await this.performTokenRefresh();
             if (refreshed) {
-                console.log('MainTokenManager: Token refreshed successfully');
+                logger.info('MainTokenManager: Token refreshed successfully');
                 return refreshed;
             } else {
-                console.log('MainTokenManager: Token refresh failed, but current token still valid, returning current token');
+                logger.info('MainTokenManager: Token refresh failed, but current token still valid, returning current token');
                 // If refresh fails but current token is still valid, return it
                 return token;
             }
         }
         
-        console.log('MainTokenManager: Token is valid, returning current token');
+        logger.info('MainTokenManager: Token is valid, returning current token');
         return token;
     }
     
@@ -119,15 +125,15 @@ class MainTokenManager {
                 const expiresAt = new Date(tokenInfo.expires_at);
                 const now = new Date();
                 const timeUntilExpiry = expiresAt - now;
-                console.log(`MainTokenManager: Token expires at ${expiresAt.toISOString()}, time until expiry: ${timeUntilExpiry}ms`);
+                logger.info(`MainTokenManager: Token expires at ${expiresAt.toISOString()}, time until expiry: ${timeUntilExpiry}ms`);
             }
         } catch (error) {
-            console.log('MainTokenManager: Could not decode token for expiration info:', error.message);
+            logger.info('MainTokenManager: Could not decode token for expiration info:', error.message);
         }
         
         try {
-            console.log('MainTokenManager: Calling auth service to refresh token...');
-            console.log('MainTokenManager: Token being sent for refresh:', currentToken ? `${currentToken.substring(0, 20)}...` : 'null');
+            logger.info('MainTokenManager: Calling auth service to refresh token...');
+            logger.info('MainTokenManager: Token being sent for refresh:', currentToken ? `${currentToken.substring(0, 20)}...` : 'null');
             
             const refreshResult = await this.authService.refreshToken(currentToken);
             
@@ -136,20 +142,20 @@ class MainTokenManager {
                 const currentEmail = await this.getEmail();
                 await this.saveToken(refreshResult.token, currentEmail);
                 
-                console.log('MainTokenManager: Token refreshed successfully');
+                logger.info('MainTokenManager: Token refreshed successfully');
                 this.notifyRendererTokenUpdated(refreshResult.token);
                 
                 return refreshResult.token;
             } else {
-                console.log('MainTokenManager: Token refresh failed:', refreshResult.error);
+                logger.info('MainTokenManager: Token refresh failed:', refreshResult.error);
                 
                 // Check if this is a server error (5xx) vs authentication error (4xx)
                 if (refreshResult.error && refreshResult.error.includes('HTTP error 5')) {
-                    console.log('MainTokenManager: Server error during refresh, keeping current token');
+                    logger.info('MainTokenManager: Server error during refresh, keeping current token');
                     // Don't clear token on server errors - server might be temporarily down
                     return null;
                 } else {
-                    console.log('MainTokenManager: Authentication error during refresh, clearing token');
+                    logger.info('MainTokenManager: Authentication error during refresh, clearing token');
                     // Clear token only on authentication errors (4xx)
                     await this.clearToken();
                     this.notifyRendererTokenCleared();
@@ -161,11 +167,11 @@ class MainTokenManager {
             
             // Check if this is a network error vs authentication error
             if (error.message.includes('fetch') || error.message.includes('network') || error.message.includes('500')) {
-                console.log('MainTokenManager: Network/server error during refresh, keeping current token');
+                logger.info('MainTokenManager: Network/server error during refresh, keeping current token');
                 // Don't clear token on network/server errors
                 return null;
             } else {
-                console.log('MainTokenManager: Authentication error during refresh, clearing token');
+                logger.info('MainTokenManager: Authentication error during refresh, clearing token');
                 // Clear token only on authentication errors
                 await this.clearToken();
                 this.notifyRendererTokenCleared();
@@ -181,16 +187,16 @@ class MainTokenManager {
      */
     async validateTokenWithServer(token) {
         try {
-            console.log('MainTokenManager: Validating token with server...');
-            console.log('MainTokenManager: Token being validated:', token ? `${token.substring(0, 20)}...` : 'null');
+            logger.info('MainTokenManager: Validating token with server...');
+            logger.info('MainTokenManager: Token being validated:', token ? `${token.substring(0, 20)}...` : 'null');
             
             const isValid = await this.authService.verifyToken(token);
             
             if (isValid) {
-                console.log('MainTokenManager: Token is valid on server');
+                logger.info('MainTokenManager: Token is valid on server');
                 return true;
             } else {
-                console.log('MainTokenManager: Token is invalid on server, attempting refresh...');
+                logger.info('MainTokenManager: Token is invalid on server, attempting refresh...');
                 
                 // Try to refresh the token
                 const newToken = await this.ensureValidToken();
@@ -210,7 +216,7 @@ class MainTokenManager {
      */
     async saveToken(token, userEmail = null) {
         try {
-            console.log('MainTokenManager: Saving token and email to config...');
+            logger.info('MainTokenManager: Saving token and email to config...');
             
             // Log token expiration details when saving
             try {
@@ -219,7 +225,7 @@ class MainTokenManager {
                     const expiresAt = new Date(tokenInfo.expires_at);
                     const now = new Date();
                     const timeUntilExpiry = expiresAt - now;
-                    console.log(`MainTokenManager: Saving token that expires at ${expiresAt.toISOString()}, time until expiry: ${timeUntilExpiry}ms`);
+                    logger.info(`MainTokenManager: Saving token that expires at ${expiresAt.toISOString()}, time until expiry: ${timeUntilExpiry}ms`);
                     
                     if (timeUntilExpiry <= 0) {
                         console.warn('MainTokenManager: WARNING - Token is already expired!');
@@ -228,23 +234,23 @@ class MainTokenManager {
                     }
                 }
             } catch (error) {
-                console.log('MainTokenManager: Could not decode token for expiration info:', error.message);
+                logger.info('MainTokenManager: Could not decode token for expiration info:', error.message);
             }
             
             this.configManager.set('authToken', token);
             
             if (userEmail) {
                 this.configManager.set('email', userEmail);
-                console.log('MainTokenManager: Email saved:', userEmail);
+                logger.info('MainTokenManager: Email saved:', userEmail);
             }
             
             this.configManager.saveConfiguration();
-            console.log('MainTokenManager: Token saved successfully to config and persisted');
+            logger.info('MainTokenManager: Token saved successfully to config and persisted');
             
             // Verify the token was saved correctly
             const savedToken = this.configManager.get('authToken');
             if (savedToken === token) {
-                console.log('MainTokenManager: Token verification successful');
+                logger.info('MainTokenManager: Token verification successful');
             } else {
                 console.error('MainTokenManager: Token verification failed - saved token does not match');
             }
@@ -264,11 +270,11 @@ class MainTokenManager {
         try {
             const token = this.configManager.get('authToken');
             if (token) {
-                console.log('MainTokenManager: Retrieved token from config:', 'present');
-                console.log('MainTokenManager: Token preview:', token ? `${token.substring(0, 20)}...` : 'null');
+                logger.info('MainTokenManager: Retrieved token from config:', 'present');
+                logger.info('MainTokenManager: Token preview:', token ? `${token.substring(0, 20)}...` : 'null');
                 return token;
             } else {
-                console.log('MainTokenManager: Retrieved token from config:', 'null');
+                logger.info('MainTokenManager: Retrieved token from config:', 'null');
                 return null;
             }
         } catch (error) {
@@ -298,7 +304,7 @@ class MainTokenManager {
         try {
             this.configManager.set('authToken', '');
             this.configManager.saveConfiguration();
-            console.log('Token cleared from config (email preserved)');
+            logger.info('Token cleared from config (email preserved)');
         } catch (error) {
             console.error('Failed to clear token from config:', error);
         }
@@ -313,7 +319,7 @@ class MainTokenManager {
             this.configManager.set('authToken', '');
             this.configManager.set('email', '');
             this.configManager.saveConfiguration();
-            console.log('Token and email cleared from config');
+            logger.info('Token and email cleared from config');
         } catch (error) {
             console.error('Failed to clear token and email from config:', error);
         }
@@ -438,14 +444,14 @@ class MainTokenManager {
             try {
                 const token = await this.getToken();
                 if (!token) {
-                    console.log('No token found, stopping refresh timer');
+                    logger.info('No token found, stopping refresh timer');
                     this.stopTokenRefreshTimer();
                     return;
                 }
                 
                 // Check if token needs refresh
                 if (this.isTokenExpiringSoon(token, 10)) {
-                    console.log('Token expiring soon, attempting background refresh...');
+                    logger.info('Token expiring soon, attempting background refresh...');
                     await this.ensureValidToken();
                 }
             } catch (error) {
@@ -453,7 +459,7 @@ class MainTokenManager {
             }
         }, this.refreshConfig.checkInterval);
         
-        console.log('Token refresh timer started');
+        logger.info('Token refresh timer started');
     }
     
     /**
@@ -463,7 +469,7 @@ class MainTokenManager {
         if (this.refreshTimer) {
             clearInterval(this.refreshTimer);
             this.refreshTimer = null;
-            console.log('Token refresh timer stopped');
+            logger.info('Token refresh timer stopped');
         }
     }
     
@@ -498,4 +504,4 @@ class MainTokenManager {
     }
 }
 
-module.exports = { MainTokenManager }; 
+module.exports = { TokenManager }; 

@@ -4,10 +4,13 @@
  * Moved from renderer LoginAPI for better security
  */
 
-const sharedConfig = require('../../shared/config.js');
+const sharedConfig = require('../../configuration/Globals.js');
+const { AuthenticationServiceBase } = require('./AuthenticationServiceBase.js');
 
-class MainAuthService {
+class ZenTransferAuthenticationService extends AuthenticationServiceBase {
     constructor(configManager) {
+        super();
+        
         this.configManager = configManager;
         this.serverBaseUrl = sharedConfig.serverBaseUrl;
         this.appName = sharedConfig.appName;
@@ -195,41 +198,15 @@ class MainAuthService {
     }
     
     /**
-     * Get current server configuration
-     * @returns {Object} Server configuration
-     */
-    getServerConfig() {
-        return {
-            serverBaseUrl: this.serverBaseUrl,
-            appName: this.appName,
-            appVersion: this.appVersion,
-            clientId: this.clientId
-        };
-    }
-    
-    /**
-     * Update server configuration (useful for testing different environments)
-     * @param {Object} config - New configuration
-     */
-    updateServerConfig(config) {
-        if (config.serverBaseUrl) this.serverBaseUrl = config.serverBaseUrl;
-        if (config.appName) this.appName = config.appName;
-        if (config.appVersion) this.appVersion = config.appVersion;
-        if (config.clientId) this.clientId = config.clientId;
-        
-        console.log(`Auth service configuration updated: ${this.serverBaseUrl}`);
-    }
-    
-    /**
      * Test server connectivity
      * @returns {Promise<boolean>} True if server is reachable
      */
     async testConnection() {
         try {
-            const response = await fetch(`${this.serverBaseUrl}/health`, {
-                method: 'GET',
+            const response = await fetch(`${this.serverBaseUrl}/`, {
+                method: 'HEAD',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Accept': 'text/html',
                 }
             });
             
@@ -243,4 +220,4 @@ class MainAuthService {
     }
 }
 
-module.exports = { MainAuthService }; 
+module.exports = { ZenTransferAuthenticationService }; 

@@ -1,13 +1,14 @@
-const { AwsS3Service } = require('../cloud-services/aws-s3-service.js');
-const { AzureBlobService } = require('../cloud-services/azure-blob-service.js');
-const { GcpStorageService } = require('../cloud-services/gcp-storage-service.js');
-const { MinioService } = require('../cloud-services/minio-service.js');
+const { AWSConfiguration } = require('./cloudservices/AWSConfiguration.js');
+const { AzureConfiguration } = require('./cloudservices/AzureConfiguration.js');
+const { GoogleConfiguration } = require('./cloudservices/GoogleConfiguration.js');
+const { MinioConfiguration } = require('./cloudservices/MinioConfiguration.js');
+const { UUIDGenerator } = require('../utils/UUIDGenerator.js');
 
 /**
  * SharedConfiguration class
  * Manages all application configuration including cloud services
  */
-class SharedConfiguration {
+class ConfigurationData {
     constructor() {
         // User preferences
         this.preferences = {
@@ -46,14 +47,14 @@ class SharedConfiguration {
         // Authentication
         this.authToken = '';
         this.email = '';
-        this.deviceId = '';
+        this.deviceId = UUIDGenerator.generateGUID();
 
         // Cloud services
         this.cloudServices = {
-            'aws-s3': new AwsS3Service(),
-            'azure-blob': new AzureBlobService(),
-            'gcp-storage': new GcpStorageService(),
-            'minio': new MinioService()
+            'aws-s3': new AWSConfiguration(),
+            'azure-blob': new AzureConfiguration(),
+            'gcp-storage': new GoogleConfiguration(),
+            'minio': new MinioConfiguration()
         };
 
         // Import settings (consolidated all import-related settings here)
@@ -82,8 +83,20 @@ class SharedConfiguration {
 
         // Upload settings (for upload screen preferences)
         this.uploadSettings = {
-            lastSelectedService: 'zentransfer' // Default to ZenTransfer
-            
+            lastSelectedService: 'zentransfer', // Default to ZenTransfer
+            uploadBackoff: {
+                initialInterval: 1000,    // 1 second
+                maxInterval: 300000,      // 5 minutes
+                multiplier: 2.0,          // Double each time
+                resetOnSuccess: true
+            }
+        };
+
+        // Worker pools
+        this.workerPools = {
+            uploadWorkerPoolSize: 3,
+            importWorkerPoolSize: 3,
+            downloadWorkerPoolSize: 3
         };
     }
 
@@ -128,7 +141,7 @@ class SharedConfiguration {
         
         this.authToken = config.authToken || '';
         this.email = config.email || '';
-        this.deviceId = config.deviceId || '';
+        this.deviceId = config.deviceId || this.deviceId || UUIDGenerator.generateGUID();
 
         // Load import settings with migration support
         let importSettings = { ...this.importSettings };
@@ -230,4 +243,4 @@ class SharedConfiguration {
     }
 }
 
-module.exports = { SharedConfiguration }; 
+module.exports = { ConfigurationData };

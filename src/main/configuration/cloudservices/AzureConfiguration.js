@@ -1,10 +1,10 @@
-const { CloudService } = require('./cloud-service.js');
+const { CloudServiceConfiguration } = require('./CloudServiceConfiguration.js');
 
 /**
  * Azure Blob Storage Cloud Service
  * Handles Azure Blob Storage specific configuration and validation
  */
-class AzureBlobService extends CloudService {
+class AzureConfiguration extends CloudServiceConfiguration {
     constructor() {
         super('azure-blob');
         this.connectionString = '';
@@ -55,4 +55,4 @@ class AzureBlobService extends CloudService {
     }
 }
 
-module.exports = { AzureBlobService }; 
+module.exports = { AzureConfiguration }; 

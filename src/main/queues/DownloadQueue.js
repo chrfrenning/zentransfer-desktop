@@ -6,43 +6,20 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
-const { getConfig } = require('../app/main-config-setup.js');
 
 class DownloadQueue {
     constructor() {
-        this.databasePath = null;  // Will be set in initialize()
         this.db = null;
+        this.databasePath = null;
         this.isInitialized = false;
+
+        // we need access to the configuration
+        this.config = app.configurationManager.get('downloadSettings.downloadQueue');
         
         // Prepared statements for performance
         this.statements = {};
-        
-        // Default configuration (can be overridden by config)
-        this.config = {
-            maxRetries: 5,
-            initialRetryDelay: 1000,        // 1 second
-            maxRetryDelay: 300000,          // 5 minutes
-            retryBackoffMultiplier: 2.0,
-            maxConcurrentDownloads: 3,
-            retryOn404: false
-        };
-        
-        this.loadConfiguration();
     }
     
-    /**
-     * Load configuration from config system
-     */
-    loadConfiguration() {
-        try {
-            const downloadSettings = getConfig('downloadSettings');
-            if (downloadSettings && downloadSettings.downloadQueue) {
-                this.config = { ...this.config, ...downloadSettings.downloadQueue };
-            }
-        } catch (error) {
-            console.warn('Failed to load download queue configuration, using defaults:', error);
-        }
-    }
     
     /**
      * Initialize the database and create tables
@@ -51,18 +28,8 @@ class DownloadQueue {
         if (this.isInitialized) return;
         
         try {
-            // Use provided path or generate one based on server hostname
-            if (!this.databasePath) {
-                const hostname = configManager.getHostname();
-                const serverConfigPath = path.join(configManager.userDataPath, 'Configuration', hostname);
-                this.databasePath = path.join(serverConfigPath, 'download-queue.db');
-            }
-            
-            // Ensure directory exists
-            const dbDir = path.dirname(this.databasePath);
-            if (!fs.existsSync(dbDir)) {
-                fs.mkdirSync(dbDir, { recursive: true });
-            }
+            // Get the database path from the configuration manager
+            this.databasePath = path.join(app.configurationManager.getConfigDirectory(), 'download-queue.db');
             
             // Open database
             this.db = new Database(this.databasePath);
@@ -407,13 +374,6 @@ class DownloadQueue {
             this.db = null;
             this.isInitialized = false;
         }
-    }
-    
-    /**
-     * Get database path
-     */
-    getDatabasePath() {
-        return this.databasePath;
     }
 }
 

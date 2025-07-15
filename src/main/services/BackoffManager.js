@@ -3,35 +3,23 @@
  * Manages global exponential backoff for upload retries
  */
 
-class UploadBackoffManager {
-    constructor() {
-        this.loadBackoffConfiguration();
+const logger = require('../utils/Logger.js');
 
+class BackoffManager {
+    constructor(initialInterval, maxInterval, multiplier, resetOnSuccess) {
+        this.backoffConfig = {
+            initialInterval: initialInterval,
+            maxInterval: maxInterval,
+            multiplier: multiplier,
+            resetOnSuccess: resetOnSuccess
+        };
+        
         this.lastFailureTime = 0;
         this.consecutiveFailures = 0;
         this.currentBackoffInterval = this.backoffConfig.initialInterval;
     }
     
-    /**
-     * Load backoff configuration from config system
-     */
-    loadBackoffConfiguration() {
-        try {
-            const { getConfig } = require('../app/main-config-setup.js');
-            const preferences = getConfig('preferences');
-            if (preferences && preferences.uploadBackoff) {
-                this.backoffConfig = { ...preferences.uploadBackoff };
-            }
-        } catch (error) {
-            console.warn('Failed to load upload backoff configuration, using defaults:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Called when an upload fails
-     */
-    onUploadFailure() {
+    onFailure() {
         this.consecutiveFailures++;
         this.lastFailureTime = Date.now();
         
@@ -41,22 +29,16 @@ class UploadBackoffManager {
             this.backoffConfig.maxInterval
         );
         
-        console.log(`Upload failure #${this.consecutiveFailures}, backoff: ${this.currentBackoffInterval}ms`);
+        logger.warn(`Upload failure #${this.consecutiveFailures}, backoff: ${this.currentBackoffInterval}ms`);
     }
     
-    /**
-     * Called when an upload succeeds
-     */
-    onUploadSuccess() {
+    onSuccess() {
         if (this.backoffConfig.resetOnSuccess && this.consecutiveFailures > 0) {
-            console.log('Upload success - resetting backoff');
+            logger.info('Success - resetting backoff');
             this.reset();
         }
     }
     
-    /**
-     * Check if we're currently in backoff period
-     */
     isInBackoff() {
         if (this.consecutiveFailures === 0) return false;
         
@@ -64,9 +46,6 @@ class UploadBackoffManager {
         return timeSinceLastFailure < this.currentBackoffInterval;
     }
     
-    /**
-     * Get time remaining in current backoff period
-     */
     getBackoffTimeRemaining() {
         if (!this.isInBackoff()) return 0;
         
@@ -74,22 +53,12 @@ class UploadBackoffManager {
         return Math.max(0, this.currentBackoffInterval - timeSinceLastFailure);
     }
     
-    /**
-     * Reset backoff state
-     */
     reset() {
         this.consecutiveFailures = 0;
         this.lastFailureTime = 0;
         this.currentBackoffInterval = this.backoffConfig.initialInterval;
-        console.log('Upload backoff reset');
-    }
-    
-    /**
-     * Manually trigger backoff reset (e.g., when user manually retries)
-     */
-    forceReset() {
-        console.log('Upload backoff force reset by user action');
-        this.reset();
+        
+        logger.info('Upload backoff reset');
     }
     
     /**
@@ -106,4 +75,4 @@ class UploadBackoffManager {
     }
 }
 
-module.exports = { UploadBackoffManager }; 
+module.exports = { BackoffManager }; 

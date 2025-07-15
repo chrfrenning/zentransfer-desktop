@@ -259,47 +259,7 @@ export class UploadQueueManager {
         }
     }
     
-    /**
-     * Retry failed uploads
-     */
-    async retryFailedUploads() {
-        if (!this.isInitialized) {
-            throw new Error('Upload queue manager not initialized');
-        }
-        
-        try {
-            const result = await window.electronAPI.upload.retryFailed();
-            if (!result.success) {
-                throw new Error(result.error);
-            }
-            
-            return result.retriedCount || 0;
-        } catch (error) {
-            console.error('Failed to retry failed uploads:', error);
-            throw error;
-        }
-    }
-    
-    /**
-     * Clear completed uploads
-     */
-    async clearCompleted() {
-        if (!this.isInitialized) {
-            throw new Error('Upload queue manager not initialized');
-        }
-        
-        try {
-            const result = await window.electronAPI.upload.clearCompleted();
-            if (!result.success) {
-                throw new Error(result.error);
-            }
-            
-            return result;
-        } catch (error) {
-            console.error('Failed to clear completed uploads:', error);
-            throw error;
-        }
-    }
+
     
     /**
      * Cancel all active uploads

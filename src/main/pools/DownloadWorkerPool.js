@@ -9,13 +9,13 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 
 // Import shared configuration
-const sharedConfig = require('../../shared/config.js');
-const { DownloadQueue } = require('../services/download-queue.js');
+const sharedConfig = require('../configuration/Globals.js');
+const { DownloadQueue } = require('../queues/DownloadQueue.js');
 
 const getConfig = () => sharedConfig;
 
-class DownloadWorkerManager {
-  constructor(mainTokenManager) {
+class DownloadWorkerPool {
+  constructor(poolSize = 3) {
     this.workers = [];
     this.activeJobs = new Map(); // Currently downloading files
     this.jobIdCounter = 0;
@@ -26,7 +26,7 @@ class DownloadWorkerManager {
     this.lastSyncTime = null;
     this.latestDownloadedFileTime = null;
     this.downloadPath = null;
-    this.mainTokenManager = mainTokenManager;
+    this.mainTokenManager = app.tokenManager;
     
     // Exponential backoff for server polling
     this.lastServerCheckTime = 0;
@@ -82,17 +82,7 @@ class DownloadWorkerManager {
    */
   createWorkers() {
     // Get worker count from config or default to 3
-    let workerCount = 3;
-    try {
-      const downloadSettings = require('../app/main-config-setup.js').getConfig('downloadSettings');
-      if (downloadSettings && downloadSettings.downloadQueue) {
-        workerCount = downloadSettings.downloadQueue.maxConcurrentDownloads || 3;
-      }
-    } catch (error) {
-      console.warn('Failed to get worker count from config, using default:', error);
-    }
-    
-    for (let i = 0; i < workerCount; i++) {
+    for (let i = 0; i < this.poolSize; i++) {
       this.createWorker(i);
     }
     
@@ -748,4 +738,4 @@ class DownloadWorkerManager {
   }
 }
 
-module.exports = { DownloadWorkerManager }; 
+module.exports = { DownloadWorkerManager: DownloadWorkerPool }; 

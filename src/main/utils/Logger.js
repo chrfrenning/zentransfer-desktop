@@ -1,3 +1,4 @@
+const { app } = require('electron');
 const log = require('electron-log');
 const path = require('path');
 const fs = require('fs');
@@ -11,17 +12,8 @@ function setupLogger() {
   }
 
   try {
-    // Check if we're in the main process (has access to app)
-    let app;
-    try {
-      app = require('electron').app;
-    } catch (error) {
-      // We're in a renderer process or worker, app might not be available
-      app = null;
-    }
-
     // Set log levels based on environment
-    const isDevelopment = process.env.NODE_ENV === 'development';
+    const isDevelopment = app.isDevelopmentMode;
     log.transports.console.level = isDevelopment ? 'debug' : 'info';
     log.transports.file.level = 'debug';
 
@@ -29,22 +21,20 @@ function setupLogger() {
     log.transports.file.maxSize = 10 * 1024 * 1024; // 10MB max file size
     
     // Set custom log file location in Logs directory (peer to Configuration)
-    if (app) {
-      const userDataPath = app.getPath('userData');
-      const logDir = path.join(userDataPath, 'Logs');
-      const logPath = path.join(logDir, 'zentransfer.log');
-      
-      // Ensure Logs directory exists
-      try {
-        if (!fs.existsSync(logDir)) {
-          fs.mkdirSync(logDir, { recursive: true });
-        }
-      } catch (err) {
-        console.error('Failed to create logs directory:', err);
+    const userDataPath = app.getPath('userData');
+    const logDir = path.join(userDataPath, 'Logs');
+    const logPath = path.join(logDir, 'zentransfer.log');
+    
+    // Ensure Logs directory exists
+    try {
+      if (!fs.existsSync(logDir)) {
+        fs.mkdirSync(logDir, { recursive: true });
       }
-      
-      log.transports.file.resolvePath = () => logPath;
+    } catch (err) {
+      console.error('Failed to create logs directory:', err);
     }
+    
+    log.transports.file.resolvePathFn = () => logPath;
 
     // Format logs with timestamp and process type
     const getProcessType = () => {
@@ -60,15 +50,16 @@ function setupLogger() {
     log.variables.processType = getProcessType();
 
     // Set up log rotation and cleanup
-    if (app) {
-      setupLogRotationAndCleanup(app);
-    }
+    setupLogRotationAndCleanup(app);
 
+    // We're good to go
     isInitialized = true;
     log.info('Logger initialized successfully');
     
   } catch (error) {
+
     console.error('Failed to setup logger:', error);
+    
     // Fallback to console if electron-log fails
     return {
       error: (...args) => console.error(...args),
@@ -89,7 +80,7 @@ function setupLogRotationAndCleanup(app) {
   // Clean up old log files on startup (after a delay)
   setTimeout(() => {
     cleanupOldLogs(app);
-  }, 5000);
+  }, 2 * 60 * 1000);
 
   // Set up periodic cleanup (once per day)
   setInterval(() => {
@@ -175,4 +166,4 @@ const logger = setupLogger();
 // Add convenience method for getting log info
 logger.getLogInfo = getLogInfo;
 
-module.exports = logger; 
+module.exports = logger;

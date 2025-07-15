@@ -2,7 +2,7 @@
  * Base CloudService class
  * All cloud service implementations inherit from this
  */
-class CloudService {
+class CloudServiceConfiguration {
     constructor(serviceType) {
         this.serviceType = serviceType;
         this.enabled = false;
@@ -47,4 +47,4 @@ class CloudService {
     }
 }
 
-module.exports = { CloudService }; 
+module.exports = { CloudServiceConfiguration }; 

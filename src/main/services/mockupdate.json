@@ -1,0 +1,13 @@
+{
+    "tag_name": "v999.999.999",
+    "name": "Test Release",
+    "body": "This is a test release for development",
+    "published_at": "2025-01-01T00:00:00Z",
+    "assets": [
+      {
+        "name": "ZenTransfer-Setup-999.999.999.exe",
+        "browser_download_url": "https://github.com/chrfrenning/zentransfer-desktop/releases/download/v0.1.22/ZenTransfer-Setup-0.1.22.exe",
+        "size": 77600000
+      }
+    ]
+  }

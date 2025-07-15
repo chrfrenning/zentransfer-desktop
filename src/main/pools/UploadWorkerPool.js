@@ -4,11 +4,11 @@
  * Extracted from main.js for better modularity
  */
 
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
-const { UploadQueue } = require('../services/upload-queue.js');
-const { UploadBackoffManager } = require('../services/upload-backoff-manager.js');
+const { UploadQueue } = require('../queues/UploadQueue.js');
+const { BackoffManager } = require('../services/BackoffManager.js');
 
 class UploadWorkerPool {
   constructor(poolSize = 3) {
@@ -17,12 +17,26 @@ class UploadWorkerPool {
     this.jobIdCounter = 0;
     this.isProcessing = false;
     
-    // SQLite queue manager
-    this.uploadQueue = null;
-    this.backoffManager = new UploadBackoffManager();
+    // Initialize SQLite queue
+    this.uploadQueue = new UploadQueue();
+    
+    // Reset any stuck "processing" files to "queued" on startup
+    this.uploadQueue.resetProcessingFiles();
+
+    // Some help with exponential backoffs when stuff go awry
+    const backoffConfig = app.configurationManager.get('uploadSettings.uploadBackoff');
+    this.backoffManager = new BackoffManager(
+      backoffConfig.initialInterval,
+      backoffConfig.maxInterval, 
+      backoffConfig.multiplier, 
+      backoffConfig.resetOnSuccess);
     
     // Queue processing timer
     this.queueProcessingInterval = null;
+    
+    // Dependencies for session data
+    this.configManager = null;
+    this.mainTokenManager = null;
     
     // Create worker pool
     for (let i = 0; i < poolSize; i++) {
@@ -30,30 +44,6 @@ class UploadWorkerPool {
     }
     
     console.log(`Upload worker pool initialized with ${poolSize} workers and SQLite queue`);
-  }
-  
-  /**
-   * Initialize the upload queue and start processing
-   */
-  async initialize(configManager) {
-    if (this.uploadQueue) return; // Already initialized
-    
-    try {
-      // Initialize SQLite queue
-      this.uploadQueue = new UploadQueue();
-      this.uploadQueue.initialize(configManager);
-      
-      // Reset any stuck "processing" files to "queued" on startup
-      this.uploadQueue.resetProcessingFiles();
-      
-      // Start queue processing timer
-      this.startQueueProcessing();
-      
-      console.log('Upload worker pool initialized with SQLite queue');
-    } catch (error) {
-      console.error('Failed to initialize upload worker pool:', error);
-      throw error;
-    }
   }
   
   /**
@@ -108,6 +98,122 @@ class UploadWorkerPool {
   }
   
   /**
+   * Generate session data for worker
+   */
+  async generateSessionData(fileServiceType) {
+    try {
+      const sharedConfig = require('../configuration/Globals.js');
+      
+      // Get token for ZenTransfer uploads
+      let token = null;
+      if (fileServiceType === 'zentransfer') {
+        if (this.mainTokenManager) {
+          const tokenResult = await this.mainTokenManager.getValidToken();
+          if (tokenResult) {
+            token = tokenResult;
+          }
+        }
+      }
+      
+      // Get service preferences from config (if available)
+      let servicePreferences = {};
+      if (this.configManager) {
+        try {
+          // Get cloud service configurations using config manager
+          const awsS3ServiceObj = this.configManager.getCloudService('aws-s3');
+          const azureServiceObj = this.configManager.getCloudService('azure-blob');
+          const gcpServiceObj = this.configManager.getCloudService('gcp-storage');
+          const minioServiceObj = this.configManager.getCloudService('minio');
+          
+          // Convert to full config objects
+          const awsS3Service = awsS3ServiceObj ? awsS3ServiceObj.toConfig() : null;
+          const azureService = azureServiceObj ? azureServiceObj.toConfig() : null;
+          const gcpService = gcpServiceObj ? gcpServiceObj.toConfig() : null;
+          const minioService = minioServiceObj ? minioServiceObj.toConfig() : null;
+          
+          // Convert to the format expected by upload workers
+          servicePreferences = {};
+          
+          // AWS S3
+          if (awsS3Service && awsS3Service.enabled) {
+            servicePreferences.awsS3Enabled = awsS3Service.enabled;
+            servicePreferences.awsS3Region = awsS3Service.region;
+            servicePreferences.awsS3Bucket = awsS3Service.bucket;
+            servicePreferences.awsS3AccessKey = awsS3Service.accessKey;
+            servicePreferences.awsS3SecretKey = awsS3Service.secretKey;
+            servicePreferences.awsS3StorageTier = awsS3Service.storageClass;
+          }
+          
+          // Azure Blob Storage
+          if (azureService && azureService.enabled) {
+            servicePreferences.azureEnabled = azureService.enabled;
+            servicePreferences.azureConnectionString = azureService.connectionString;
+            servicePreferences.azureContainer = azureService.containerName;
+          }
+          
+          // GCP Storage
+          if (gcpService && gcpService.enabled) {
+            servicePreferences.gcpEnabled = gcpService.enabled;
+            servicePreferences.gcpBucket = gcpService.bucketName;
+            servicePreferences.gcpServiceAccountKey = gcpService.serviceAccountKey;
+          }
+          
+          // MinIO
+          if (minioService && minioService.enabled) {
+            servicePreferences.minioEnabled = minioService.enabled;
+            servicePreferences.minioEndpoint = minioService.endpoint;
+            servicePreferences.minioBucket = minioService.bucket;
+            servicePreferences.minioAccessKey = minioService.accessKey;
+            servicePreferences.minioSecretKey = minioService.secretKey;
+            servicePreferences.minioRegion = minioService.region;
+            servicePreferences.minioUseSSL = minioService.useSSL;
+            servicePreferences.minioPort = minioService.port;
+          }
+          
+          console.log('Service preferences loaded:', {
+            hasAWS: !!servicePreferences.awsS3Enabled,
+            hasAzure: !!servicePreferences.azureEnabled,
+            hasGCP: !!servicePreferences.gcpEnabled,
+            hasMinio: !!servicePreferences.minioEnabled,
+            minioEndpoint: servicePreferences.minioEndpoint,
+            minioBucket: servicePreferences.minioBucket
+          });
+          
+        } catch (error) {
+          console.warn('Failed to get service preferences:', error);
+        }
+      }
+      
+      const sessionData = {
+        session: null, // Upload session managed by renderer
+        token: token,
+        serverBaseUrl: sharedConfig.serverBaseUrl,
+        appName: sharedConfig.appName,
+        appVersion: sharedConfig.appVersion,
+        clientId: sharedConfig.clientId,
+        servicePreferences: servicePreferences,
+        selectedService: fileServiceType
+      };
+      
+      return sessionData;
+      
+    } catch (error) {
+      console.error('Failed to generate session data:', error);
+      // Return minimal session data to prevent complete failure
+      return {
+        session: null,
+        token: null,
+        serverBaseUrl: 'https://tmp.chph.dev',
+        appName: 'com.chph.zentransfer',
+        appVersion: '0.1.22',
+        clientId: '4a276465-fbc2-4874-833d-966bd48c3ace',
+        servicePreferences: {},
+        selectedService: fileServiceType
+      };
+    }
+  }
+
+  /**
    * Start upload for a specific file
    */
   async startUpload(workerInfo, file) {
@@ -126,6 +232,9 @@ class UploadWorkerPool {
     workerInfo.currentJob = job;
     this.activeJobs.set(jobId, { workerInfo, job });
     
+    // Generate session data for this upload
+    const sessionData = await this.generateSessionData(file.service_type);
+    
     // Send to worker
     workerInfo.worker.postMessage({
       type: 'upload-file',
@@ -138,7 +247,8 @@ class UploadWorkerPool {
         mimeType: file.mime_type,
         serviceType: file.service_type,
         importSettings: file.import_settings ? JSON.parse(file.import_settings) : null
-      }
+      },
+      sessionData: sessionData
     });
     
     console.log(`Started upload: ${file.filename} (jobId: ${jobId}, fileId: ${file.id})`);
@@ -479,7 +589,7 @@ class UploadWorkerPool {
     this.activeJobs.clear();
     
     // Reset backoff (user action)
-    this.backoffManager.forceReset();
+    this.backoffManager.reset();
     
     console.log('All upload jobs cancelled');
     
@@ -501,47 +611,7 @@ class UploadWorkerPool {
     }
   }
   
-  /**
-   * Retry failed uploads
-   */
-  retryFailedUploads() {
-    if (!this.uploadQueue) {
-      throw new Error('Upload queue not initialized');
-    }
-    
-    const failedFiles = this.uploadQueue.getFailedFiles();
-    const maxRetries = this.getMaxUploadRetries();
-    
-    let retriedCount = 0;
-    for (const file of failedFiles) {
-      if (file.retry_count < maxRetries) {
-        this.uploadQueue.retryFile(file.id);
-        retriedCount++;
-      }
-    }
-    
-    if (retriedCount > 0) {
-      // Reset backoff when user manually retries
-      this.backoffManager.forceReset();
-      console.log(`Retried ${retriedCount} failed uploads`);
-      this.sendQueueUpdate();
-    }
-    
-    return retriedCount;
-  }
-  
-  /**
-   * Clear completed uploads from queue
-   */
-  clearCompleted() {
-    if (!this.uploadQueue) {
-      throw new Error('Upload queue not initialized');
-    }
-    
-    const result = this.uploadQueue.clearCompleted();
-    this.sendQueueUpdate();
-    return result;
-  }
+
   
   /**
    * Get incomplete files (for app restart recovery)

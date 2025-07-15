@@ -3,40 +3,30 @@
  * Manages persistent upload queue with retry logic and global exponential backoff
  */
 
+const { app } = require('electron');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
 class UploadQueue {
     constructor() {
-        this.databasePath = null;  // Will be set in initialize()
         this.db = null;
+        this.databasePath = path.join(app.configurationManager.getConfigDirectory(), 'upload-queue.db');
         this.isInitialized = false;
         
         // Prepared statements for performance
         this.statements = {};
+
+        this.initialize();
     }
     
     /**
      * Initialize the database and create tables
      */
-    initialize(configManager) {
+    initialize() {
         if (this.isInitialized) return;
         
         try {
-            // Use provided path or generate one based on server hostname
-            if (!this.databasePath) {
-                const hostname = configManager.getHostname();
-                const serverConfigPath = path.join(configManager.userDataPath, 'Configuration', hostname);
-                this.databasePath = path.join(serverConfigPath, 'upload-queue.db');
-            }
-            
-            // Ensure directory exists
-            const dbDir = path.dirname(this.databasePath);
-            if (!fs.existsSync(dbDir)) {
-                fs.mkdirSync(dbDir, { recursive: true });
-            }
-            
             // Open database
             this.db = new Database(this.databasePath);
             

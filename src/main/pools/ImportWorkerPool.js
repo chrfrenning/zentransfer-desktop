@@ -8,8 +8,8 @@ const { BrowserWindow } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
 
-class ImportWorkerManager {
-  constructor() {
+class ImportWorkerPool {
+  constructor(poolSize = 3) {
     this.worker = null;
     this.isImporting = false;
     this.currentResolve = null;
@@ -189,4 +189,4 @@ class ImportWorkerManager {
   }
 }
 
-module.exports = { ImportWorkerManager }; 
+module.exports = { ImportWorkerManager: ImportWorkerPool }; 

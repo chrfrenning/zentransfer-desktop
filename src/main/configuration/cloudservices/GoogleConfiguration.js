@@ -1,10 +1,10 @@
-const { CloudService } = require('./cloud-service.js');
+const { CloudServiceConfiguration } = require('./CloudServiceConfiguration.js');
 
 /**
  * Google Cloud Storage Cloud Service
  * Handles GCP Storage specific configuration and validation
  */
-class GcpStorageService extends CloudService {
+class GoogleConfiguration extends CloudServiceConfiguration {
     constructor() {
         super('gcp-storage');
         this.bucketName = '';
@@ -59,4 +59,4 @@ class GcpStorageService extends CloudService {
     }
 }
 
-module.exports = { GcpStorageService }; 
+module.exports = { GoogleConfiguration }; 
