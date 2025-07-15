@@ -13,6 +13,7 @@ const electronAPI = {
     getVersion: () => ipcRenderer.invoke('get-app-version'),
     getIsDevelopmentMode: () => ipcRenderer.invoke('get-app-devmode'),
     getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+    doVersionCheck: () => ipcRenderer.invoke('do-version-check'),
     quit: () => ipcRenderer.invoke('app-quit'),
     
     // Enhanced logging API
@@ -187,8 +188,8 @@ const electronAPI = {
     // OS operations
     // homedir: () => ipcRenderer.sendSync('node-os-homedir'),
     // tmpdir: () => ipcRenderer.sendSync('node-os-tmpdir'),
-    // platform: () => ipcRenderer.sendSync('node-os-platform'),
-    // arch: () => ipcRenderer.sendSync('node-os-arch'),
+    platform: () => ipcRenderer.sendSync('node-os-platform'),
+    arch: () => ipcRenderer.sendSync('node-os-arch'),
 
     // HTTP operations  
     // httpGet: (url, options) => ipcRenderer.invoke('node-http-get', url, options),

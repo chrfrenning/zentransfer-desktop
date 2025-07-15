@@ -35,6 +35,14 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
     return app.globals.serverBaseUrl;
   });
 
+  ipcMain.handle('do-version-check', async () => {
+    return { 
+      status: 'VersionCheckStatus.OK', 
+      message: null, 
+      maintenance_until: null 
+    };
+  });
+
    // App quit handler
    ipcMain.handle('app-quit', async (event) => {
     try {

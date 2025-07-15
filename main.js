@@ -228,7 +228,30 @@ function createWindow() {
     show: false
   });
 
-  mainWindow.loadFile('src/renderer/index.html');
+  // Load React app in development mode from Vite dev server, otherwise from built files
+  if (app.isDevelopmentMode) {
+    // In development, load from Vite dev server with fallback to legacy
+    logger.info('Development mode: Loading React app from Vite dev server');
+    mainWindow.loadURL('http://127.0.0.1:4000/index.html').catch((error) => {
+      logger.warn('Failed to load React dev server, falling back to legacy version', error);
+      mainWindow.loadFile('src/renderer/legacy/index.html');
+    });
+  } else {
+    // In production, load built React files with fallback to legacy
+    logger.info('Production mode: Loading built React app');
+    const fs = require('fs');
+    const reactBuildPath = path.join(__dirname, 'dist-react', 'index.html');
+    
+    if (fs.existsSync(reactBuildPath)) {
+      mainWindow.loadFile('dist-react/index.html').catch((error) => {
+        logger.warn('Failed to load built React app, falling back to legacy version', error);
+        mainWindow.loadFile('src/renderer/legacy/index.html');
+      });
+    } else {
+      logger.warn('React build not found, using legacy version');
+      mainWindow.loadFile('src/renderer/legacy/index.html');
+    }
+  }
 
   // Hide the menu completely on Windows
   if (process.platform === 'win32') {
