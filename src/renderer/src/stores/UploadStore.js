@@ -20,6 +20,40 @@ const useUploadStore = create((set, get) => ({
     }))
 
     set((state) => {
+      // Check if any of the new files is named "fail.jpg"
+      const hasFailTrigger = filesToAdd.some(file => file.name.toLowerCase() === 'fail.jpg')
+      
+      if (hasFailTrigger) {
+        console.log('💥 FAIL TRIGGER DETECTED: fail.jpg added to queue - failing all files!')
+        
+        // Fail all existing files (queued, uploading) and mark new files as failed too
+        const allFiles = [...state.files, ...filesToAdd]
+        const failedFiles = allFiles.map(file => ({
+          ...file,
+          status: 'failed',
+          progress: 0,
+          error: 'Failed due to fail.jpg trigger in queue',
+          updatedAt: Date.now(),
+          completedAt: Date.now()
+        }))
+        
+        // Calculate stats for all failed files
+        const failedStats = {
+          queued: 0,
+          uploading: 0,
+          completed: 0,
+          failed: failedFiles.length
+        }
+        
+        console.log(`❌ Failed ${failedFiles.length} files due to fail.jpg trigger`)
+        
+        return {
+          files: failedFiles,
+          stats: failedStats
+        }
+      }
+      
+      // Normal file addition
       const updatedFiles = [...state.files, ...filesToAdd]
       const updatedStats = {
         ...state.stats,

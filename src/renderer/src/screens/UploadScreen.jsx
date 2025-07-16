@@ -3,8 +3,8 @@ import ScreenHeader from '../components/ScreenHeader';
 import FileList from '../components/FileList';
 import OperationProgress from '../components/OperationProgress';
 import { CloudFacade } from '../utils/CloudFacade';
-import useUploadStore from '../stores/UploadStore';
-import uploadSimulator from '../utils/UploadSimulator';
+import useUploadStore from '../stores/uploadStore';
+import uploadSimulator from '../utils/uploadSimulator';
 
 const UploadScreen = () => {
   // Zustand store subscriptions
@@ -15,6 +15,7 @@ const UploadScreen = () => {
   const clearAllFiles = useUploadStore(state => state.clearFiles);
   const setSelectedService = useUploadStore(state => state.setSelectedService);
   const hasFiles = useUploadStore(state => state.hasFiles());
+  const isCompleted = useUploadStore(state => state.isCompleted());
 
   // Local state for UI
   const [availableServices, setAvailableServices] = useState([]);
@@ -111,13 +112,38 @@ const UploadScreen = () => {
         if (result && result.length > 0) {
           console.log('Files selected via native dialog:', result);
           
+          // Helper function to get MIME type from file extension
+          const getMimeTypeFromExtension = (filename) => {
+            const ext = filename.toLowerCase().split('.').pop();
+            const mimeTypes = {
+              // Images
+              'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif',
+              'bmp': 'image/bmp', 'webp': 'image/webp', 'tiff': 'image/tiff', 'tif': 'image/tiff',
+              'raw': 'image/raw', 'cr2': 'image/raw', 'nef': 'image/raw', 'arw': 'image/raw', 'dng': 'image/raw',
+              // Videos
+              'mp4': 'video/mp4', 'mov': 'video/quicktime', 'avi': 'video/x-msvideo', 'mkv': 'video/x-matroska',
+              'wmv': 'video/x-ms-wmv', 'flv': 'video/x-flv', 'webm': 'video/webm', 'm4v': 'video/mp4',
+              // Audio
+              'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'flac': 'audio/flac', 'aac': 'audio/aac',
+              'm4a': 'audio/mp4', 'ogg': 'audio/ogg',
+              // Documents
+              'pdf': 'application/pdf', 'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+              'txt': 'text/plain', 'rtf': 'application/rtf'
+            };
+            return mimeTypes[ext] || 'application/octet-stream';
+          };
+          
           // Add files to store and log them
-          const newFiles = result.map(filePath => ({
-            id: Date.now() + Math.random(),
-            path: filePath,
-            name: filePath.split(/[\\/]/).pop(),
-            source: 'dialog'
-          }));
+          const newFiles = result.map(filePath => {
+            const fileName = filePath.split(/[\\/]/).pop();
+            return {
+              id: Date.now() + Math.random(),
+              path: filePath,
+              name: fileName,
+              type: getMimeTypeFromExtension(fileName),
+              source: 'dialog'
+            };
+          });
           
           addFiles(newFiles);
           console.log('Added files from dialog:', newFiles);
@@ -319,7 +345,7 @@ const UploadScreen = () => {
                 </div>
               </div>
               <h2 className="text-2xl font-semibold text-gray-900 mb-2">Drop files here to upload</h2>
-              <p className="text-gray-600 mb-4">Or click to browse files</p>
+              <p className="text-gray-600 mb-4">Or click to browse for files</p>
             </div>
             
             {/* Service Selection */}
@@ -384,10 +410,13 @@ const UploadScreen = () => {
           failed={stats.failed}
           operationType="upload"
           onViewLog={() => console.log('View upload log - to be implemented')}
+          hideWhenCompleted={true}
         />
 
-        {/* Files List */}
-        <FileList files={files} formatFileSize={formatFileSize} />
+        {/* Files List - Hide when completed */}
+        {!isCompleted && (
+          <FileList files={files} formatFileSize={formatFileSize} />
+        )}
 
         {/* Upload More Files and Clear Actions */}
         <div className="text-center mt-6 space-y-3">

@@ -18,10 +18,10 @@ const OverallProgress = ({
 
   return (
     <div className={`mb-6 ${className}`}>
-      <div className="flex justify-between text-sm text-gray-600 mb-3">
+      {/* <div className="flex justify-between text-sm text-gray-600 mb-3">
         <span className="font-medium">{label}</span>
         <span>{progress}%</span>
-      </div>
+      </div> */}
       <div className="w-full bg-gray-200 rounded-full h-4">
         <div 
           className={`h-4 rounded-full transition-all duration-500 ease-out ${getProgressBarColor()}`}

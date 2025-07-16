@@ -1,4 +1,4 @@
-import useUploadStore from '../stores/UploadStore'
+import useUploadStore from '../stores/uploadStore'
 
 class UploadSimulator {
   constructor() {

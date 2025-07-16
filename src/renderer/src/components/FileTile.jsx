@@ -47,21 +47,32 @@ const FileTile = ({ file, formatFileSize }) => {
                 <div className="flex items-center space-x-2 ml-4">
                   {file.status === 'uploading' ? (
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-gray-900">{Math.round(file.progress || 0)}%</span>
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
                         Uploading
                       </span>
                     </div>
                   ) : file.status === 'completed' ? (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                      </svg>
                       Completed
                     </span>
                   ) : file.status === 'failed' ? (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                      </svg>
                       Failed
                     </span>
                   ) : (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                      </svg>
                       Queued
                     </span>
                   )}
@@ -71,11 +82,18 @@ const FileTile = ({ file, formatFileSize }) => {
       {/* Progress Bar for Uploading Files */}
       {file.status === 'uploading' && (
         <div className="mt-3">
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className="bg-amber-600 h-2 rounded-full transition-all duration-300 ease-out" 
-              style={{ width: `${file.progress || 0}%` }}
-            ></div>
+          <div className="flex items-center space-x-3">
+            <div className="flex-1">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out" 
+                  style={{ width: `${file.progress || 0}%` }}
+                ></div>
+              </div>
+            </div>
+            <span className="text-sm font-medium text-gray-900 min-w-0">
+              {Math.round(file.progress || 0)}%
+            </span>
           </div>
         </div>
       )}
