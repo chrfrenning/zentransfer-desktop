@@ -4,9 +4,10 @@ import { getElectronAPI } from '../api/ZenTransferAPI';
 interface LoginScreenProps {
   onLoginSuccess: () => void;
   onCancel?: () => void;
+  onSkipLogin?: () => void;
 }
 
-const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCancel }) => {
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCancel, onSkipLogin }) => {
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [isEmailSubmitted, setIsEmailSubmitted] = useState(false);
@@ -185,7 +186,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCancel }) =
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
             </svg>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">ZenTransfer</h2>
+          <h2 className="text-3xl font-bold text-gray-900">ZenTransfer.io</h2>
           <p className="mt-2 text-sm text-gray-600">
             {!isEmailSubmitted ? 'Sign in to your account' : 'Enter verification code'}
           </p>
@@ -300,9 +301,18 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCancel }) =
                 Learn more about ZenTransfer.io
               </button>
             </p>
-            {appVersion && (
-              <p className="text-xs text-gray-400">v{appVersion}</p>
+            {onSkipLogin && (
+              <p className="text-sm text-gray-600 mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={onSkipLogin}
+                  className="text-gray-600 hover:text-gray-800 font-medium bg-transparent border-none cursor-pointer underline"
+                >
+                  Use app without account
+                </button>
+              </p>
             )}
+            
           </div>
         </form>
       </div>

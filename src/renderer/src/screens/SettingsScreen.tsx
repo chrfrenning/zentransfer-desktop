@@ -33,9 +33,10 @@ interface LogsState {
 
 interface SettingsScreenProps {
   onLogout: () => void;
+  onRequestLogin: () => void;
 }
 
-const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout, onRequestLogin }) => {
   const [appInfo, setAppInfo] = useState<AppInfoState>({
     version: 'Loading...',
     build: 'Loading...',
@@ -195,6 +196,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
           <AccountSection
             onLearnMore={handleLearnMore}
             onLogout={onLogout}
+            onRequestLogin={onRequestLogin}
           />
 
           <SupportSection

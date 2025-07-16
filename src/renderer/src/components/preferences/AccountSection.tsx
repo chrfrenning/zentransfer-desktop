@@ -42,8 +42,7 @@ const AccountSection: React.FC<AccountSectionProps> = ({ onLearnMore, onLogout, 
   };
 
   const handleLogin = () => {
-    // Login is now handled at the App level - this shouldn't be called when not authenticated
-    console.log('Login should be handled at App level');
+    onRequestLogin();
   };
 
   const handleSignOut = async () => {

@@ -30,6 +30,7 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
      */
     async initialize(email, deviceId) {
         try {
+            logger.info(`Initializing login for email: ${email} and deviceId: ${deviceId} on server: ${this.serverBaseUrl}`);
             const response = await fetch(`${this.serverBaseUrl}/login/initialize`, {
                 method: 'POST',
                 headers: {
