@@ -68,15 +68,5 @@ export default defineConfig({
   // Optimize dependencies for Electron environment
   optimizeDeps: {
     exclude: ['electron']
-  },
-
-  // CSS configuration
-  css: {
-    postcss: {
-      plugins: [
-        require('tailwindcss'),
-        require('autoprefixer'),
-      ],
-    },
   }
 }); 
