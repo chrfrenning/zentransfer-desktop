@@ -1,34 +1,12 @@
 import React from 'react';
-import PreferenceSetting from './PreferenceSetting';
+import PreferenceSetting, { SettingChangeNotification } from './PreferenceSetting';
 
 interface PreferencesProps {
-  skipExisting: boolean;
-  skipDuplicates: boolean;
-  createPreviews: boolean;
-  extractMetaData: boolean;
-  createIndexfiles: boolean;
-  createLedger: boolean;
-  onSkipExistingChange: (value: boolean) => void;
-  onSkipDuplicatesChange: (value: boolean) => void;
-  onCreatePreviewsChange: (value: boolean) => void;
-  onExtractMetaDataChange: (value: boolean) => void;
-  onCreateIndexfilesChange: (value: boolean) => void;
-  onCreateLedgerChange: (value: boolean) => void;
+  onChange?: (notification: SettingChangeNotification) => void; // Optional global change handler
 }
 
 const PreferencesSection: React.FC<PreferencesProps> = ({
-  skipExisting,
-  skipDuplicates,
-  createPreviews,
-  extractMetaData,
-  createIndexfiles,
-  createLedger,
-  onSkipExistingChange,
-  onSkipDuplicatesChange,
-  onCreatePreviewsChange,
-  onExtractMetaDataChange,
-  onCreateIndexfilesChange,
-  onCreateLedgerChange,
+  onChange,
 }) => {
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
@@ -37,49 +15,43 @@ const PreferencesSection: React.FC<PreferencesProps> = ({
         <PreferenceSetting
           label="Skip existing files"
           description="Skip files that already exist in destination folders"
-          settingSection="preferences.skipExisting"
-          checked={skipExisting}
-          onChange={onSkipExistingChange}
+          settingKey="preferences.skipExisting"
+          onChange={onChange}
         />
 
         <PreferenceSetting
           label="Skip known duplicates"
           description="Skip files that are present in log files"
-          settingSection="preferences.skipDuplicates"
-          checked={skipDuplicates}
-          onChange={onSkipDuplicatesChange}
+          settingKey="preferences.skipDuplicates"
+          onChange={onChange}
         />
 
         <PreferenceSetting
           label="Create previews"
           description="Generate preview and thumbnails for cloud stores"
-          settingSection="preferences.createPreviews"
-          checked={createPreviews}
-          onChange={onCreatePreviewsChange}
+          settingKey="preferences.createPreviews"
+          onChange={onChange}
         />
 
         <PreferenceSetting
           label="Extract metadata"
           description="Extract metadata and save as json in cloud stores"
-          settingSection="preferences.extractMetaData"
-          checked={extractMetaData}
-          onChange={onExtractMetaDataChange}
+          settingKey="preferences.extractMetaData"
+          onChange={onChange}
         />
 
         <PreferenceSetting
           label="Create indexes"
           description="Generate json indexes of uploaded files"
-          settingSection="preferences.createIndexfiles"
-          checked={createIndexfiles}
-          onChange={onCreateIndexfilesChange}
+          settingKey="preferences.createIndexfiles"
+          onChange={onChange}
         />
 
         <PreferenceSetting
           label="Create ledger"
           description="Creates a proof-of-work ledger for content authenticity"
-          settingSection="preferences.createLedger"
-          checked={createLedger}
-          onChange={onCreateLedgerChange}
+          settingKey="preferences.createLedger"
+          onChange={onChange}
         />
       </div>
     </div>
