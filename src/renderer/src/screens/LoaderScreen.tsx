@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { LoaderScreenProps } from '../types/components';
+
+interface LoaderScreenProps {
+  readonly onVersionCheckComplete: (shouldProceed: boolean) => void;
+}
 
 const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) => {
   const [status, setStatus] = useState('Checking version...');
@@ -28,13 +31,13 @@ const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) =
 
   const performVersionCheck = async () => {
     const result = await window.electronAPI.app.doVersionCheck();
-    window.logger.info('Version check result:', result);
+    window.logger.info('Version check result received');
     if (result) {
-      handleVersionCheckResult(result);
+      handleVersionCheckResult(result as any); // Simplified type assertion
     }
   };
 
-  const handleVersionCheckResult = async (result) => {
+  const handleVersionCheckResult = async (result: any) => { // Simplified type assertion
 
     switch (result.status) {
       case 'VersionCheckStatus.OK':
@@ -46,21 +49,21 @@ const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) =
 
       case 'VersionCheckStatus.OUTDATED':
         setStatus('New version available');
-        await showVersionWarning(result.message);
+        await showVersionWarning(result.message || undefined);
         break;
 
       case 'VersionCheckStatus.REQUIRED':
         setStatus('Update required');
-        await showUpdateRequired(result.message);
+        await showUpdateRequired(result.message || undefined);
         break;
 
       case 'VersionCheckStatus.DOWN':
         setStatus('Server maintenance');
-        await showMaintenanceMessage(result.message, result.maintenance_until);
+        await showMaintenanceMessage(result.message || undefined, result.maintenance_until || undefined);
         break;
 
       default:
-        console.warn('Unknown version check status:', checkStatus);
+        console.warn('Unknown version check status:', result.status);
         setStatus('Unknown status, continuing...');
         setTimeout(() => {
           completeVersionCheck(true);
@@ -68,7 +71,7 @@ const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) =
     }
   };
 
-  const showVersionWarning = async (message) => {
+  const showVersionWarning = async (message?: string) => {
     const customMessage = message || 'A new version of ZenTransfer is available. We recommend updating to get the latest features and improvements.';
     
     // For now, we'll just log and continue. In a full implementation,
@@ -81,7 +84,7 @@ const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) =
     }, 2000);
   };
 
-  const showUpdateRequired = async (message) => {
+  const showUpdateRequired = async (message?: string) => {
     const customMessage = message || 'This version of ZenTransfer is no longer supported. Please update to the latest version to continue using the app.';
     
     console.log('Update required:', customMessage);
@@ -93,7 +96,7 @@ const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) =
     }, 3000);
   };
 
-  const showMaintenanceMessage = async (message, maintenanceUntil) => {
+  const showMaintenanceMessage = async (message?: string, maintenanceUntil?: string) => {
     let maintenanceMessage = message || 'ZenTransfer is currently down for maintenance. Please try again later.';
     
     if (maintenanceUntil) {
@@ -114,7 +117,7 @@ const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) =
     }, 3000);
   };
 
-  const completeVersionCheck = useCallback((shouldProceed) => {
+  const completeVersionCheck = useCallback((shouldProceed: boolean) => {
     const elapsedTime = Date.now() - startTime;
     const remainingTime = Math.max(0, minDisplayTime - elapsedTime);
 

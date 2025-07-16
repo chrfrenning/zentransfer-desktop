@@ -64,7 +64,7 @@ const OperationProgress = ({
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-yellow-800 mb-2">
-            {operationType.charAt(0).toUpperCase() + operationType.slice(1)} had Problems
+            There was a problem
           </h3>
           <p className="text-sm text-yellow-600 mb-3">
             {completed} succeeded, {failed} failed

@@ -34,4 +34,18 @@ export interface UpdateSettingsResult {
 
 export interface CloudServiceSettings {
   readonly [key: string]: unknown;
+}
+
+// Enhanced cloud service with runtime information
+export interface CloudService {
+  readonly type: CloudServiceType;
+  readonly name: string;
+  readonly enabled: boolean;
+  readonly configured: boolean;
+}
+
+export interface AwsRegion {
+  readonly code: string;
+  readonly name: string;
+  readonly location: string;
 } 
