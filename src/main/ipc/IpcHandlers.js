@@ -227,10 +227,21 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
   
   ipcMain.handle('clouds-get-enabled-services', async (event) => {
    let enabledServices = [];
+
+   if (app.tokenManager.getValidToken()) {
+    enabledServices.push({
+      serviceType: 'zentransfer',
+      enabled: true
+    });
+   }
+   
    for (const serviceType of CloudFactory.listCloudServices()) {
     const service = app.configurationManager.getCloudService(serviceType);
     if (service && service.enabled) {
-      enabledServices.push(service);
+      enabledServices.push({
+        serviceType: serviceType,
+        enabled: true
+      });
     }
    }
 
