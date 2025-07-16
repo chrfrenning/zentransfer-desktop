@@ -11,6 +11,49 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* CSS Custom Properties for Catalyst Components */
+:root {
+  /* Switch variables */
+  --switch-bg: #e4e4e7;
+  --switch-bg-ring: rgba(39, 39, 42, 0.9);
+  --switch: #ffffff;
+  --switch-ring: rgba(39, 39, 42, 0.9);
+  --switch-shadow: rgba(0, 0, 0, 0.1);
+  
+  /* Color variables that match our theme */
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-900: #18181b;
+  --color-zinc-950: #09090b;
+  --color-zinc-600: #52525b;
+  --color-zinc-700: #3f3f46;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  
+  /* Size variables */
+  --size-4_5: 1.125rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --switch-bg: rgba(255, 255, 255, 0.05);
+    --switch-bg-ring: transparent;
+  }
+}
+
+/* Fix for Catalyst components using non-standard CSS syntax */
+[class*="bg-(--"] {
+  background-color: var(--switch-bg) !important;
+}
+
+[class*="ring-(--"] {
+  --tw-ring-color: var(--switch-bg-ring) !important;
+}
+
+[class*="size-4.5"] {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+}
+
 /* Shake animation for error states */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

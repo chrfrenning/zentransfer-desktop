@@ -45,16 +45,6 @@ export default defineConfig({
     open: false
   },
   
-  // CSS configuration for Tailwind integration
-  css: {
-    postcss: {
-      plugins: [
-        require('tailwindcss'),
-        require('autoprefixer')
-      ]
-    }
-  },
-  
   // Resolve configuration
   resolve: {
     alias: {
@@ -78,5 +68,15 @@ export default defineConfig({
   // Optimize dependencies for Electron environment
   optimizeDeps: {
     exclude: ['electron']
+  },
+
+  // CSS configuration
+  css: {
+    postcss: {
+      plugins: [
+        require('tailwindcss'),
+        require('autoprefixer'),
+      ],
+    },
   }
 }); 
