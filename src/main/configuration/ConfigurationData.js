@@ -92,6 +92,20 @@ class ConfigurationData {
             importWorkerPoolSize: 3,
             downloadWorkerPoolSize: 3
         };
+
+        // Autosort
+        this.autoSort = {
+            enabled: false,
+            enableFolderSort: false,
+            folderPrompt: '',
+            enableMetaData: false,
+            metaDataPrompt: '',
+            apiKeyOpenAI: '',
+            model: 'gpt-4o',
+            maxRetries: 3,
+            temperature: 0.5,
+            maxTokens: 2500
+        }
     }
 
     /**
@@ -113,6 +127,7 @@ class ConfigurationData {
             cloudServices: cloudServicesConfig,
             importSettings: this.importSettings,
             uploadSettings: this.uploadSettings,
+            autoSort: this.autoSort,
             lastUpdated: new Date().toISOString()
         };
     }
@@ -177,6 +192,11 @@ class ConfigurationData {
                     this.cloudServices[key].fromConfig(serviceConfig);
                 }
             }
+        }
+
+        // Load autoSort settings
+        if (config.autoSort) {
+            this.autoSort = { ...this.autoSort, ...config.autoSort };
         }
     }
 

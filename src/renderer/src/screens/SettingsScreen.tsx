@@ -6,6 +6,7 @@ import AzureCloudSettings, { AzureCloudSettingsChangeNotification } from '../com
 import GCPCloudSettings, { GCPCloudSettingsChangeNotification } from '../components/preferences/clouds/GCPCloudSettings';
 import MinIOCloudSettings, { MinIOCloudSettingsChangeNotification } from '../components/preferences/clouds/MinIOCloudSettings';
 import AccountSection from '../components/preferences/AccountSection';
+import AutosortSection, { AutosortChangeNotification } from '../components/preferences/AutosortSection';
 import SupportSection from '../components/preferences/SupportSection';
 import AppInfoSection from '../components/preferences/AppInfoSection';
 import LogsSection from '../components/preferences/LogsSection';
@@ -95,6 +96,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout, onRequestLogi
 
   const handleCloudSettingsChange = (notification: CloudChangeNotification) => {
     console.log('Cloud settings changed:', notification);
+    // Could emit to analytics, logging, etc.
+  };
+
+  const handleAutosortChange = (notification: AutosortChangeNotification) => {
+    console.log('Autosort settings changed:', notification);
     // Could emit to analytics, logging, etc.
   };
 
@@ -198,6 +204,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout, onRequestLogi
             onLogout={onLogout}
             onRequestLogin={onRequestLogin}
           />
+
+          <AutosortSection onChange={handleAutosortChange} />
 
           <SupportSection
             onHelpClick={handleHelpClick}
