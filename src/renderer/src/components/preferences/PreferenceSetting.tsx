@@ -131,7 +131,7 @@ const PreferenceSetting: React.FC<PreferenceSettingProps> = ({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <label className="text-sm font-medium text-gray-700">{label}</label>
+        <label className="text-sm font-semibold text-gray-700">{label}</label>
         <p className="text-sm text-gray-500">{description}</p>
       </div>
       <SimpleSwitch

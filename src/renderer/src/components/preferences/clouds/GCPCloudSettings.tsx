@@ -45,14 +45,13 @@ const GCPCloudSettings: React.FC<GCPCloudSettingsProps> = ({ onChange }) => {
       const api = getElectronAPI();
       const gcpConfig = await api.config.getCloudSettings('gcp-storage');
       
-      if (gcpConfig.success && gcpConfig.settings) {
-        const configSettings = gcpConfig.settings as any;
+      if (gcpConfig) {
         setSettings(prev => ({
           ...prev,
-          enabled: Boolean(configSettings.enabled),
-          bucketName: String(configSettings.bucketName || ''),
-          serviceAccountKey: String(configSettings.serviceAccountKey || ''),
-          keyFileName: configSettings.serviceAccountKey ? 'Service account key loaded' : '',
+          enabled: Boolean(gcpConfig.enabled),
+          bucketName: String(gcpConfig['bucketName'] || ''),
+          serviceAccountKey: String(gcpConfig['serviceAccountKey'] || ''),
+          keyFileName: gcpConfig['serviceAccountKey'] ? 'Service account key loaded' : '',
         }));
       }
     } catch (error) {

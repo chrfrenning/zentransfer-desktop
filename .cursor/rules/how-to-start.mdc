@@ -5,3 +5,4 @@ alwaysApply: true
 * Do not use "npm start" for this project. If you need to run the project, use "npm run dev"
 * When working on the renderer, I have the project running and we have live reload, do not run "npm run dev"
 * Do not create fallback methods unless I very specifically request that you do so.
+* DO NOT change the ZenTransferAPI, the electronAPI, or the handlers in setupIpcHandlers unless I EXPLICITLY say so

@@ -27,6 +27,13 @@ const PreferencesSection: React.FC<PreferencesProps> = ({
         />
 
         <PreferenceSetting
+          label="Create high watermark"
+          description="Write a file with last import time to source card/folder"
+          settingKey="preferences.createHighWatermark"
+          onChange={onChange}
+        />
+
+        <PreferenceSetting
           label="Create previews"
           description="Generate preview and thumbnails for cloud stores"
           settingKey="preferences.createPreviews"
@@ -42,7 +49,7 @@ const PreferencesSection: React.FC<PreferencesProps> = ({
 
         <PreferenceSetting
           label="Create indexes"
-          description="Generate json indexes of uploaded files"
+          description="Upload a json index of uploaded files to cloud stores"
           settingKey="preferences.createIndexfiles"
           onChange={onChange}
         />

@@ -53,16 +53,15 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({ onChange }) => {
       const api = getElectronAPI();
       const awsConfig = await api.config.getCloudSettings('aws-s3');
       
-      if (awsConfig.success && awsConfig.settings) {
-        const configSettings = awsConfig.settings as any;
+      if (awsConfig) {
         setSettings(prev => ({
           ...prev,
-          enabled: Boolean(configSettings.enabled),
-          region: String(configSettings.region || ''),
-          bucket: String(configSettings.bucket || ''),
-          storageClass: String(configSettings.storageClass || 'STANDARD'),
-          accessKey: String(configSettings.accessKey || ''),
-          secretKey: String(configSettings.secretKey || ''),
+          enabled: Boolean(awsConfig.enabled),
+          region: String(awsConfig['region'] || ''),
+          bucket: String(awsConfig['bucket'] || ''),
+          storageClass: String(awsConfig['storageClass'] || 'STANDARD'),
+          accessKey: String(awsConfig['accessKey'] || ''),
+          secretKey: String(awsConfig['secretKey'] || ''),
         }));
       }
     } catch (error) {

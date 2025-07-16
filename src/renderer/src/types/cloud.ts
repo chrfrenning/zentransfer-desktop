@@ -21,9 +21,9 @@ export interface ServiceWithDisplayInfo extends ServiceDisplayInfo {
 }
 
 export interface CloudSettingsResult {
-  readonly success: boolean;
-  readonly settings?: Record<string, unknown>;
-  readonly error?: string;
+  readonly serviceType: string;
+  readonly enabled: boolean;
+  readonly [key: string]: unknown; // Additional service-specific properties
 }
 
 export interface UpdateSettingsResult {

@@ -44,13 +44,12 @@ const AzureCloudSettings: React.FC<AzureCloudSettingsProps> = ({ onChange }) => 
       const api = getElectronAPI();
       const azureConfig = await api.config.getCloudSettings('azure-blob');
       
-      if (azureConfig.success && azureConfig.settings) {
-        const configSettings = azureConfig.settings as any;
+      if (azureConfig) {
         setSettings(prev => ({
           ...prev,
-          enabled: Boolean(configSettings.enabled),
-          containerName: String(configSettings.containerName || ''),
-          connectionString: String(configSettings.connectionString || ''),
+          enabled: Boolean(azureConfig.enabled),
+          containerName: String(azureConfig['containerName'] || ''),
+          connectionString: String(azureConfig['connectionString'] || ''),
         }));
       }
     } catch (error) {

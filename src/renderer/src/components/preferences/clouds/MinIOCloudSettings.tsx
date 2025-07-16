@@ -52,17 +52,16 @@ const MinIOCloudSettings: React.FC<MinIOCloudSettingsProps> = ({ onChange }) => 
       const api = getElectronAPI();
       const minioConfig = await api.config.getCloudSettings('minio');
       
-      if (minioConfig.success && minioConfig.settings) {
-        const configSettings = minioConfig.settings as any;
+      if (minioConfig) {
         setSettings(prev => ({
           ...prev,
-          enabled: Boolean(configSettings.enabled),
-          endpoint: String(configSettings.endpoint || ''),
-          port: Number(configSettings.port) || 9000,
-          useSSL: configSettings.useSSL !== false,
-          bucket: String(configSettings.bucket || ''),
-          accessKey: String(configSettings.accessKey || ''),
-          secretKey: String(configSettings.secretKey || ''),
+          enabled: Boolean(minioConfig.enabled),
+          endpoint: String(minioConfig['endpoint'] || ''),
+          port: Number(minioConfig['port']) || 9000,
+          useSSL: minioConfig['useSSL'] !== false,
+          bucket: String(minioConfig['bucket'] || ''),
+          accessKey: String(minioConfig['accessKey'] || ''),
+          secretKey: String(minioConfig['secretKey'] || ''),
         }));
       }
     } catch (error) {
