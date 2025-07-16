@@ -28,7 +28,7 @@ const CloudServiceSection: React.FC<CloudServiceSectionProps> = ({
 }) => {
   return (
     <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           {icon}
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
@@ -40,7 +40,7 @@ const CloudServiceSection: React.FC<CloudServiceSectionProps> = ({
       </div>
       
       {enabled && (
-        <div className="space-y-6">
+        <div className="space-y-6 mt-6">
           {children}
           
           <TestConnectionButton

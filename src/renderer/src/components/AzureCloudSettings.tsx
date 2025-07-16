@@ -1,6 +1,4 @@
 import React from 'react';
-import { Input } from './catalyst/input';
-import { Field, Label } from './catalyst/fieldset';
 import SecureInput from './SecureInput';
 import CloudServiceSection from './CloudServiceSection';
 import { CloudIcon } from '@heroicons/react/24/outline';
@@ -38,19 +36,20 @@ const AzureCloudSettings: React.FC<AzureCloudSettingsProps> = ({
       testButtonState={testButtonState}
       onTestConnection={onTestConnection}
     >
-      <Field>
-        <Label htmlFor="azureContainer">
+      <div className="space-y-2">
+        <label htmlFor="azureContainer" className="block text-sm font-medium text-gray-700">
           Container Name <span className="text-red-500">*</span>
-        </Label>
-        <Input
+        </label>
+        <input
           id="azureContainer"
           type="text"
           value={containerName}
           onChange={(e) => onContainerNameChange(e.target.value)}
           placeholder="my-container"
           required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
         />
-      </Field>
+      </div>
 
       <SecureInput
         id="azureConnectionString"

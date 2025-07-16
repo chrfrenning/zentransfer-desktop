@@ -1,7 +1,4 @@
 import React from 'react';
-import { Input } from './catalyst/input';
-import { Button } from './catalyst/button';
-import { Field, Label, Description } from './catalyst/fieldset';
 import CloudServiceSection from './CloudServiceSection';
 import { CloudIcon, DocumentIcon } from '@heroicons/react/24/outline';
 
@@ -72,24 +69,25 @@ const GCPCloudSettings: React.FC<GCPCloudSettingsProps> = ({
       testButtonState={testButtonState}
       onTestConnection={onTestConnection}
     >
-      <Field>
-        <Label htmlFor="gcpBucket">
+      <div className="space-y-2">
+        <label htmlFor="gcpBucket" className="block text-sm font-medium text-gray-700">
           Bucket Name <span className="text-red-500">*</span>
-        </Label>
-        <Input
+        </label>
+        <input
           id="gcpBucket"
           type="text"
           value={bucketName}
           onChange={(e) => onBucketNameChange(e.target.value)}
           placeholder="my-gcp-bucket"
           required
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
         />
-      </Field>
+      </div>
 
-      <Field>
-        <Label htmlFor="gcpKeyFile">
+      <div className="space-y-2">
+        <label htmlFor="gcpKeyFile" className="block text-sm font-medium text-gray-700">
           Service Account Key (JSON) <span className="text-red-500">*</span>
-        </Label>
+        </label>
         <div className="flex items-center space-x-2">
           <input
             type="file"
@@ -99,30 +97,28 @@ const GCPCloudSettings: React.FC<GCPCloudSettingsProps> = ({
             className="hidden"
             required
           />
-          <Button
+          <button
             type="button"
-            outline
             onClick={() => document.getElementById('gcpKeyFile')?.click()}
-            className="flex-1 text-left justify-start"
+            className="flex-1 text-left justify-start bg-white hover:bg-gray-50 text-gray-900 font-medium py-2.5 px-4 rounded-md border border-gray-300 hover:border-gray-400 transition-colors duration-200 flex items-center"
           >
             <DocumentIcon className="w-4 h-4 mr-2" />
             {keyFileName || 'Choose JSON file...'}
-          </Button>
+          </button>
           {serviceAccountKey && (
-            <Button
+            <button
               type="button"
-              color="red"
               onClick={onClearKey}
-              className="px-3"
+              className="px-3 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors duration-200"
             >
               Clear
-            </Button>
+            </button>
           )}
         </div>
-        <Description>
+        <p className="text-sm text-gray-500">
           Upload your GCP service account JSON key file. The content will be stored securely.
-        </Description>
-      </Field>
+        </p>
+      </div>
     </CloudServiceSection>
   );
 };

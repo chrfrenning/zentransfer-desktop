@@ -50,25 +50,6 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({
       testButtonState={testButtonState}
       onTestConnection={onTestConnection}
     >
-      <div>
-        <label htmlFor="awsS3Region" className="block text-sm font-medium text-gray-700 mb-1">
-          Region <span className="text-red-500">*</span>
-        </label>
-        <select
-          id="awsS3Region"
-          value={region}
-          onChange={(e) => onRegionChange(e.target.value)}
-          required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-        >
-          <option value="">Select a region</option>
-          {regions.map((regionCode) => (
-            <option key={regionCode} value={regionCode}>
-              {regionCode}
-            </option>
-          ))}
-        </select>
-      </div>
 
       <div>
         <label htmlFor="awsS3Bucket" className="block text-sm font-medium text-gray-700 mb-1">
@@ -124,6 +105,26 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({
         placeholder="AWS Secret Key"
         required
       />
+      
+      <div>
+        <label htmlFor="awsS3Region" className="block text-sm font-medium text-gray-700 mb-1">
+          Region <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="awsS3Region"
+          value={region}
+          onChange={(e) => onRegionChange(e.target.value)}
+          required
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+        >
+          <option value="">Select a region</option>
+          {regions.map((regionCode) => (
+            <option key={regionCode} value={regionCode}>
+              {regionCode}
+            </option>
+          ))}
+        </select>
+      </div>
     </CloudServiceSection>
   );
 };
