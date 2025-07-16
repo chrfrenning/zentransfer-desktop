@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { LoaderScreenProps } from '../types/components';
 
-const LoaderScreen = ({ onVersionCheckComplete }) => {
+const LoaderScreen: React.FC<LoaderScreenProps> = ({ onVersionCheckComplete }) => {
   const [status, setStatus] = useState('Checking version...');
   const [appVersion, setAppVersion] = useState('Loading...');
   const [isVisible, setIsVisible] = useState(true);

@@ -1,7 +1,8 @@
 import React from 'react';
+import { FileTileProps } from '../types/file';
 
-const FileTile = ({ file, formatFileSize }) => {
-  const getFileIcon = (fileType) => {
+const FileTile: React.FC<FileTileProps> = ({ file, formatFileSize }) => {
+  const getFileIcon = (fileType?: string) => {
     if (fileType?.startsWith('image/')) {
       return (
         <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -3,8 +3,8 @@ import ScreenHeader from '../components/ScreenHeader';
 import FileList from '../components/FileList';
 import OperationProgress from '../components/OperationProgress';
 import { CloudFacade } from '../utils/CloudFacade';
-import useUploadStore from '../stores/uploadStore';
-import uploadSimulator from '../utils/uploadSimulator';
+import useUploadStore from '../stores/UploadStore';
+import uploadSimulator from '../utils/UploadSimulator';
 
 const UploadScreen = () => {
   // Zustand store subscriptions

@@ -9,21 +9,21 @@ import './RendererLogger';
 // Import contexts and providers (will be created in later phases)
 // import { AppProvider } from './contexts/AppContext';
 
-const App = () => {
-  const [isElectronReady, setIsElectronReady] = useState(false);
-  const [appVersion, setAppVersion] = useState('Loading...');
-  const [isDevelopmentMode, setIsDevelopmentMode] = useState(false);
-  const [showLoader, setShowLoader] = useState(true);
-  const [versionCheckPassed, setVersionCheckPassed] = useState(false);
-  const [activeTab, setActiveTab] = useState('import');
+const App: React.FC = () => {
+  const [isElectronReady, setIsElectronReady] = useState<boolean>(false);
+  const [appVersion, setAppVersion] = useState<string>('Loading...');
+  const [isDevelopmentMode, setIsDevelopmentMode] = useState<boolean>(false);
+  const [showLoader, setShowLoader] = useState<boolean>(true);
+  const [versionCheckPassed, setVersionCheckPassed] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>('import');
 
-  useEffect(() => {
+  useEffect((): void => {
     // Check if Electron API is available
     if (window.electronAPI) {
       setIsElectronReady(true);
       
       // Get app version and development mode
-      const initializeApp = async () => {
+      const initializeApp = async (): Promise<void> => {
         try {
           const version = await window.electronAPI.app.getVersion();
           const devMode = await window.electronAPI.app.getIsDevelopmentMode();
@@ -37,25 +37,26 @@ const App = () => {
         }
       };
       
-      initializeApp();
+      void initializeApp();
     } else {
       console.error('Electron API not available');
     }
   }, []);
 
-  const handleVersionCheckComplete = (shouldProceed) => {
+  const handleVersionCheckComplete = (shouldProceed: boolean): void => {
     console.log('Version check completed, should proceed:', shouldProceed);
     setVersionCheckPassed(shouldProceed);
     setShowLoader(false);
     
-    if (!shouldProceed) {
-      // Handle case where version check failed and app should not proceed
-      console.log('App should not proceed due to version check failure');
-      // In a real app, you might exit here or show an error screen
+    // If version check passed, we can proceed with the app
+    if (shouldProceed) {
+      console.log('✅ Version check passed - app ready');
+    } else {
+      console.log('❌ Version check failed - showing update required');
     }
   };
 
-  const switchTab = (tabName) => {
+  const switchTab = (tabName: string): void => {
     setActiveTab(tabName);
   };
 

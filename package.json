@@ -15,7 +15,11 @@
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "publish": "npm run build-react && electron-builder --publish=always",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "lint": "eslint src/renderer/src --ext .ts,.tsx",
+    "lint:fix": "eslint src/renderer/src --ext .ts,.tsx --fix"
   },
   "keywords": [
     "electron",
@@ -28,6 +32,7 @@
   "author": "Perceptron AS",
   "license": "AGPL-3.0",
   "devDependencies": {
+    "@types/node": "^24.0.14",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
     "@vitejs/plugin-react": "^4.2.1",
@@ -39,6 +44,7 @@
     "electron-reload": "^2.0.0-alpha.1",
     "glob": "^11.0.2",
     "tailwindcss": "^3.3.5",
+    "typescript": "^5.8.3",
     "vite": "^5.0.0",
     "wait-on": "^8.0.3"
   },

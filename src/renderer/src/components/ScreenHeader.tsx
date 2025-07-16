@@ -1,8 +1,9 @@
 import React from 'react';
+import { ScreenHeaderProps, ModeConfig, ScreenMode } from '../types/components';
 
-const ScreenHeader = ({ mode = 'import' }) => {
+const ScreenHeader: React.FC<ScreenHeaderProps> = ({ mode = 'import' }) => {
   // Define configuration for each mode
-  const modeConfig = {
+  const modeConfig: Record<ScreenMode, ModeConfig> = {
     import: {
       title: 'Import',
       description: 'Import from your camera',
@@ -44,7 +45,7 @@ const ScreenHeader = ({ mode = 'import' }) => {
   };
 
   // Get current mode configuration (default to import if mode not found)
-  const config = modeConfig[mode.toLowerCase()] || modeConfig.import;
+  const config = modeConfig[mode as ScreenMode] || modeConfig.import;
 
   return (
     <div className="flex items-center mt-2 mb-6 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">

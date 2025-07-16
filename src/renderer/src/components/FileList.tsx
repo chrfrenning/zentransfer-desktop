@@ -1,14 +1,15 @@
 import React from 'react';
 import FileTile from './FileTile';
+import { FileListProps, FileStatus } from '../types/file';
 
-const FileList = ({ files, formatFileSize }) => {
+const FileList: React.FC<FileListProps> = ({ files, formatFileSize }) => {
   if (!files || files.length === 0) {
     return null;
   }
 
   // Sort files by status: uploading first, then queued, then completed/failed
-  const sortedFiles = [...files].sort((a, b) => {
-    const getStatusPriority = (status) => {
+  const sortedFiles = Array.from(files).sort((a, b) => {
+    const getStatusPriority = (status: FileStatus | undefined | null | ''): number => {
       switch (status) {
         case 'uploading':
           return 1; // Highest priority (top)

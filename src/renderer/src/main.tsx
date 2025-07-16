@@ -11,7 +11,9 @@ if (!window.electronAPI) {
 }
 
 // Create React root and render the app
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const rootElement = document.getElementById('root');
+if (!rootElement) throw new Error('Failed to find the root element');
+const root = ReactDOM.createRoot(rootElement);
 
 root.render(
   <React.StrictMode>
@@ -23,6 +25,6 @@ root.render(
 console.log('ZenTransfer React App initialized');
 
 // For development: expose React DevTools
-if (typeof window !== 'undefined' && window.__REACT_DEVTOOLS_GLOBAL_HOOK__) {
-  window.__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = () => {};
+if (typeof window !== 'undefined' && (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__) {
+  (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE = () => {};
 } 
