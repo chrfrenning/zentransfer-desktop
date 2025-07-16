@@ -3,6 +3,11 @@ const path = require('path');
 
 exports.default = async function(configuration) {
   const { path: filePath } = configuration;
+
+  if (!process.env.AZURE_KEY_VAULT_URI) {
+    console.log('Azure certificates not set, skipping signing');
+    return;
+  }
   
   console.log(`Signing ${filePath} with Azure SignTool...`);
   
