@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import SecureInput from './SecureInput';
 import CloudServiceSection from './CloudServiceSection';
+import CustomSelect from './CustomSelect';
 import { CloudIcon } from '@heroicons/react/24/outline';
-import type { AwsRegion } from '../types/cloud';
 import { getElectronAPI } from '../api/ZenTransferAPI';
 
 // Change notification interface
@@ -39,7 +39,7 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({ onChange }) => {
     testButtonState: 'idle',
   });
 
-  const [awsRegions, setAwsRegions] = useState<AwsRegion[]>([]);
+  const [awsRegions, setAwsRegions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   // Load settings and regions on mount
@@ -76,17 +76,15 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({ onChange }) => {
     try {
       const api = getElectronAPI();
       const regions = await api.clouds.getAwsRegions();
-      const sortedRegions = [...regions].sort((a, b) => a.code.localeCompare(b.code));
-      setAwsRegions(sortedRegions);
+      // Extract region codes if the API returns AwsRegion objects, otherwise use as strings
+      const regionCodes = Array.isArray(regions) 
+        ? regions.map(region => typeof region === 'string' ? region : region.code).sort()
+        : [];
+      setAwsRegions(regionCodes);
     } catch (error) {
       console.error('Failed to load AWS regions:', error);
-      // Fallback to common regions
-      setAwsRegions([
-        { code: 'us-east-1', name: 'US East (N. Virginia)', location: 'Virginia' },
-        { code: 'us-west-2', name: 'US West (Oregon)', location: 'Oregon' },
-        { code: 'eu-west-1', name: 'Europe (Ireland)', location: 'Ireland' },
-        { code: 'ap-southeast-1', name: 'Asia Pacific (Singapore)', location: 'Singapore' }
-      ]);
+      // Fallback to common region codes
+      setAwsRegions(['us-east-1', 'us-west-2', 'eu-west-1', 'ap-southeast-1']);
     }
   };
 
@@ -217,21 +215,22 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({ onChange }) => {
 
       <div>
         <label htmlFor="awsS3StorageTier" className="block text-sm font-medium text-gray-700 mb-1">Storage Tier</label>
-        <select
+        <CustomSelect
           id="awsS3StorageTier"
           value={settings.storageClass}
-          onChange={(e) => handleStorageClassChange(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-        >
-          <option key="STANDARD" value="STANDARD">Standard - Frequently accessed data</option>
-          <option key="REDUCED_REDUNDANCY" value="REDUCED_REDUNDANCY">Reduced Redundancy - Non-critical, reproducible data</option>
-          <option key="STANDARD_IA" value="STANDARD_IA">Standard-IA - Infrequently accessed data</option>
-          <option key="ONEZONE_IA" value="ONEZONE_IA">One Zone-IA - Infrequently accessed, non-critical data</option>
-          <option key="INTELLIGENT_TIERING" value="INTELLIGENT_TIERING">Intelligent Tiering - Automatic cost optimization</option>
-          <option key="GLACIER" value="GLACIER">Glacier - Long-term archive (minutes to hours retrieval)</option>
-          <option key="DEEP_ARCHIVE" value="DEEP_ARCHIVE">Glacier Deep Archive - Long-term archive (12+ hours retrieval)</option>
-          <option key="GLACIER_IR" value="GLACIER_IR">Glacier Instant Retrieval - Archive with instant access</option>
-        </select>
+          onChange={handleStorageClassChange}
+          options={[
+            { value: "STANDARD", label: "Standard - Frequently accessed data" },
+            { value: "REDUCED_REDUNDANCY", label: "Reduced Redundancy - Non-critical, reproducible data" },
+            { value: "STANDARD_IA", label: "Standard-IA - Infrequently accessed data" },
+            { value: "ONEZONE_IA", label: "One Zone-IA - Infrequently accessed, non-critical data" },
+            { value: "INTELLIGENT_TIERING", label: "Intelligent Tiering - Automatic cost optimization" },
+            { value: "GLACIER", label: "Glacier - Long-term archive (minutes to hours retrieval)" },
+            { value: "DEEP_ARCHIVE", label: "Glacier Deep Archive - Long-term archive (12+ hours retrieval)" },
+            { value: "GLACIER_IR", label: "Glacier Instant Retrieval - Archive with instant access" }
+          ]}
+          className="w-full"
+        />
         <p className="text-xs text-gray-500 mt-1">
           Choose the storage class based on your access patterns and cost requirements.
         </p>
@@ -259,20 +258,21 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({ onChange }) => {
         <label htmlFor="awsS3Region" className="block text-sm font-medium text-gray-700 mb-1">
           Region <span className="text-red-500">*</span>
         </label>
-        <select
+        <CustomSelect
           id="awsS3Region"
           value={settings.region}
-          onChange={(e) => handleRegionChange(e.target.value)}
+          onChange={handleRegionChange}
+          options={[
+            { value: "", label: "Select a region" },
+            ...awsRegions.map((regionCode) => ({
+              value: regionCode,
+              label: regionCode
+            }))
+          ]}
+          placeholder="Select a region"
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
-        >
-          <option key="" value="">Select a region</option>
-          {awsRegions.map((region) => (
-            <option key={region.code} value={region.code}>
-              {region.code} - {region.name}
-            </option>
-          ))}
-        </select>
+          className="w-full"
+        />
       </div>
     </CloudServiceSection>
   );

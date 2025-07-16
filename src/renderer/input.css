@@ -7,7 +7,80 @@
   --font-sans: Inter, sans-serif;
 }
 
-/* add the code bellow */ 
+/* Placeholder text styling */
+@layer base {
+  input::placeholder,
+  textarea::placeholder {
+    color: #9ca3af; /* gray-400 */
+    opacity: 1; /* Firefox */
+    font-style: italic;
+  }
+  
+  input::-webkit-input-placeholder,
+  textarea::-webkit-input-placeholder {
+    color: #9ca3af; /* gray-400 */
+    font-style: italic;
+  }
+  
+  input::-moz-placeholder,
+  textarea::-moz-placeholder {
+    color: #9ca3af; /* gray-400 */
+    opacity: 1;
+    font-style: italic;
+  }
+  
+  input:-ms-input-placeholder,
+  textarea:-ms-input-placeholder {
+    color: #9ca3af; /* gray-400 */
+    font-style: italic;
+  }
+
+  /* Select dropdown styling improvements */
+  select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.5rem center;
+    background-repeat: no-repeat;
+    background-size: 1.5em 1.5em;
+    padding-right: 2.5rem;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+  }
+
+  /* Style dropdown options where possible */
+  select option {
+    padding: 8px 12px;
+    background-color: white;
+    color: #374151; /* gray-700 */
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  select option:checked {
+    background-color: #dbeafe; /* blue-100 */
+    color: #1e40af; /* blue-800 */
+  }
+
+  select option:hover {
+    background-color: #f3f4f6; /* gray-100 */
+  }
+
+  /* Dark mode support for select options */
+  .dark select option {
+    background-color: #1f2937; /* gray-800 */
+    color: #f9fafb; /* gray-50 */
+  }
+
+  .dark select option:checked {
+    background-color: #1e3a8a; /* blue-900 */
+    color: #dbeafe; /* blue-100 */
+  }
+
+  .dark select option:hover {
+    background-color: #374151; /* gray-700 */
+  }
+}
+
 @layer utilities {
     /* Hide scrollbar for Chrome, Safari and Opera */
     .no-scrollbar::-webkit-scrollbar {
