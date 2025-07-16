@@ -1,6 +1,8 @@
 # ZenTransfer for Mac and Windows
 
 ZenTransfer is a *free* file transfer utility for professional photographers.
+Copyright (C) 2025 Christopher Frenning / Perceptron AS
+Licensed under the GNU Affero General Public License (AGPLv3)
 
 It runs on Mac OS (Apple Silicon) and Windows.
 (It may run on Intel Mac's, but I don't have one to test.)
