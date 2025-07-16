@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import CloudServiceSection from './CloudServiceSection';
 import { CloudIcon, DocumentIcon } from '@heroicons/react/24/outline';
-import { getElectronAPI } from '../api/ZenTransferAPI';
+import { getElectronAPI } from '../../../api/ZenTransferAPI';
 
 // Change notification interface
 export interface GCPCloudSettingsChangeNotification {

@@ -1,6 +1,6 @@
 import React from 'react';
 
-const OverallProgress = ({ 
+const ProgressBar = ({ 
   progress = 0, 
   label = "Progress",
   color = "blue",
@@ -32,4 +32,4 @@ const OverallProgress = ({
   );
 };
 
-export default OverallProgress; 
+export default ProgressBar; 

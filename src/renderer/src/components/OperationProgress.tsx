@@ -1,5 +1,5 @@
 import React from 'react';
-import OverallProgress from './OverallProgress';
+import ProgressBar from './generic/ProgressBar';
 
 const OperationProgress = ({ 
   queued = 0,
@@ -113,7 +113,7 @@ const OperationProgress = ({
 
       {/* Overall Progress Bar - Hide when completed if hideWhenCompleted is true */}
       {total > 0 && !(hideWhenCompleted && isCompleted) && (
-        <OverallProgress 
+        <ProgressBar 
           progress={progress}
           color={getProgressBarColor()}
         />

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import LoaderScreen from './screens/LoaderScreen';
+import LoginScreen from './screens/LoginScreen';
 import ImportScreen from './screens/ImportScreen';
 import UploadScreen from './screens/UploadScreen';
 import DownloadScreen from './screens/DownloadScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import { getElectronAPI } from './api/ZenTransferAPI';
 import './RendererLogger';
 
 // Import contexts and providers (will be created in later phases)
@@ -15,7 +17,11 @@ const App: React.FC = () => {
   const [isDevelopmentMode, setIsDevelopmentMode] = useState<boolean>(false);
   const [showLoader, setShowLoader] = useState<boolean>(true);
   const [versionCheckPassed, setVersionCheckPassed] = useState<boolean>(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [authCheckComplete, setAuthCheckComplete] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>('import');
+
+  const api = getElectronAPI();
 
   useEffect((): void => {
     // Check if Electron API is available
@@ -43,6 +49,36 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Check authentication status after version check passes
+  useEffect(() => {
+    if (versionCheckPassed && !authCheckComplete) {
+      checkAuthenticationStatus();
+    }
+  }, [versionCheckPassed, authCheckComplete]);
+
+  const checkAuthenticationStatus = async (): Promise<void> => {
+    try {
+      // First check if user has ever attempted to log in
+      const token = await api.auth.getToken();
+      
+      if (token === null) {
+        // User has never attempted to log in - skip login and go to main app
+        console.log('Authentication status: no previous login attempt - proceeding to main app');
+        setIsAuthenticated(true);
+      } else {
+        // User has a token - check if it's still valid
+        const hasValidToken = await api.auth.hasValidToken();
+        setIsAuthenticated(hasValidToken);
+        console.log('Authentication status:', hasValidToken ? 'authenticated with valid token' : 'token exists but invalid - need to re-login');
+      }
+    } catch (error) {
+      console.error('Failed to check authentication status:', error);
+      setIsAuthenticated(false);
+    } finally {
+      setAuthCheckComplete(true);
+    }
+  };
+
   const handleVersionCheckComplete = (shouldProceed: boolean): void => {
     console.log('Version check completed, should proceed:', shouldProceed);
     setVersionCheckPassed(shouldProceed);
@@ -50,10 +86,20 @@ const App: React.FC = () => {
     
     // If version check passed, we can proceed with the app
     if (shouldProceed) {
-      console.log('✅ Version check passed - app ready');
+      console.log('✅ Version check passed - checking authentication');
     } else {
       console.log('❌ Version check failed - showing update required');
     }
+  };
+
+  const handleLoginSuccess = (): void => {
+    console.log('Login successful - updating authentication state');
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = (): void => {
+    console.log('Logout requested - updating authentication state');
+    setIsAuthenticated(false);
   };
 
   const switchTab = (tabName: string): void => {
@@ -69,7 +115,7 @@ const App: React.FC = () => {
       case 'download':
         return <DownloadScreen />;
       case 'settings':
-        return <SettingsScreen />;
+        return <SettingsScreen onLogout={handleLogout} />;
       default:
         return <ImportScreen />;
     }
@@ -121,6 +167,31 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // Show loading while checking authentication
+  if (!authCheckComplete) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-6 flex items-center justify-center">
+            <img src="logo_sq.png" alt="ZenTransfer Logo" className="w-16 h-16" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">ZenTransfer</h1>
+          <p className="text-gray-600 mb-6">Checking authentication...</p>
+          <div className="flex justify-center space-x-2">
+            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0ms'}}></div>
+            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '150ms'}}></div>
+            <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '300ms'}}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (

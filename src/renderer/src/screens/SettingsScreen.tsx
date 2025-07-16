@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import ScreenHeader from '../components/ScreenHeader';
-import PreferencesSection from '../components/PreferencesSection';
-import AWSCloudSettings, { CloudSettingsChangeNotification } from '../components/AWSCloudSettings';
-import AzureCloudSettings, { AzureCloudSettingsChangeNotification } from '../components/AzureCloudSettings';
-import GCPCloudSettings, { GCPCloudSettingsChangeNotification } from '../components/GCPCloudSettings';
-import MinIOCloudSettings, { MinIOCloudSettingsChangeNotification } from '../components/MinIOCloudSettings';
-import AccountSection from '../components/AccountSection';
-import SupportSection from '../components/SupportSection';
-import AppInfoSection from '../components/AppInfoSection';
-import LogsSection from '../components/LogsSection';
+import PreferencesSection from '../components/preferences/PreferencesSection';
+import AWSCloudSettings, { CloudSettingsChangeNotification } from '../components/preferences/clouds/AWSCloudSettings';
+import AzureCloudSettings, { AzureCloudSettingsChangeNotification } from '../components/preferences/clouds/AzureCloudSettings';
+import GCPCloudSettings, { GCPCloudSettingsChangeNotification } from '../components/preferences/clouds/GCPCloudSettings';
+import MinIOCloudSettings, { MinIOCloudSettingsChangeNotification } from '../components/preferences/clouds/MinIOCloudSettings';
+import AccountSection from '../components/preferences/AccountSection';
+import SupportSection from '../components/preferences/SupportSection';
+import AppInfoSection from '../components/preferences/AppInfoSection';
+import LogsSection from '../components/preferences/LogsSection';
 import { getElectronAPI } from '../api/ZenTransferAPI';
-import { SettingChangeNotification } from '../components/PreferenceSetting';
+import { SettingChangeNotification } from '../components/preferences/PreferenceSetting';
 
 // Cloud settings change notification union type
 type CloudChangeNotification = 
@@ -18,11 +18,6 @@ type CloudChangeNotification =
   | AzureCloudSettingsChangeNotification 
   | GCPCloudSettingsChangeNotification 
   | MinIOCloudSettingsChangeNotification;
-
-interface AccountState {
-  isLoggedIn: boolean;
-  userEmail?: string;
-}
 
 interface AppInfoState {
   version: string;
@@ -36,11 +31,11 @@ interface LogsState {
   lastModified: string;
 }
 
-const SettingsScreen = () => {
-  const [account, setAccount] = useState<AccountState>({
-    isLoggedIn: false,
-  });
+interface SettingsScreenProps {
+  onLogout: () => void;
+}
 
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout }) => {
   const [appInfo, setAppInfo] = useState<AppInfoState>({
     version: 'Loading...',
     build: 'Loading...',
@@ -100,21 +95,6 @@ const SettingsScreen = () => {
   const handleCloudSettingsChange = (notification: CloudChangeNotification) => {
     console.log('Cloud settings changed:', notification);
     // Could emit to analytics, logging, etc.
-  };
-
-  // Account handlers
-  const handleLogin = () => {
-    // TODO: Implement login functionality
-    console.log('Login clicked');
-  };
-
-  const handleCreateAccount = () => {
-    openExternal('https://zentransfer.io/register');
-  };
-
-  const handleSignOut = async () => {
-    // TODO: Implement sign out functionality
-    console.log('Sign out clicked');
   };
 
   const handleLearnMore = () => {
@@ -213,12 +193,8 @@ const SettingsScreen = () => {
           <MinIOCloudSettings onChange={handleCloudSettingsChange} />
 
           <AccountSection
-            isLoggedIn={account.isLoggedIn}
-            {...(account.userEmail && { userEmail: account.userEmail })}
-            onLogin={handleLogin}
-            onCreateAccount={handleCreateAccount}
-            onSignOut={handleSignOut}
             onLearnMore={handleLearnMore}
+            onLogout={onLogout}
           />
 
           <SupportSection

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import SimpleSwitch from './SimpleSwitch';
-import { getElectronAPI } from '../api/ZenTransferAPI';
+import SimpleSwitch from '../generic/SimpleSwitch';
+import { getElectronAPI } from '../../api/ZenTransferAPI';
 
 // Change notifier interface (not wired up yet as requested)
 export interface SettingChangeNotification {

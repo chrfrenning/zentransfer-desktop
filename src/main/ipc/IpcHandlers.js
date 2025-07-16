@@ -157,7 +157,7 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
   });
 
   ipcMain.handle('auth-get-token', async (event) => {
-    return mainTokenManager.getToken();
+    return app.tokenManager.getToken();
   });
 
   ipcMain.handle('auth-get-email', async (event) => {

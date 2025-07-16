@@ -1,5 +1,5 @@
 import React from 'react';
-import SimpleSwitch from './SimpleSwitch';
+import SimpleSwitch from '../../generic/SimpleSwitch';
 import TestConnectionButton from './TestConnectionButton';
 
 type ButtonColor = 'orange' | 'blue' | 'red' | 'green' | 'purple';

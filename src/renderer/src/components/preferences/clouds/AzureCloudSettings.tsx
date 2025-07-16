@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import SecureInput from './SecureInput';
+import SecureInput from '../../generic/SecureInput';
 import CloudServiceSection from './CloudServiceSection';
 import { CloudIcon } from '@heroicons/react/24/outline';
-import { getElectronAPI } from '../api/ZenTransferAPI';
+import { getElectronAPI } from '../../../api/ZenTransferAPI';
 
 // Change notification interface
 export interface AzureCloudSettingsChangeNotification {
