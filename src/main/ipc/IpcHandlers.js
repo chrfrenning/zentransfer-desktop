@@ -124,10 +124,12 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    */
 
   ipcMain.handle('config-get', async (event, section) => {
+    logger.silly(`Getting config: ${section}`);
     return app.configurationManager.get(section);
   });
 
   ipcMain.handle('config-set', async (event, section, value) => {
+    logger.silly(`Setting config: ${section} = ${value}`);
     app.configurationManager.set(section, value);
   });
 

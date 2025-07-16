@@ -132,6 +132,7 @@ class ConfigurationManager {
         }
         
         current[parts[parts.length - 1]] = value;
+        this.saveConfiguration();
     }
 
     /**

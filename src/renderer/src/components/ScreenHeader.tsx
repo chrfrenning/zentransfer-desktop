@@ -45,7 +45,7 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({ mode = 'import' }) => {
     },
     settings: {
       title: 'Settings',
-      description: 'Configure Application Settings',
+      description: 'Preferences and cloud services',
       color: 'bg-gray-500',
       icon: (
         <>
