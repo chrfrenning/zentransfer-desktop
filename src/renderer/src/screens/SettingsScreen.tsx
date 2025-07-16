@@ -647,19 +647,19 @@ const SettingsScreen = () => {
             onDonateClick={handleDonateClick}
           />
 
+          <LogsSection
+            logFilePath={logs.logFilePath}
+            logFileSize={logs.logFileSize}
+            lastModified={logs.lastModified}
+            onShowLogsFolder={handleShowLogsFolder}
+          />
+
           <AppInfoSection
             version={appInfo.version}
             build={appInfo.build}
             serverUrl={appInfo.serverUrl}
             onClearAllData={handleClearAllData}
             onDebugConsole={handleDebugConsole}
-          />
-
-          <LogsSection
-            logFilePath={logs.logFilePath}
-            logFileSize={logs.logFileSize}
-            lastModified={logs.lastModified}
-            onShowLogsFolder={handleShowLogsFolder}
           />
         </div>
       </div>

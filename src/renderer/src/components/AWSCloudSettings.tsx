@@ -112,7 +112,7 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({
         label="Access Key ID"
         value={accessKey}
         onChange={onAccessKeyChange}
-        placeholder="AKIAIOSFODNN7EXAMPLE"
+        placeholder="AWS Access Key"
         required
       />
 
@@ -121,7 +121,7 @@ const AWSCloudSettings: React.FC<AWSCloudSettingsProps> = ({
         label="Secret Key"
         value={secretKey}
         onChange={onSecretKeyChange}
-        placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+        placeholder="AWS Secret Key"
         required
       />
     </CloudServiceSection>

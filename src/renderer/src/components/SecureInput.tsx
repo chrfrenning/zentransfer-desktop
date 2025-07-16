@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { Input } from './catalyst/input';
-import { Field, Label } from './catalyst/fieldset';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
 interface SecureInputProps {
@@ -23,20 +21,20 @@ const SecureInput: React.FC<SecureInputProps> = ({
   const [isVisible, setIsVisible] = useState(false);
 
   return (
-    <Field>
-      <Label htmlFor={id}>
+    <div className="space-y-2">
+      <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
-      </Label>
+      </label>
       <div className="relative">
-        <Input
+        <input
           id={id}
           type={isVisible ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
-          className="pr-10"
+          className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
         />
         <button
           type="button"
@@ -50,7 +48,7 @@ const SecureInput: React.FC<SecureInputProps> = ({
           )}
         </button>
       </div>
-    </Field>
+    </div>
   );
 };
 

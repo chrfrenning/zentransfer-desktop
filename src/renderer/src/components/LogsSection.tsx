@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from './catalyst/button';
 import { DocumentTextIcon, FolderOpenIcon } from '@heroicons/react/24/outline';
 
 interface LogsSectionProps {
@@ -45,14 +44,13 @@ const LogsSection: React.FC<LogsSectionProps> = ({
         </div>
       </div>
       
-      <Button
-        color="blue"
+      <button
         onClick={onShowLogsFolder}
-        className="w-full flex items-center justify-center space-x-2"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-md transition-colors duration-200 flex items-center justify-center space-x-2"
       >
         <FolderOpenIcon className="w-5 h-5" />
         <span>Show Logs Folder</span>
-      </Button>
+      </button>
     </div>
   );
 };

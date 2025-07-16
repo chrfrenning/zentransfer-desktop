@@ -40,16 +40,18 @@ const AppInfoSection: React.FC<AppInfoSectionProps> = ({
         <div className="pt-4 border-t border-gray-200 space-y-3">
           <button
             onClick={onClearAllData}
-            className="w-full text-left text-sm text-red-600 hover:text-red-700 font-medium transition-colors duration-200 bg-transparent border-none cursor-pointer"
+            className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-md transition-colors duration-200 cursor-pointer"
           >
             Clear All Data
           </button>
-          <button
-            onClick={onDebugConsole}
-            className="w-full text-left text-sm text-gray-600 hover:text-gray-800 font-medium transition-colors duration-200 bg-transparent border-none cursor-pointer"
-          >
-            Debug Console
-          </button>
+          <div className="text-center">
+            <button
+              onClick={onDebugConsole}
+              className="text-sm text-blue-600 hover:text-blue-800 underline font-medium transition-colors duration-200 bg-transparent border-none cursor-pointer"
+            >
+              Open Debug Console
+            </button>
+          </div>
         </div>
       </div>
     </div>

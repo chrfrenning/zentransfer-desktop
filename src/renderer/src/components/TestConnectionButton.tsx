@@ -1,5 +1,4 @@
 import React from 'react';
-import { Button } from './catalyst/button';
 import { 
   BoltIcon, 
   CheckIcon, 
@@ -49,27 +48,43 @@ const TestConnectionButton: React.FC<TestConnectionButtonProps> = ({
     }
   };
 
-  const getButtonColor = (): ButtonColor => {
+  const getButtonClasses = () => {
+    const baseClasses = "w-full flex items-center justify-center space-x-2 font-semibold py-2.5 px-4 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed";
+    
     switch (state) {
       case 'success':
-        return 'green';
+        return `${baseClasses} bg-green-600 hover:bg-green-700 text-white`;
       case 'error':
-        return 'red';
+        return `${baseClasses} bg-red-600 hover:bg-red-700 text-white`;
+      case 'testing':
+        return `${baseClasses} bg-gray-600 text-white cursor-not-allowed`;
       default:
-        return color;
+        switch (color) {
+          case 'orange':
+            return `${baseClasses} bg-orange-500 hover:bg-orange-600 text-white`;
+          case 'blue':
+            return `${baseClasses} bg-blue-600 hover:bg-blue-700 text-white`;
+          case 'red':
+            return `${baseClasses} bg-red-600 hover:bg-red-700 text-white`;
+          case 'green':
+            return `${baseClasses} bg-green-600 hover:bg-green-700 text-white`;
+          case 'purple':
+            return `${baseClasses} bg-purple-600 hover:bg-purple-700 text-white`;
+          default:
+            return `${baseClasses} bg-blue-600 hover:bg-blue-700 text-white`;
+        }
     }
   };
 
   return (
-    <Button
-      color={getButtonColor()}
+    <button
       onClick={onClick}
       disabled={disabled || state === 'testing' || state === 'success'}
-      className="w-full flex items-center justify-center space-x-2"
+      className={getButtonClasses()}
     >
       {getIcon()}
       <span>{getButtonText()}</span>
-    </Button>
+    </button>
   );
 };
 
