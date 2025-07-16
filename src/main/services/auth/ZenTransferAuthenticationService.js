@@ -6,7 +6,7 @@
 
 const sharedConfig = require('../../configuration/Globals.js');
 const { AuthenticationServiceBase } = require('./AuthenticationServiceBase.js');
-const logger = require('../../utils/logger.js');
+const logger = require('../../utils/Logger.js');
 
 class ZenTransferAuthenticationService extends AuthenticationServiceBase {
     constructor(configManager) {

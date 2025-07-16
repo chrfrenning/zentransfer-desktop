@@ -7,7 +7,7 @@ const { app } = require('electron');
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
-const logger = require('../utils/logger.js');
+const logger = require('../utils/Logger.js');
 
 class UploadQueue {
     constructor() {

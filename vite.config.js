@@ -18,7 +18,7 @@ export default defineConfig({
   // Build configuration for Electron renderer
   build: {
     // Output directory relative to project root
-    outDir: '../../../dist-react',
+    outDir: '../../dist-react',
     // Empty the output directory before build
     emptyOutDir: true,
     // Generate source maps for debugging
@@ -28,7 +28,7 @@ export default defineConfig({
       // Don't bundle electron - it's provided by the main process
       external: ['electron'],
       input: {
-        main: resolve(__dirname, 'src/renderer/react/index.html')
+        main: resolve(__dirname, 'src/renderer/index.html')
       }
     },
     // Target ES2020 for modern Electron

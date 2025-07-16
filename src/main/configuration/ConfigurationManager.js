@@ -2,7 +2,7 @@ const { app } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
-const logger = require('../utils/logger.js');
+const logger = require('../utils/Logger.js');
 
 // Import the configuration data class
 const { ConfigurationData } = require('./ConfigurationData.js');

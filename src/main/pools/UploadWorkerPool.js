@@ -9,7 +9,7 @@ const { Worker } = require('worker_threads');
 const { UploadQueue } = require('../queues/UploadQueue.js');
 const { BackoffManager } = require('../services/BackoffManager.js');
 const path = require('path');
-const logger = require('../utils/logger.js');
+const logger = require('../utils/Logger.js');
 
 class UploadWorkerPool {
   constructor(poolSize = 3) {

@@ -7,7 +7,7 @@
 const { BrowserWindow } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
-const logger = require('../utils/logger.js');
+const logger = require('../utils/Logger.js');
 
 class ImportWorkerPool {
   constructor(poolSize = 3) {

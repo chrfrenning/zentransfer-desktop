@@ -44,7 +44,9 @@ logger.info('Configuration loaded from ' + app.configurationManager.getConfigFil
 logger.info('Device ID: ' + app.configurationManager.get('deviceId'));
 
 // Enable live reload for Electron in development
-if (getIsDevelopment()) {
+const DO_LIVE_ELECTRON_RELOAD = false;
+
+if (getIsDevelopment() && DO_LIVE_ELECTRON_RELOAD) {
   logger.info('Development mode: enabling electron-reload');
 
   require('electron-reload')(__dirname, {
@@ -65,21 +67,26 @@ if (getIsDevelopment()) {
  *
 */
 
+const DO_AUTO_UPDATE = false;
 const forceUpdateInDevMode = false;
 
-const { ZenTransferGitHubAutoUpdater } = require('./src/main/services/AutoUpdate.js');
-app.autoUpdater = new ZenTransferGitHubAutoUpdater(forceUpdateInDevMode);
-app.autoUpdater.checkForUpdates().then((result) => {
-  if ( result ) {
-    if ( result.isUpdateAvailable ) {
-      console.log(`ZenTransfer has a new version available: ${result.versionInfo.version} released on ${result.versionInfo.releaseDate}`);
-    } else {
-      console.log(`ZenTransfer is up to date`);
+if (DO_AUTO_UPDATE) {
+  const { ZenTransferGitHubAutoUpdater } = require('./src/main/services/AutoUpdate.js');
+  app.autoUpdater = new ZenTransferGitHubAutoUpdater(forceUpdateInDevMode);
+  app.autoUpdater.checkForUpdates().then((result) => {
+    if ( result ) {
+      if ( result.isUpdateAvailable ) {
+        console.log(`ZenTransfer has a new version available: ${result.versionInfo.version} released on ${result.versionInfo.releaseDate}`);
+      } else {
+        console.log(`ZenTransfer is up to date`);
+      }
     }
-  }
 
+    setupAuthenticationAndTokenRefresh();
+  });
+} else {
   setupAuthenticationAndTokenRefresh();
-});
+}
 
 
 
@@ -90,6 +97,8 @@ app.autoUpdater.checkForUpdates().then((result) => {
 */
 
 function setupAuthenticationAndTokenRefresh() {
+  logger.info('Setting up authentication and token refresh...');
+  
   // Import Auth Service
   const { ZenTransferAuthenticationService } = require('./src/main/services/auth/ZenTransferAuthenticationService.js');
   app.authenticationService = new ZenTransferAuthenticationService(app.configurationManager);
@@ -239,18 +248,12 @@ function createWindow() {
   } else {
     // In production, load built React files with fallback to legacy
     logger.info('Production mode: Loading built React app');
-    const fs = require('fs');
-    const reactBuildPath = path.join(__dirname, 'dist-react', 'index.html');
     
-    if (fs.existsSync(reactBuildPath)) {
-      mainWindow.loadFile('dist-react/index.html').catch((error) => {
-        logger.warn('Failed to load built React app, falling back to legacy version', error);
-        mainWindow.loadFile('src/renderer/legacy/index.html');
-      });
-    } else {
-      logger.warn('React build not found, using legacy version');
-      mainWindow.loadFile('src/renderer/legacy/index.html');
-    }
+    mainWindow.loadFile('dist-react/index.html').catch((error) => {
+      alert('Failed to load the user interface.');
+      logger.error('Failed to load built React app, falling back to legacy version', error);
+      app.quit();
+    });
   }
 
   // Hide the menu completely on Windows

@@ -3,3 +3,4 @@ alwaysApply: true
 ---
 
 * Do not use "npm start" for this project. If you need to run the project, use "npm run dev"
+* When working on the renderer, I have the project running and we have live reload, do not run "npm run dev"

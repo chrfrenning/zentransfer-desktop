@@ -11,10 +11,10 @@
     "build-react": "vite build --config vite.config.js",
     "build-react-dev": "vite build --config vite.config.js --mode development",
     "preview-react": "vite preview --config vite.config.js",
-    "build": "npm run build-css-prod && npm run build-react && electron-builder",
+    "build": "npm run build-react && electron-builder",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "publish": "npm run build-css-prod && npm run build-react && electron-builder --publish=always",
+    "publish": "npm run build-react && electron-builder --publish=always",
     "postinstall": "electron-builder install-app-deps"
   },
   "keywords": [
@@ -83,9 +83,10 @@
       "config.js",
       "src/**/*",
       "main/**/*",
-      "workers/**/*",
+      "ui/**/*",
       "package.json",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "dist-react/**/*"
     ],
     "extraResources": [
       {
