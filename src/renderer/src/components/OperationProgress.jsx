@@ -2,17 +2,18 @@ import React from 'react';
 import OverallProgress from './OverallProgress';
 
 const OperationProgress = ({ 
-  queued = 0, 
+  queued = 0,
+  uploading = 0,
   completed = 0, 
   failed = 0, 
   operationType = "operation",
   onViewLog = null 
 }) => {
-  const total = queued + completed + failed;
+  const total = queued + uploading + completed + failed;
   const progress = total > 0 ? Math.round(((completed + failed) / total) * 100) : 0;
   
   // Determine the operation state
-  const isCompleted = queued === 0 && total > 0;
+  const isCompleted = queued === 0 && uploading === 0 && total > 0;
   const hasFailures = failed > 0;
   const isFullSuccess = isCompleted && failed === 0;
   const isPartialSuccess = isCompleted && hasFailures;
@@ -66,10 +67,14 @@ const OperationProgress = ({
   return (
     <div className="w-full">
       {/* Stats Grid */}
-      <div className="flex w-full gap-4 mb-6">
+      <div className="flex w-full gap-3 mb-6">
         <div className="flex-1 text-center p-4 bg-blue-50 rounded-lg border border-blue-100">
           <div className="font-semibold text-2xl text-blue-600">{queued}</div>
           <div className="text-sm text-gray-600">Queued</div>
+        </div>
+        <div className="flex-1 text-center p-4 bg-amber-50 rounded-lg border border-amber-100">
+          <div className="font-semibold text-2xl text-amber-600">{uploading}</div>
+          <div className="text-sm text-gray-600">Processing</div>
         </div>
         <div className="flex-1 text-center p-4 bg-green-50 rounded-lg border border-green-100">
           <div className="font-semibold text-2xl text-green-600">{completed}</div>

@@ -23,7 +23,7 @@ const FileTile = ({ file, formatFileSize }) => {
     }
   };
 
-  return (
+    return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -44,12 +44,48 @@ const FileTile = ({ file, formatFileSize }) => {
             )}
           </div>
         </div>
-        <div className="flex items-center space-x-2 ml-4">
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-            Selected
-          </span>
-        </div>
+                <div className="flex items-center space-x-2 ml-4">
+                  {file.status === 'uploading' ? (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-900">{Math.round(file.progress || 0)}%</span>
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        Uploading
+                      </span>
+                    </div>
+                  ) : file.status === 'completed' ? (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      Completed
+                    </span>
+                  ) : file.status === 'failed' ? (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      Failed
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      Queued
+                    </span>
+                  )}
+                </div>
       </div>
+      
+      {/* Progress Bar for Uploading Files */}
+      {file.status === 'uploading' && (
+        <div className="mt-3">
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div 
+              className="bg-amber-600 h-2 rounded-full transition-all duration-300 ease-out" 
+              style={{ width: `${file.progress || 0}%` }}
+            ></div>
+          </div>
+        </div>
+      )}
+      
+      {/* Error Message for Failed Files */}
+      {file.status === 'failed' && file.error && (
+        <div className="mt-2">
+          <div className="text-xs text-red-600">{file.error}</div>
+        </div>
+      )}
     </div>
   );
 };

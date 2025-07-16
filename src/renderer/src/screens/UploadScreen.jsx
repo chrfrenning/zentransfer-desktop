@@ -3,12 +3,22 @@ import ScreenHeader from '../components/ScreenHeader';
 import FileList from '../components/FileList';
 import OperationProgress from '../components/OperationProgress';
 import { CloudFacade } from '../utils/CloudFacade';
+import useUploadStore from '../stores/UploadStore';
+import uploadSimulator from '../utils/UploadSimulator';
 
 const UploadScreen = () => {
+  // Zustand store subscriptions
+  const files = useUploadStore(state => state.files);
+  const stats = useUploadStore(state => state.stats);
+  const selectedService = useUploadStore(state => state.selectedService);
+  const addFiles = useUploadStore(state => state.addFiles);
+  const clearAllFiles = useUploadStore(state => state.clearFiles);
+  const setSelectedService = useUploadStore(state => state.setSelectedService);
+  const hasFiles = useUploadStore(state => state.hasFiles());
+
+  // Local state for UI
   const [availableServices, setAvailableServices] = useState([]);
-  const [selectedService, setSelectedService] = useState('zentransfer');
   const [isDragOver, setIsDragOver] = useState(false);
-  const [files, setFiles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const dropOverlayRef = useRef(null);
 
@@ -101,7 +111,7 @@ const UploadScreen = () => {
         if (result && result.length > 0) {
           console.log('Files selected via native dialog:', result);
           
-          // Add files to state and log them
+          // Add files to store and log them
           const newFiles = result.map(filePath => ({
             id: Date.now() + Math.random(),
             path: filePath,
@@ -109,7 +119,7 @@ const UploadScreen = () => {
             source: 'dialog'
           }));
           
-          setFiles(prev => [...prev, ...newFiles]);
+          addFiles(newFiles);
           console.log('Added files from dialog:', newFiles);
         } else {
           console.log('No files selected or dialog cancelled');
@@ -200,8 +210,8 @@ const UploadScreen = () => {
         }
       }
       
-      // Add files to state
-      setFiles(prev => [...prev, ...droppedFiles]);
+      // Add files to store
+      addFiles(droppedFiles);
       console.log('Added files from drop:', droppedFiles);
     } else {
       console.log('No files in drop event');
@@ -223,8 +233,24 @@ const UploadScreen = () => {
     };
   }, [isDragOver]);
 
+  // Start upload simulator for testing
+  useEffect(() => {
+    uploadSimulator.start();
+    
+    // Add to window for debugging
+    window.uploadSimulator = uploadSimulator;
+    window.uploadStore = useUploadStore;
+    
+    console.log('🧪 Upload simulator started. Use window.uploadSimulator for debugging');
+    console.log('💡 Try: window.uploadSimulator.addTestFiles(10)');
+
+    return () => {
+      uploadSimulator.stop();
+    };
+  }, []);
+
   const clearFiles = () => {
-    setFiles([]);
+    clearAllFiles();
     console.log('Cleared file list');
   };
 
@@ -252,7 +278,7 @@ const UploadScreen = () => {
   }
 
   // Empty state - shown when no files
-  if (files.length === 0) {
+  if (!hasFiles) {
     return (
       <div className="h-full px-4 pt-2 pb-6 overflow-y-auto">
         <div className="w-full">
@@ -352,9 +378,10 @@ const UploadScreen = () => {
 
         {/* Upload Progress */}
         <OperationProgress 
-          queued={files.length}
-          completed={0}
-          failed={0}
+          queued={stats.queued}
+          uploading={stats.uploading}
+          completed={stats.completed}
+          failed={stats.failed}
           operationType="upload"
           onViewLog={() => console.log('View upload log - to be implemented')}
         />
@@ -376,9 +403,17 @@ const UploadScreen = () => {
             </svg>
             Upload more files...
           </button>
-          <div>
+          
+          {/* Debug Controls */}
+          <div className="flex justify-center space-x-4 text-sm">
             <button 
-              className="text-sm text-gray-600 hover:text-gray-800 hover:underline transition-all duration-200 focus:outline-none focus:underline"
+              className="text-purple-600 hover:text-purple-800 hover:underline transition-all duration-200 focus:outline-none focus:underline"
+              onClick={() => uploadSimulator.addTestFiles(5)}
+            >
+              + Add 5 test files
+            </button>
+            <button 
+              className="text-gray-600 hover:text-gray-800 hover:underline transition-all duration-200 focus:outline-none focus:underline"
               onClick={clearFiles}
             >
               Clear file list

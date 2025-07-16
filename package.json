@@ -125,6 +125,7 @@
     "exiftool-vendored": "^30.3.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "sharp": "^0.34.3"
+    "sharp": "^0.34.3",
+    "zustand": "^5.0.6"
   }
 }
