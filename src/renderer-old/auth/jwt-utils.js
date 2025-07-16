@@ -6,6 +6,7 @@
 export class JWTUtils {
     static decodeToken(token) {
         try {
+            console.log('Decoding token:', token);
             // JWT tokens have 3 parts separated by dots: header.payload.signature
             const parts = token.split('.');
             if (parts.length !== 3) {

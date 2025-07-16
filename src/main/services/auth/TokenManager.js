@@ -399,6 +399,7 @@ class TokenManager {
      */
     decodeToken(token) {
         try {
+            console.log('Decoding token:', token);
             const parts = token.split('.');
             if (parts.length !== 3) {
                 throw new Error('Invalid JWT token format');

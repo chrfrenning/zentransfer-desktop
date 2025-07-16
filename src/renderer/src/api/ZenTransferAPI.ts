@@ -276,8 +276,8 @@ export interface ZenTransferAPI {
     hasValidToken(): Promise<boolean>;
     getToken(): Promise<string | null>;
     getEmail(): Promise<string | null>;
-    initializeLogin(email: string): Promise<LoginInitResult>;
-    finalizeLogin(otp: string): Promise<LoginFinalizeResult>;
+    initializeLogin(email: string): Promise<boolean>;
+    finalizeLogin(otp: string): Promise<boolean>;
     validateConnection(): Promise<ValidationResult>;
     logout(): Promise<void>;
   };

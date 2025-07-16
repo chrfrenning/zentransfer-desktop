@@ -80,12 +80,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCancel, onS
     try {
       const result = await api.auth.initializeLogin(email.trim());
       
-      if (result.success) {
+      if (result === true) {
         setIsEmailSubmitted(true);
         setIsLoading(false);
         setLoadingMessage('');
       } else {
-        throw new Error(result.error || 'Failed to send OTP');
+        throw new Error('Failed to send OTP');
       }
     } catch (error) {
       setIsLoading(false);
@@ -108,12 +108,12 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess, onCancel, onS
     try {
       const result = await api.auth.finalizeLogin(otp.trim());
       
-      if (result.success) {
+      if (result === true) {
         setIsLoading(false);
         setLoadingMessage('');
         onLoginSuccess();
       } else {
-        throw new Error(result.error || 'Invalid OTP code');
+        throw new Error('Invalid OTP code');
       }
     } catch (error) {
       setIsLoading(false);

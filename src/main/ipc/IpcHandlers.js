@@ -153,7 +153,8 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    */
 
   ipcMain.handle('auth-has-valid-token', async (event) => {
-    return app.tokenManager.getToken() && !app.tokenManager.isTokenExpired(app.tokenManager.getToken());
+    const token = await app.tokenManager.getToken();
+    return token && !app.tokenManager.isTokenExpired(token);
   });
 
   ipcMain.handle('auth-get-token', async (event) => {
@@ -170,7 +171,10 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
       const result = await app.authenticationService.initialize(email, deviceId);
 
       if ( result.result === 'ok' ) {
-        app.configurationManager.set('sessionId', result.sessionId);
+        logger.info('Login initialized successfully, sessionId: ' + result.session_id);
+        app.configurationManager.set('sessionId', result.session_id);
+        app.configurationManager.set('email', email);
+        app.configurationManager.saveConfiguration();
         return true;
       }
 
@@ -184,7 +188,7 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
   ipcMain.handle('auth-finalize-login', async (event, otp) => {
     try {
       const sessionId = app.configurationManager.get('sessionId');
-      assert(sessionId, 'Session ID is required');
+      logger.info(`Finalizing login for sessionId: ${sessionId} and otp: ${otp}`);
 
       const result = await app.authenticationService.finalize(sessionId, otp);
       if ( result.result === 'ok' ) {
