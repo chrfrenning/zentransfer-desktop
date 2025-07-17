@@ -12,10 +12,12 @@ class ConfigurationData {
     constructor() {
         // User preferences
         this.preferences = {
+            skipExisting: true,
             skipDuplicates: false,
+            createHighWaterMark: false,
             createPreviews: false,              // Generate preview and thumbnails for cloud stores
             extractMetaData: false,             // Extract metadata and save as json in cloud stores
-            createIndexfiles: false,            // Generate json indexes of uploaded files
+            createIndexFiles: false,            // Generate json indexes of uploaded files
             thumbnailSize: 400,                 // Thumbnail size in pixels
             thumbnailQuality: 90,               // Thumbnail quality (0-100)
             previewSize: 1920,                  // Preview size in pixels
@@ -105,6 +107,27 @@ class ConfigurationData {
             maxRetries: 3,
             temperature: 0.5,
             maxTokens: 2500
+        }
+
+        // Signatures
+        this.signWithCertificate = {
+            enabled: false,
+            certificate: '',
+            certificatePassword: '',
+            enableC2PA: false
+        }
+
+        this.signWithPGP = {
+            enabled: false,
+            pgpKey: '',
+            pgpKeyPassword: ''
+        }
+
+        // Ledger
+        this.ledger = {
+            enabled: false,
+            complexityBits: 8,
+            publicLinks: true
         }
     }
 
