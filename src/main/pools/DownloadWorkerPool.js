@@ -156,7 +156,7 @@ class DownloadWorkerPool {
       case 'log':
         //console.log('Received log from worker', message);
         const { level, args } = message;
-        logger[level](`[WORKER ${myWorker.id}] [${level}] ${args[0]}`);
+        logger[level](`[WORKER ${myWorker.id}] ${args[0]}`);
         break;
 
       default:
@@ -260,7 +260,7 @@ class DownloadWorkerPool {
     const availableWorkers = this.workers.filter(w => !w.currentFileId);
     const readyFiles = this.queueManager.getPendingFiles();
 
-    logger.info(`Processing queue: ${availableWorkers.length} available workers, ${readyFiles.length} pending files`);
+    logger.silly(`Processing queue: ${availableWorkers.length} available workers, ${readyFiles.length} pending files`);
 
     if (readyFiles.length === 0) {
       if (this.pollNextTimeZeroInQueue) {

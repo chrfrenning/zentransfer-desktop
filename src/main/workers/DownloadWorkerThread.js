@@ -99,19 +99,19 @@ function sendWorkerErrorMessage(error, stack) {
 parentPort.on('message', async (message) => {
     const { type, fileRecord, downloadPath } = message;
 
-    console.log(`Download worker ${workerId}: Received message type: ${type}.`, message);
+    logger.info(`Download worker ${workerId}: Received message type: ${type}.`, message);
 
     try {
         switch (type) {
             case 'download-file':
-                console.log(`Download worker ${workerId}: Handling download-file`);
+                logger.info(`Download worker ${workerId}: Handling download-file`);
                 await handleDownloadFile(fileRecord, downloadPath);
                 break;
             default:
-                console.log(`Download worker ${workerId}: Unknown message type: ${type}`);
+                logger.info(`Download worker ${workerId}: Unknown message type: ${type}`);
         }
     } catch (error) {
-        console.error(`Unexpected exception in download worker ${workerId}; error:`, error);
+        logger.error(`Unexpected exception in download worker ${workerId}; error:`, error);
 
         sendMessageToMainProcess('worker-error', {
             type: "error",
@@ -131,7 +131,7 @@ parentPort.on('message', async (message) => {
 
 async function handleDownloadFile(fileRecord, downloadPath) {
 
-    console.log(`Starting download for ${fileRecord.file_id} with name ${fileRecord.name} in worker ${workerId}`);
+    logger.info(`Starting download for ${fileRecord.file_id} with name ${fileRecord.name} in worker ${workerId}`);
 
     try {
         // Ensure download directory exists
@@ -157,11 +157,11 @@ async function handleDownloadFile(fileRecord, downloadPath) {
         // Send completion result
         sendCompletedMessage(fileRecord, result.filePath);
 
-        console.log(`Download worker ${workerId}: Download completed for ${fileRecord.name}`);
+        logger.info(`Download worker ${workerId}: Download completed for ${fileRecord.name}`);
 
     } catch (error) {
 
-        console.error(`Download failed in worker ${workerId}:`, error);
+        logger.error(`Download failed in worker ${workerId}:`, error);
         sendErrorMessage(fileRecord, error.message);
 
     }
@@ -171,7 +171,7 @@ async function downloadFile(fileRecord, destinationPath) {
     return new Promise((resolve, reject) => {
         try {
 
-            console.log(`Download worker ${workerId}: Downloading from ${fileRecord.url} to ${destinationPath}`);
+            logger.info(`Download worker ${workerId}: Downloading from ${fileRecord.url} to ${destinationPath}`);
 
             // Create write stream
             const fileStream = fs.createWriteStream(destinationPath);
@@ -188,12 +188,12 @@ async function downloadFile(fileRecord, destinationPath) {
                 }
 
                 const requestProtocol = requestUrl.startsWith('https:') ? https : http;
-                console.log(`Download worker ${workerId}: Making request to ${requestUrl} (redirect count: ${redirectCount})`);
+                logger.info(`Download worker ${workerId}: Making request to ${requestUrl} (redirect count: ${redirectCount})`);
 
                 const request = requestProtocol.get(requestUrl, (response) => {
                     // Handle redirects (301, 302, 303, 307, 308)
                     if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
-                        console.log(`Download worker ${workerId}: Redirect ${response.statusCode} to ${response.headers.location}`);
+                        logger.info(`Download worker ${workerId}: Redirect ${response.statusCode} to ${response.headers.location}`);
 
                         // Resolve relative URLs
                         let redirectUrl = response.headers.location;
@@ -215,7 +215,7 @@ async function downloadFile(fileRecord, destinationPath) {
                 });
 
                 request.on('error', (error) => {
-                    console.error(`Download worker ${workerId}: Request error:`, error);
+                    logger.error(`Download worker ${workerId}: Request error:`, error);
                     
                     // Clean up partial file
                     fileStream.destroy();
@@ -269,11 +269,11 @@ async function downloadFile(fileRecord, destinationPath) {
                 });
 
                 response.on('end', () => {
-                    console.log(`Download worker ${workerId}: Response ended for ${fileRecord.name}`);
+                    logger.info(`Download worker ${workerId}: Response ended for ${fileRecord.name}`);
                 });
 
                 response.on('error', (error) => {
-                    console.error(`Download worker ${workerId}: Response error:`, error);
+                    logger.error(`Download worker ${workerId}: Response error:`, error);
 
                     // Clean up partial file
                     fileStream.destroy();
@@ -284,7 +284,7 @@ async function downloadFile(fileRecord, destinationPath) {
             }
 
             fileStream.on('finish', () => {
-                console.log(`Download worker ${workerId}: File stream finished for ${fileRecord.name}`);
+                logger.info(`Download worker ${workerId}: File stream finished for ${fileRecord.name}`);
 
                 // Get final file stats
                 const stats = fs.statSync(destinationPath);
@@ -296,7 +296,7 @@ async function downloadFile(fileRecord, destinationPath) {
             });
 
             fileStream.on('error', (error) => {
-                console.error(`Download worker ${workerId}: File stream error:`, error);
+                logger.error(`Download worker ${workerId}: File stream error:`, error);
 
                 // Clean up partial file
                 fs.unlinkSync(destinationPath).catch(() => { });
