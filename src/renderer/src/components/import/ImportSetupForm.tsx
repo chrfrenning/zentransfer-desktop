@@ -5,6 +5,7 @@ import { Input } from '../catalyst/input';
 import { Button } from '../catalyst/button';
 import FolderSelector from './FolderSelector';
 import CloudServiceSelector from './CloudServiceSelector';
+import FilterDropdown, { type DropdownOption } from '../generic/FilterDropdown';
 import type { ImportSettings } from '../../types/import';
 
 interface ImportSetupFormProps {
@@ -70,6 +71,32 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
     }
   };
 
+  const handleTypeFilterChange = (value: string): void => {
+    onSettingsChange({ 
+      importTypeFilter: value as 'allFiles' | 'imageFiles' | 'jpegOnly' | 'rawOnly'
+    });
+  };
+
+  const handleTimeFilterChange = (value: string): void => {
+    onSettingsChange({ 
+      importTimeFilter: value as 'allTime' | 'today' | 'yesterday' | 'highWaterMark'
+    });
+  };
+
+  const fileTypeOptions: DropdownOption[] = [
+    { value: 'allFiles', label: 'All files' },
+    { value: 'imageFiles', label: 'Only image files' },
+    { value: 'jpegOnly', label: 'Only JPEGs' },
+    { value: 'rawOnly', label: 'Only RAWs' }
+  ];
+
+  const timeFilterOptions: DropdownOption[] = [
+    { value: 'allTime', label: 'All time' },
+    { value: 'today', label: 'Today' },
+    { value: 'yesterday', label: 'Yesterday' },
+    { value: 'highWaterMark', label: 'High-Water Mark' }
+  ];
+
   const dateFormatOptions = [
     { value: '2025/05/26', label: '2025/05/26 (YYYY/MM/DD)' },
     { value: '2025-05-26', label: '2025-05-26 (YYYY-MM-DD)' },
@@ -108,6 +135,26 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
           Include subfolders
         </label>
       </div>
+
+      {/* File Type Filter */}
+      <FilterDropdown
+        label="File types"
+        value={settings.importTypeFilter || 'allFiles'}
+        options={fileTypeOptions}
+        onChange={handleTypeFilterChange}
+        disabled={disabled}
+        className="max-w-sm"
+      />
+
+      {/* Time Filter */}
+      <FilterDropdown
+        label="Since"
+        value={settings.importTimeFilter || 'allTime'}
+        options={timeFilterOptions}
+        onChange={handleTimeFilterChange}
+        disabled={disabled}
+        className="max-w-sm"
+      />
 
       {/* Destination Directory */}
       <FolderSelector

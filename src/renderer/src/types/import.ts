@@ -43,6 +43,10 @@ export interface ImportSettings {
   readonly sourcePath: string;
   readonly includeSubdirectories: boolean;
   
+  // Filtering configuration
+  readonly importTypeFilter: 'allFiles' | 'imageFiles' | 'jpegOnly' | 'rawOnly';
+  readonly importTimeFilter: 'allTime' | 'today' | 'yesterday' | 'highWaterMark';
+  
   // Destination configuration
   readonly destinationPath: string;
   readonly organizeIntoFolders: boolean;
