@@ -10,7 +10,7 @@ const path = require('path');
 const logger = require('../utils/Logger.js');
 
 class ImportWorkerPool {
-  constructor(poolSize = 3) {
+  constructor(poolSize) {
     this.poolSize = poolSize;
     this.worker = null;
     this.isImporting = false;

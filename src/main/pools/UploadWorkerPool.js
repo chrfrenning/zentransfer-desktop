@@ -12,7 +12,7 @@ const path = require('path');
 const logger = require('../utils/Logger.js');
 
 class UploadWorkerPool {
-  constructor(poolSize = 3) {
+  constructor(poolSize) {
     this.workers = [];
     this.activeJobs = new Map();
     this.jobIdCounter = 0;

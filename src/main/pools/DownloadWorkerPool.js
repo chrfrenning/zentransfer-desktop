@@ -12,10 +12,24 @@ const path = require('path');
 const { DownloadQueue } = require('../queues/DownloadQueue.js');
 const { BackOffManager } = require('../services/BackOffManager.js');
 
+/*
+ *   EMITS TO RENDERER WINDOWS:
+ *
+ *   - download-progress
+ *   - download-completed
+ *   - download-error
+ *   - download-started
+ *   - download-monitoring-started
+ *   - download-monitoring-stopped
+ *   - download-monitoring-check
+ *   - download-monitoring-error
+ *   - download-started
+ * 
+*/
 
 
 class DownloadWorkerPool {
-  constructor(poolSize = 3) {
+  constructor(poolSize) {
     this.poolSize = poolSize;
     this.workers = [];
     this.isMonitoring = false;
