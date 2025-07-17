@@ -3,6 +3,7 @@ import { Checkbox } from '../catalyst/checkbox';
 import { Select } from '../catalyst/select';
 import { Input } from '../catalyst/input';
 import { Button } from '../catalyst/button';
+import ScreenHeader from '../ScreenHeader';
 import FolderSelector from './FolderSelector';
 import CloudServiceSelector from './CloudServiceSelector';
 import FilterDropdown, { type DropdownOption } from '../generic/FilterDropdown';
@@ -113,6 +114,7 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
   return (
     <div className="max-w-2xl h-full flex flex-col">
       {/* Scrollable Form Content */}
+      <ScreenHeader mode="import" />
       <div className="flex-1 overflow-y-auto space-y-6 pb-4">
       {/* Source Directory */}
       <FolderSelector

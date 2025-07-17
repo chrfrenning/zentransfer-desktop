@@ -7,7 +7,8 @@ import type {
   ImportSettings, 
   ImportStats, 
   ImportMode, 
-  ImportProgressData 
+  ImportProgressData,
+  DiscoveryStats 
 } from '../types/import';
 
 // Initial stats
@@ -295,9 +296,25 @@ const useImportStore = create<ImportStore>((set, get) => ({
   },
 
   startImport: async (): Promise<void> => {
-    const { canStartImport } = get();
-    if (!canStartImport()) {
-      set({ lastError: 'Import cannot be started - check configuration' });
+    const { settings } = get();
+    if (!settings.sourcePath) {
+      set({ lastError: 'Source path not specified' });
+      return;
+    }
+
+    set({ 
+      mode: 'discovery', 
+      lastError: null,
+      progressData: initialProgressData
+    });
+
+    console.log('Import store: Starting discovery phase');
+  },
+
+  confirmImport: async (): Promise<void> => {
+    const { discoveryStats } = get();
+    if (!discoveryStats || discoveryStats.filesToImport === 0) {
+      set({ lastError: 'No files to import' });
       return;
     }
 
@@ -319,15 +336,16 @@ const useImportStore = create<ImportStore>((set, get) => ({
   },
 
   resetImport: (): void => {
-    set({
+    set((state) => ({
       files: [],
       stats: initialStats,
       mode: 'setup',
       progressData: initialProgressData,
       lastError: null,
       isDiscovering: false,
-      discoveryProgress: 0
-    });
+      discoveryProgress: 0,
+      discoveryStats: undefined
+    }));
     console.log('Import store: Reset import state');
   },
 
@@ -342,6 +360,12 @@ const useImportStore = create<ImportStore>((set, get) => ({
     set((state) => ({
       progressData: { ...state.progressData, ...progressData }
     }));
+  },
+
+  // Discovery stats
+  setDiscoveryStats: (discoveryStats: DiscoveryStats): void => {
+    set({ discoveryStats });
+    console.log('Import store: Discovery stats set', discoveryStats);
   },
 
   // Error handling

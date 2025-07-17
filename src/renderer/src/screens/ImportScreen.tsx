@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import ScreenHeader from '../components/ScreenHeader';
 import ImportSetupForm from '../components/import/ImportSetupForm';
+import ImportDiscovery from '../components/import/ImportDiscovery';
 import ImportProgress from '../components/import/ImportProgress';
 import ImportComplete from '../components/import/ImportComplete';
 import useImportStore from '../stores/ImportStore';
@@ -14,6 +15,7 @@ const ImportScreen = () => {
     files,
     stats,
     progressData,
+    discoveryStats,
     isDiscovering,
     hasFiles,
     canStartImport,
@@ -21,6 +23,7 @@ const ImportScreen = () => {
     loadSettings,
     startDiscovery,
     startImport,
+    confirmImport,
     cancelImport,
     resetImport
   } = useImportStore();
@@ -62,15 +65,33 @@ const ImportScreen = () => {
     }
   };
 
-  // Handle import start
+  // Handle import start (now goes to discovery mode)
   const handleStartImport = async (): Promise<void> => {
     try {
       await startImport();
-      // Start the simulator processing
-      importSimulator.startProcessing();
+      // Start the simulator discovery which will generate stats and switch to discovery mode
+      importSimulator.startDiscovery();
     } catch (error) {
       console.error('Failed to start import:', error);
     }
+  };
+
+  // Handle confirming import from discovery mode
+  const handleConfirmImport = async (): Promise<void> => {
+    try {
+      // Generate files and confirm import using the simulator
+      importSimulator.confirmImport();
+      // Start the simulator processing
+      importSimulator.startProcessing();
+    } catch (error) {
+      console.error('Failed to confirm import:', error);
+    }
+  };
+
+  // Handle canceling from discovery mode
+  const handleCancelDiscovery = (): void => {
+    resetImport();
+    importSimulator.reset();
   };
 
   // Handle import cancellation
@@ -95,9 +116,6 @@ const ImportScreen = () => {
     switch (mode) {
       case 'setup':
         return (
-          <>
-            <ScreenHeader mode="import" />
-            
             <ImportSetupForm
             settings={settings}
             onSettingsChange={updateSettings}
@@ -107,7 +125,16 @@ const ImportScreen = () => {
             isDiscovering={isDiscovering}
             hasFiles={hasFiles()}
           />
-          </>
+        );
+
+      case 'discovery':
+        return (
+          <ImportDiscovery
+            discoveryStats={discoveryStats!}
+            onConfirmImport={handleConfirmImport}
+            onCancel={handleCancelDiscovery}
+            formatFileSize={formatFileSize}
+          />
         );
 
       case 'processing':

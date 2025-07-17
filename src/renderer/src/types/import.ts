@@ -73,6 +73,18 @@ export interface ImportSettings {
   readonly extractMetadata: boolean;
 }
 
+// Discovery statistics for source analysis
+export interface DiscoveryStats {
+  readonly totalFilesInSource: number;    // Total files found in source
+  readonly filteredOut: number;           // Files filtered out by type/date filters
+  readonly duplicatesFiltered: number;    // Duplicate files filtered out
+  readonly filesToImport: number;         // Final count of files to import
+  readonly totalSourceSize: number;      // Total size of all files in source
+  readonly filteredOutSize: number;      // Size of files filtered out
+  readonly duplicateSize: number;         // Size of duplicate files
+  readonly importSize: number;            // Size of files to import
+}
+
 // Import statistics
 export interface ImportStats {
   readonly discovered: number;   // Files discovered from source
@@ -96,7 +108,7 @@ export interface ImportProgressData {
 }
 
 // Import mode states
-export type ImportMode = 'setup' | 'processing' | 'done';
+export type ImportMode = 'setup' | 'discovery' | 'processing' | 'done';
 
 // Store state interface
 export interface ImportStoreState {
@@ -116,6 +128,7 @@ export interface ImportStoreState {
   // Discovery state
   isDiscovering: boolean;
   discoveryProgress: number;
+  discoveryStats?: DiscoveryStats | undefined;
 }
 
 // Store actions interface
@@ -135,6 +148,7 @@ export interface ImportStoreActions {
   // Import operations
   startDiscovery: () => Promise<void>;
   startImport: () => Promise<void>;
+  confirmImport: () => Promise<void>;
   cancelImport: () => Promise<void>;
   resetImport: () => void;
   
@@ -143,6 +157,9 @@ export interface ImportStoreActions {
   
   // Progress updates
   updateProgress: (progressData: Partial<ImportProgressData>) => void;
+  
+  // Discovery management
+  setDiscoveryStats: (discoveryStats: DiscoveryStats) => void;
   
   // Error handling
   setError: (error: string | null) => void;

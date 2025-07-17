@@ -1,11 +1,11 @@
 import useImportStore from '../stores/ImportStore';
-import type { ImportFile, ImportFileStatus, ImportProgressData } from '../types/import';
+import type { ImportFile, ImportFileStatus, ImportProgressData, DiscoveryStats } from '../types/import';
 
 interface SimulatorStatus {
   readonly isRunning: boolean;
   readonly isDiscovering: boolean;
   readonly filesProcessed: number;
-  readonly currentFile?: string | undefined;
+  readonly currentFile?: string;
 }
 
 interface SampleFileTemplate {
@@ -54,8 +54,66 @@ class ImportSimulator {
 
     store.setFiles([]); // Clear existing files
     
-    // Simulate discovery progress
-    this.simulateDiscovery();
+    // Generate discovery statistics
+    this.generateDiscoveryStats();
+    
+    // Set mode to discovery
+    store.setMode('discovery');
+  }
+
+  private generateDiscoveryStats(): void {
+    const store = useImportStore.getState();
+    
+    // Generate random mock data
+    const totalFilesInSource = Math.floor(Math.random() * 500) + 200; // 200-700 files
+    const filteredOutPercentage = Math.floor(Math.random() * 30) + 10; // 10-40%
+    const duplicatesPercentage = Math.floor(Math.random() * 15) + 5; // 5-20%
+    
+    const filteredOut = Math.floor(totalFilesInSource * (filteredOutPercentage / 100));
+    const duplicatesFiltered = Math.floor(totalFilesInSource * (duplicatesPercentage / 100));
+    const filesToImport = totalFilesInSource - filteredOut - duplicatesFiltered;
+    
+    // Generate file sizes (in bytes)
+    const avgFileSize = 5 * 1024 * 1024; // 5MB average
+    const totalSourceSize = totalFilesInSource * avgFileSize;
+    const filteredOutSize = filteredOut * avgFileSize;
+    const duplicateSize = duplicatesFiltered * avgFileSize;
+    const importSize = filesToImport * avgFileSize;
+    
+    const discoveryStats: DiscoveryStats = {
+      totalFilesInSource,
+      filteredOut,
+      duplicatesFiltered,
+      filesToImport,
+      totalSourceSize,
+      filteredOutSize,
+      duplicateSize,
+      importSize
+    };
+    
+    store.setDiscoveryStats(discoveryStats);
+    console.log('🔍 Import simulator: Generated discovery stats', discoveryStats);
+  }
+
+  public confirmImport(): void {
+    const store = useImportStore.getState();
+    const { discoveryStats } = store;
+    
+    if (!discoveryStats || discoveryStats.filesToImport === 0) {
+      store.setError('No files to import');
+      return;
+    }
+    
+    // Generate mock files for import using addFiles
+    const testFiles: Partial<ImportFile>[] = [];
+    for (let i = 1; i <= discoveryStats.filesToImport; i++) {
+      testFiles.push(this.generateRandomFile(i));
+    }
+    
+    store.addFiles(testFiles);
+    store.confirmImport();
+    
+    console.log(`🔍 Import simulator: Confirmed import of ${discoveryStats.filesToImport} files`);
   }
 
   private simulateDiscovery(): void {
@@ -197,14 +255,14 @@ class ImportSimulator {
       console.log(`📊 Import simulator: File ${file.name}: ${progress}%`);
     }
 
-    // Determine final status - every 8th file fails, every 12th is skipped
+    // Determine final status - every 10th file fails, every 12th is skipped
     let finalStatus: ImportFileStatus;
     let error: string | null = null;
 
     if (this.fileCounter % 12 === 0) {
       finalStatus = 'skipped';
       error = 'File skipped (duplicate detected)';
-    } else if (this.fileCounter % 8 === 0) {
+    } else if (this.fileCounter % 10 === 0) {
       finalStatus = 'failed';
       error = 'Simulated processing failure';
     } else {
@@ -341,7 +399,7 @@ class ImportSimulator {
       isRunning: this.isDiscovering || this.isProcessing,
       isDiscovering: this.isDiscovering,
       filesProcessed: this.fileCounter,
-      currentFile: progressData.currentFile?.name
+      ...(progressData.currentFile?.name && { currentFile: progressData.currentFile.name })
     };
   }
 
