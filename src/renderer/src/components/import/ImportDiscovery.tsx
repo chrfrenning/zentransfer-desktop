@@ -88,7 +88,7 @@ const ImportDiscovery: React.FC<ImportDiscoveryProps> = ({
         </div>
 
         {/* Visual Progress Bar */}
-        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-8">
+        <div className="bg-white border border-gray-200 rounded-lg p-6 mb-4">
           <div className="space-y-2">
             <div className="flex text-sm text-gray-600">
               <span className="flex-1">Files to import</span>
@@ -130,17 +130,25 @@ const ImportDiscovery: React.FC<ImportDiscoveryProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Cancel Link */}
+        <div className="text-center mb-6">
+          <button 
+            onClick={onCancel}
+            className="text-gray-500 hover:text-gray-700 text-sm underline"
+          >
+            Cancel - Back to Settings
+          </button>
+        </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex-shrink-0 flex justify-end space-x-3 pt-4 border-t border-gray-200">
-        <Button color="white" onClick={onCancel}>
-          Cancel
-        </Button>
+      {/* Action Button */}
+      <div className="flex-shrink-0 pt-4 border-t border-gray-200">
         <Button 
           color="blue" 
           onClick={onConfirmImport}
           disabled={filesToImport === 0}
+          className="w-full"
         >
           Go! Import {filesToImport.toLocaleString()} files
         </Button>
