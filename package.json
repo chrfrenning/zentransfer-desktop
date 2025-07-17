@@ -68,6 +68,20 @@
         "sha256"
       ]
     },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "category": "Utility",
+      "icon": "./icon.png"
+    },
     "directories": {
       "buildResources": "build",
       "output": "dist"
