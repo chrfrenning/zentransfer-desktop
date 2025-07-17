@@ -89,7 +89,7 @@ const ImportProgress: React.FC<ImportProgressProps> = ({
       />
 
       {/* Additional Stats */}
-      <div className="mb-6">
+      {/* <div className="mb-6">
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-sm text-gray-600">Discovered</div>
@@ -100,7 +100,7 @@ const ImportProgress: React.FC<ImportProgressProps> = ({
             <div className="text-2xl font-semibold text-gray-900">{stats.skipped}</div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Progress Details */}
       <div className="mb-6">
