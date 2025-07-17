@@ -5,7 +5,7 @@
 
 const logger = require('../utils/Logger.js');
 
-class BackoffManager {
+class BackOffManager {
     constructor(initialInterval, maxInterval, multiplier, resetOnSuccess) {
         this.backoffConfig = {
             initialInterval: initialInterval,
@@ -20,6 +20,10 @@ class BackoffManager {
     }
     
     onFailure() {
+        this.increase();
+    }
+
+    increase() {
         this.consecutiveFailures++;
         this.lastFailureTime = Date.now();
         
@@ -29,7 +33,7 @@ class BackoffManager {
             this.backoffConfig.maxInterval
         );
         
-        logger.warn(`Upload failure #${this.consecutiveFailures}, backoff: ${this.currentBackoffInterval}ms`);
+        logger.warn(`Backoff increase to #${this.consecutiveFailures}, backoff time now: ${this.currentBackoffInterval}ms`);
     }
     
     onSuccess() {
@@ -75,4 +79,4 @@ class BackoffManager {
     }
 }
 
-module.exports = { BackoffManager }; 
+module.exports = { BackOffManager }; 

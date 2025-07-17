@@ -9,688 +9,390 @@ const { Worker } = require('worker_threads');
 const logger = require('../utils/Logger.js');
 const path = require('path');
 
-// Import shared configuration
-const sharedConfig = require('../configuration/Globals.js');
 const { DownloadQueue } = require('../queues/DownloadQueue.js');
+const { BackOffManager } = require('../services/BackOffManager.js');
 
-const getConfig = () => sharedConfig;
+
 
 class DownloadWorkerPool {
   constructor(poolSize = 3) {
     this.poolSize = poolSize;
     this.workers = [];
-    this.activeJobs = new Map(); // Currently downloading files
     this.isMonitoring = false;
-    this.pollingTimeout = null;
     this.queueProcessingInterval = null; // Timer for processing queue every second
     this.newFilePollingInterval = null; // Timer for checking new files every second
-    this.lastSyncTime = null;
-    this.downloadPath = null;
-    
+    this.pollNextTimeZeroInQueue = false; // If true, poll the server immediately when the queue is empty
+
     // Exponential backoff for server polling
-    this.lastServerCheckTime = 0;
-    this.currentBackoffInterval = 1000; // Start with 1 second
     this.backoffConfig = app.configurationManager.get('downloadSettings.downloadBackoff');
-    
+    this.backOffManager = new BackOffManager(
+      this.backoffConfig.initialInterval, 
+      this.backoffConfig.maxInterval, 
+      this.backoffConfig.multiplier, 
+      false);
+
     // SQLite queue manager
     this.queueManager = null;
-    
+
     // Create workers (number configurable via config)
+    logger.debug("Starting download workers...");
     this.createWorkers();
-    
-    logger.info('Download worker manager initialized with SQLite queue');
+
+    // Initialize our queue database
+    logger.debug("Initializing download queue...");
+    this.initializeQueue();
+
+    logger.info('DownloadWorkerPool is ready to go!');
   }
-  
+
+
+
+  /**
+   * Initialize queue manager
+   */
+
+  initializeQueue() {
+    if (!this.queueManager) {
+      this.queueManager = new DownloadQueue();
+      this.queueManager.initialize();
+
+      // Reset any files that were downloading when app shut down
+      this.queueManager.resetAllPending();
+
+      // We're ready to roll
+      logger.info('Download queue manager initialized');
+    }
+  }
+
+
+
   /**
    * Create download workers
-   */
+  */
+
   createWorkers() {
     // Get worker count from config or default to 3
     for (let i = 0; i < this.poolSize; i++) {
       this.createWorker(i);
     }
-    
+
     logger.info(`Download worker manager initialized with ${this.poolSize} workers`);
   }
-  
+
   createWorker(id) {
     logger.info(`Creating download worker ${id}...`);
     const workerPath = path.join(__dirname, '../workers', 'DownloadWorkerThread.js');
-    
+
     const worker = new Worker(workerPath, {
       workerData: { workerId: id }
     });
-    
+
     worker.on('message', (message) => {
       this.handleWorkerMessage(worker, message);
     });
-    
+
     worker.on('error', (error) => {
-      console.error(`Download worker ${id} error:`, error);
-      this.handleWorkerError(worker, error);
+      logger.error(`Download worker ${id} error:`, error);
     });
-    
+
     worker.on('exit', (code) => {
-      logger.info(`Download worker ${id} exited with code ${code}`);
-      if (code !== 0) {
-        console.error(`Download worker ${id} stopped with exit code ${code}`);
-        // Recreate worker
-        setTimeout(() => {
-          this.createWorker(id);
-        }, 1000);
-      }
+      logger.error(`Download worker ${id} exited with code ${code}`);
     });
-    
+
     this.workers.push({
       worker,
       id,
-      busy: false,
-      currentJob: null
+      currentFileId: null
     });
-    
+
     logger.info(`Download worker ${id} created successfully`);
   }
-  
+
+
   /**
-   * Initialize queue manager
+   * Handle messages from the download workers
    */
-  initializeQueue(configManager) {
-    if (!this.queueManager) {
-      this.queueManager = new DownloadQueue();
-      this.queueManager.initialize(configManager);
-      
-      // Reset any files that were downloading when app shut down
-      this.queueManager.resetDownloadingFiles();
-      
-      logger.info('Download queue manager initialized');
+
+  async handleWorkerMessage(worker, message) {
+    // The message
+    const { type, fileRecord } = message;
+
+    // Look up my worker in the workers array
+    const myWorker = this.workers.find(w => w.worker === worker);
+
+    switch (type) {
+
+      case 'progress':
+        const { downloadedBytes, totalBytes } = message;
+        logger.debug(`Downloading ${fileRecord.name} ${downloadedBytes}/${totalBytes} bytes`);
+        this.sendMessageToRendererWindows('download-progress', message);
+        break;
+
+      case 'completed':
+        logger.debug(`Received completed from worker ${worker.id}`, message);
+        this.sendMessageToRendererWindows('download-completed', message);
+
+        const { filePath } = message;
+        this.queueManager.markFileAsCompleted(fileRecord.file_id, filePath);
+
+        myWorker.currentFileId = null;
+
+        break;
+
+      case 'error':
+        logger.debug(`Received error from worker ${worker.id}`, message);
+        this.sendMessageToRendererWindows('download-error', message);
+        
+        this.queueManager.markFileAsFailed(fileId, message.errorMessage);
+
+        worker.currentFileId = null;
+        break;
+
+      case 'worker-error':
+        const { error, stack } = message;
+        console.error(`Received worker-error from worker ${worker.id}`, fileRecord, error, stack);
+        break;
+
+      case 'log':
+        //console.log('Received log from worker', message);
+        const { level, args } = message;
+        logger[level](`[WORKER ${myWorker.id}] [${level}] ${args[0]}`);
+        break;
+
+      default:
+        throw new Error(`Unknown message type: ${type}`);
     }
   }
-  
-  async startMonitoring(downloadPath, lastSyncTime = null) {
+
+  sendMessageToRendererWindows(message, data = null) {
+    BrowserWindow.getAllWindows().forEach(window => {
+      if (window && !window.isDestroyed() && window.webContents && !window.webContents.isDestroyed()) {
+        window.webContents.send(message, data);
+      }
+    });
+  }
+
+
+
+  /**
+   * Monitor by polling the server for new files
+   */
+
+  async startMonitoring() {
     if (this.isMonitoring) {
       throw new Error('Monitoring already in progress');
     }
-    
-    // Initialize queue manager if not already done
-    if (!this.queueManager) {
-      const { getConfigManager } = require('../app/main-config-setup.js');
-      this.initializeQueue(getConfigManager());
-    }
-    
+
+    logger.info(`Starting download monitoring`);
     this.isMonitoring = true;
-    this.downloadPath = downloadPath;
-    this.lastSyncTime = lastSyncTime || '2025-01-01T00:00:00.000Z';
-    
-    logger.info(`Starting download monitoring with sync time: ${this.lastSyncTime}`);
-    
-    // Check if we have token access
-    if (!this.mainTokenManager) {
-      console.warn('No token manager available for download monitoring');
-    }
-    
-    // Process any existing incomplete downloads first
-    await this.processQueue();
-    
-    // Start with immediate check for new files
-    await this.checkForNewFiles();
-    
-    // Set up two timers for monitoring
+
+    // Set up our timers to control workers and poll server
     this.startTimers();
-    
-    return { success: true };
+
+    // Send update to renderer about monitoring starting
+    this.sendMessageToRendererWindows('download-monitoring-started');
   }
-  
+
   stopMonitoring() {
     logger.info('Stopping download monitoring...');
-    this.isMonitoring = false;
-    
-    // Clear all timers
-    if (this.pollingTimeout) {
-      clearTimeout(this.pollingTimeout);
-      this.pollingTimeout = null;
-    }
+
+    // Clear our timers
+
     if (this.queueProcessingInterval) {
       clearInterval(this.queueProcessingInterval);
       this.queueProcessingInterval = null;
     }
+
     if (this.newFilePollingInterval) {
       clearInterval(this.newFilePollingInterval);
       this.newFilePollingInterval = null;
     }
-    
-    // Get active downloads
-    const activeDownloads = this.activeJobs.size;
-    
-    logger.info(`Stopping monitoring: ${activeDownloads} active downloads will finish`);
-    
-    // Send cancel messages to all active workers to stop their current downloads
-    for (const [jobId, { workerInfo, job }] of this.activeJobs) {
-      logger.info(`Sending cancel message to worker for job ${jobId} (${job.file.name})`);
-      workerInfo.worker.postMessage({
-        type: 'cancel-download',
-        jobId: jobId
-      });
-    }
-    
+
+    this.isMonitoring = false;
+
     // Send update to renderer about monitoring stopping
-    this.sendDownloadUpdate({
-      type: 'queue-cleared',
-      message: `Download monitoring stopped - ${activeDownloads} active downloads will finish`
-    });
-    
-    // Send updated queue state
-    this.sendQueueUpdate();
+    this.sendMessageToRendererWindows('download-monitoring-stopped');
   }
-  
+
   /**
    * Start the two monitoring timers
-   */
+   * 
+   * We have one timer that looks at the workers and see if they are free,
+   * if so, it queries the database for files that are pending, and submits
+   * to available workers.
+   * 
+   * The second is checking if there is time to go to the server and poll
+   * for new files. We're using an exponential backoff to avoid hammering the
+   * server, but it is reset when we find new files. We also reset it if
+   * there is user activity in the UI (mouse, keyboard).
+   * 
+  */
+
   startTimers() {
-    if (!this.isMonitoring) return;
-    
     // Timer 1: Process queue every second
     this.queueProcessingInterval = setInterval(async () => {
       if (!this.isMonitoring) return;
       try {
-        await this.processQueue();
+        await this.processQueueTikTok();
       } catch (error) {
         console.error('Error in queue processing timer:', error);
       }
     }, 1000);
-    
+
     // Timer 2: Check for new files every second (with condition)
     this.newFilePollingInterval = setInterval(async () => {
       if (!this.isMonitoring) return;
       try {
-        await this.checkForNewFiles();
+        await this.checkForNewFilesTikTok();
       } catch (error) {
         console.error('Error in new file polling timer:', error);
       }
     }, 1000);
-    
+
     logger.info('Started two monitoring timers: queue processing and new file polling');
   }
-  
-  updateFileProgress(jobId, progressData) {
-    // Send progress update to renderer - no database update needed for progress
-    this.sendQueueUpdate();
-  }
-  
-  /**
-   * Build legacy arrays from database for UI compatibility
-   */
-  updateLegacyArrays() {
-    if (!this.queueManager) return;
-    
-    try {
-      // Get completed and failed files for UI display
-      const allCompleted = this.queueManager.db.prepare(`
-        SELECT * FROM download_queue 
-        WHERE status = 'completed' 
-        ORDER BY download_completed_at DESC 
-        LIMIT ?
-      `).all(this.maxCompletedItems);
-      
-      const allFailed = this.queueManager.db.prepare(`
-        SELECT * FROM download_queue 
-        WHERE status = 'failed' 
-        AND retry_count >= max_retries
-        ORDER BY last_retry_at DESC 
-        LIMIT ?
-      `).all(this.maxCompletedItems);
-      
-      // Convert to legacy format
-      this.completedFiles = allCompleted.map(file => this.convertDbFileToLegacy(file));
-      this.failedFiles = allFailed.map(file => this.convertDbFileToLegacy(file));
-      
-    } catch (error) {
-      console.error('Failed to update legacy arrays:', error);
-    }
-  }
-  
-  /**
-   * Convert database file record to legacy format for UI compatibility
-   */
-  convertDbFileToLegacy(dbFile) {
-    if (!dbFile) {
-      console.error('convertDbFileToLegacy called with null/undefined dbFile');
-      return null;
-    }
-    
-    return {
-      id: dbFile.file_id,
-      jobId: dbFile.job_id,
-      name: dbFile.name,
-      size: dbFile.file_size,
-      status: dbFile.status,
-      created: dbFile.created_at,
-      downloadUrl: dbFile.url,
-      thumbnail_url: dbFile.thumbnail_url,
-      addedAt: new Date(dbFile.added_to_queue_at).getTime(),
-      progress: dbFile.status === 'completed' ? 100 : 0,
-      downloadedBytes: dbFile.status === 'completed' ? dbFile.file_size : 0,
-      totalBytes: dbFile.file_size || 0,
-      error: dbFile.error_message,
-      filePath: dbFile.file_path,
-      completedAt: dbFile.download_completed_at ? new Date(dbFile.download_completed_at).getTime() : null,
-      retryCount: dbFile.retry_count
-    };
-  }
-  
-  sendQueueUpdate() {
-    if (!this.queueManager) return;
-    
-    try {
-      // Update legacy arrays
-      this.updateLegacyArrays();
-      
-      // Get current files from database
-      const pendingFiles = this.queueManager.getReadyFiles();
-      const downloadingFiles = Array.from(this.activeJobs.values())
-        .map(job => {
-          if (!job.file) {
-            console.error('Active job missing file property:', job);
-          }
-          return this.convertDbFileToLegacy(job.file);
-        })
-        .filter(file => file !== null); // Filter out null results
-      
-      const pendingLegacyFiles = pendingFiles
-        .map(file => this.convertDbFileToLegacy(file))
-        .filter(file => file !== null); // Filter out null results
-      
-      const allFiles = [
-        ...downloadingFiles, // Active downloads first
-        ...pendingLegacyFiles, // Then pending
-        ...this.completedFiles, // Then completed
-        ...this.failedFiles // Finally failed
-      ];
-      
-      const stats = this.queueManager.getStats();
-      stats.downloading = this.activeJobs.size; // Override with actual active downloads
-      
-      logger.info('Sending queue update to renderer:', stats, 'Total files:', allFiles.length);
-      
-      this.sendDownloadUpdate({
-        type: 'queue-update',
-        files: allFiles,
-        stats: stats
-      });
-      
-    } catch (error) {
-      console.error('Failed to send queue update:', error);
-    }
-  }
-  
-  async checkForNewFiles() {
-    if (!this.isMonitoring || !this.queueManager) return;
-    
-    // Check if there are ANY files pending or in retry - if so, skip server check
-    const pendingFiles = this.queueManager.getReadyFiles(1);
-    if (pendingFiles.length > 0) {
-      // Queue has work to do, don't check server
+
+
+  /* Process the queue */
+
+  async processQueueTikTok() {
+    // Start downloads for available workers
+    const availableWorkers = this.workers.filter(w => !w.currentFileId);
+    const readyFiles = this.queueManager.getPendingFiles();
+
+    logger.info(`Processing queue: ${availableWorkers.length} available workers, ${readyFiles.length} pending files`);
+
+    if (readyFiles.length === 0) {
+      if (this.pollNextTimeZeroInQueue) {
+        this.pollNextTimeZeroInQueue = false;
+        this.backOffManager.reset();
+      }
       return;
     }
-    
+
+    for (let i = 0; i < Math.min(availableWorkers.length, readyFiles.length); i++) {
+      const worker = availableWorkers[i];
+      const file = readyFiles[i];
+
+      logger.debug(`Starting download for worker ${worker.id} and file ${file.file_id}`);
+      await this.startDownload(worker, file);
+    }
+  }
+
+  async startDownload(workerInfo, file) {
+    workerInfo.currentFileId = file.file_id;
+
+    // Update database
+    this.queueManager.markFileAsProcessing(file.file_id);
+    const downloadPath = app.configurationManager.get('downloadSettings.downloadPath');
+
+    workerInfo.worker.postMessage({
+      type: 'download-file',
+      fileRecord: file,
+      downloadPath: downloadPath
+    });
+
+    logger.info(`Started download: ${file.name}`);
+
+    // Send immediate notification that download started
+    this.sendMessageToRendererWindows('download-started', file);
+  }
+
+
+  /* Check for new files */
+
+  async checkForNewFilesTikTok() {
+    // Do not poll the server as long as we have files to process
+    if (this.queueManager.getPendingFiles().length > 0) {
+      return;
+    }
+
     // Check exponential backoff - only call server if enough time has passed
-    const now = Date.now();
-    const timeSinceLastCheck = now - this.lastServerCheckTime;
-    if (timeSinceLastCheck < this.currentBackoffInterval) {
-      // Not time for server check yet
+    if (this.backOffManager.isInBackoff()) {
       return;
     }
-    
+
     try {
-      logger.info(`Checking for new files (backoff: ${this.currentBackoffInterval}ms)...`);
-      
-      // Update last server check time
-      this.lastServerCheckTime = now;
-      
-      // Send monitoring update to renderer
-      this.sendDownloadUpdate({
-        type: 'monitoring-check',
-        timestamp: new Date().toISOString()
-      });
-      
-      const result = await this.fetchNewFilesFromServer();
-      const { files: newFiles, hasMoreItems } = result;
-      
-      if (newFiles.length > 0) {
+      logger.info(`Checking for new files `);
+      this.sendMessageToRendererWindows('download-monitoring-check');
+
+      const newFiles = await this.fetchNewFilesFromServer();
+
+      if ( newFiles.length > 0 ) {
         logger.info(`Found ${newFiles.length} new files - resetting backoff`);
-        
+
         // Reset backoff when files are found
-        this.resetBackoff();
-        
+        this.backOffManager.reset();
+
         // Add files to database queue
         const addResults = this.queueManager.addFiles(newFiles);
-        const addedCount = addResults.filter(r => r.added).length;
-        
-        logger.info(`Added ${addedCount} new files to database queue`);
-        
-        // Send queue update to renderer
-        this.sendQueueUpdate();
-        
-        // Note: No need to call processQueue here since timer will handle it
-        
+
       } else {
+
         logger.info('No new files found - increasing backoff');
-        
-        // Increase backoff when no files found
-        this.increaseBackoff();
+        this.backOffManager.increase();
+
       }
-      
+
     } catch (error) {
+
       console.error('Error checking for new files:', error);
-      this.sendDownloadUpdate({
-        type: 'monitoring-error',
-        error: error.message
-      });
-      
-      // Timer will retry automatically
+      this.sendMessageToRendererWindows('download-monitoring-error', error.message);
+      this.backOffManager.onFailure();
+
     }
   }
-  
-  /**
-   * Reset exponential backoff to initial interval
-   */
-  resetBackoff() {
-    this.currentBackoffInterval = this.backoffConfig.initialInterval;
-    logger.info(`Backoff reset to ${this.currentBackoffInterval}ms`);
-  }
-  
-  /**
-   * Increase exponential backoff interval
-   */
-  increaseBackoff() {
-    const newInterval = Math.min(
-      this.currentBackoffInterval * this.backoffConfig.multiplier,
-      this.backoffConfig.maxInterval
-    );
-    
-    if (newInterval !== this.currentBackoffInterval) {
-      this.currentBackoffInterval = newInterval;
-      logger.info(`Backoff increased to ${this.currentBackoffInterval}ms`);
-    } else {
-      logger.info(`Backoff at maximum: ${this.currentBackoffInterval}ms`);
-    }
-  }
-  
+
   async fetchNewFilesFromServer() {
     try {
       // Use the latest downloaded file time if available, otherwise use the initial sync time
-      const syncTime = this.latestDownloadedFileTime || this.lastSyncTime || '2025-01-01T00:00:00.000Z';
-      
+      const syncTime = this.queueManager.getMaxCreatedAt();
       logger.info(`Checking server for files since: ${syncTime}`);
-      
-      // Get server configuration
-      const config = getConfig();
-      
+
       // Get authentication token from token manager
-      const authToken = await this.mainTokenManager.getValidToken();
+      const authToken = await app.tokenManager.getValidToken();
       if (!authToken) {
-        logger.info('No valid authentication token available for download monitoring');
-        return { files: [], hasMoreItems: false };
+        throw new Error('No valid authentication token available for download monitoring');
       }
-      
+
+      console.log("Server URL: ", app.globals.serverBaseUrl);
+
       // Make actual API call to ZenTransfer server
-      const response = await fetch(`${config.serverBaseUrl}/api/sync?since=${encodeURIComponent(syncTime)}`, {
+      const isoTimeString = syncTime.toISOString();
+      const response = await fetch(`${app.globals.serverBaseUrl}/api/sync?since=${encodeURIComponent(isoTimeString)}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${authToken}`
         }
       });
-      
+
       if (!response.ok) {
-        if (response.status === 404) {
-          logger.info('No new files found on server');
-          return { files: [], hasMoreItems: false };
-        }
         throw new Error(`Server responded with status ${response.status}: ${response.statusText}`);
       }
-      
-      // Check for X-More-Items header
-      const moreItemsHeader = response.headers.get('X-More-Items');
-      const hasMoreItems = moreItemsHeader && parseInt(moreItemsHeader, 10) > 0;
-      
-      if (hasMoreItems) {
-        logger.info(`Server indicates ${moreItemsHeader} more items available after this batch`);
-      }
-      
-      const data = await response.json();
-      logger.info('Server response:', data);
-      
-      // Handle both array response and object with files property
-      let files = [];
-      if (Array.isArray(data)) {
-        files = data;
-      } else if (data && Array.isArray(data.files)) {
-        files = data.files;
-      } else if (data && data.file) {
-        files = [data.file];
-      }
-      
-      return { files, hasMoreItems };
-      
+
+      // Get the files from the response
+      const files = await response.json();
+      logger.info(`Found ${files.length} new files from server`);
+
+      return files;
+
     } catch (error) {
+
       console.error('Failed to fetch new files from server:', error);
       throw error;
+
     }
-  }
-  
-  async processQueue() {
-    if (!this.queueManager) return;
-    
-    // Start downloads for available workers
-    const availableWorkers = this.workers.filter(w => !w.busy);
-    const readyFiles = this.queueManager.getReadyFiles(availableWorkers.length);
-    
-    logger.info(`Processing queue: ${availableWorkers.length} available workers, ${readyFiles.length} ready files`);
-    
-    for (let i = 0; i < Math.min(availableWorkers.length, readyFiles.length); i++) {
-      const worker = availableWorkers[i];
-      const file = readyFiles[i];
-      await this.startDownload(worker, file);
-    }
-    
-    // Timer will handle regular processing
-  }
-  
-  async startDownload(workerInfo, file) {
-    const jobId = ++this.jobIdCounter;
-    
-    // Convert database file to legacy format for worker
-    const legacyFile = this.convertDbFileToLegacy(file);
-    legacyFile.jobId = jobId;
-    
-    const job = {
-      id: jobId,
-      file: file, // Keep original db file for updates
-      legacyFile: legacyFile, // For worker compatibility
-      downloadPath: this.downloadPath,
-      timestamp: Date.now()
-    };
-    
-    // Update database
-    this.queueManager.startDownload(file.file_id, jobId);
-    
-    workerInfo.busy = true;
-    workerInfo.currentJob = job;
-    this.activeJobs.set(jobId, { workerInfo, job });
-    
-    workerInfo.worker.postMessage({
-      type: 'download-file',
-      jobId: jobId,
-      fileInfo: legacyFile, // Send legacy format to worker
-      downloadPath: this.downloadPath
-    });
-    
-    logger.info(`Started download: ${file.name} (jobId: ${jobId})`);
-    
-    // Send immediate notification that download started
-    this.sendDownloadUpdate({
-      type: 'download-started',
-      file: this.convertDbFileToLegacy(file),
-      jobId: jobId
-    });
-    
-    this.sendQueueUpdate();
-  }
-  
-  async handleWorkerMessage(worker, message) {
-    const { type, jobId } = message;
-    
-    if (type === 'progress') {
-      // Update file progress in UI only (not database)
-      this.updateFileProgress(jobId, message);
-      return;
-    }
-    
-    if (type === 'result' || type === 'error') {
-      const jobInfo = this.activeJobs.get(jobId);
-      if (!jobInfo) return;
-      
-      const { workerInfo, job } = jobInfo;
-      const file = job.file; // Original database file
-      
-      // Update database based on result
-      if (type === 'result') {
-        // Mark as completed in database
-        this.queueManager.completeDownload(file.file_id, message.filePath, message.fileSize);
-        
-        // Send immediate notification that download completed
-        this.sendDownloadUpdate({
-          type: 'download-completed',
-          file: this.convertDbFileToLegacy(file),
-          jobId: jobId,
-          filePath: message.filePath,
-          fileSize: message.fileSize
-        });
-        
-        // Update sync time based on file's created timestamp
-        if (file.created_at) {
-          const fileCreatedTime = file.created_at;
-          logger.info(`Download completed for ${file.name}, created: ${fileCreatedTime}`);
-          
-          if (!this.latestDownloadedFileTime || fileCreatedTime > this.latestDownloadedFileTime) {
-            this.latestDownloadedFileTime = fileCreatedTime;
-            logger.info(`Updated latest downloaded file time to: ${this.latestDownloadedFileTime}`);
-            
-            // Save to config system
-            try {
-              const { setConfig } = require('../app/main-config-setup.js');
-              setConfig('downloadSettings.lastSyncTime', this.latestDownloadedFileTime);
-              logger.info('Saved updated sync time to config');
-            } catch (error) {
-              console.error('Failed to save sync time to config:', error);
-            }
-            
-            // Send sync time update to renderer
-            this.sendDownloadUpdate({
-              type: 'sync-time-update',
-              syncTime: this.latestDownloadedFileTime
-            });
-          }
-        }
-        
-      } else {
-        // Mark as failed in database with retry logic
-        this.queueManager.failDownload(file.file_id, message.error);
-        
-        // Send immediate notification that download failed
-        this.sendDownloadUpdate({
-          type: 'download-failed',
-          file: this.convertDbFileToLegacy(file),
-          jobId: jobId,
-          error: message.error
-        });
-      }
-      
-      // Free up worker
-      workerInfo.busy = false;
-      workerInfo.currentJob = null;
-      this.activeJobs.delete(jobId);
-      
-      // Send queue update to renderer
-      this.sendQueueUpdate();
-      
-      // Timer will handle processing queue automatically
-    }
-  }
-  
-  handleWorkerError(worker, error) {
-    // Find jobs assigned to this worker and handle them
-    for (const [jobId, { workerInfo, job }] of this.activeJobs) {
-      if (workerInfo.worker === worker) {
-        // Mark as failed in database
-        if (this.queueManager && job.file) {
-          this.queueManager.failDownload(job.file.file_id, error.message);
-        }
-        
-        this.activeJobs.delete(jobId);
-        workerInfo.busy = false;
-        workerInfo.currentJob = null;
-        
-        // Send error to renderer
-        this.sendDownloadUpdate({
-          type: 'error',
-          jobId,
-          error: error.message
-        });
-      }
-    }
-  }
-  
-  sendDownloadUpdate(updateData) {
-    // Send download update to all renderer processes
-    BrowserWindow.getAllWindows().forEach(window => {
-      try {
-        // Check if the window and webContents are still valid
-        if (window && !window.isDestroyed() && window.webContents && !window.webContents.isDestroyed()) {
-          window.webContents.send('download-update', updateData);
-        }
-      } catch (error) {
-        // Silently ignore IPC errors - the window may have been disposed
-        logger.info('IPC send failed (window disposed):', error.message);
-      }
-    });
-  }
-  
-  getStats() {
-    const baseStats = {
-      totalWorkers: this.workers.length,
-      busyWorkers: this.workers.filter(w => w.busy).length,
-      activeJobs: this.activeJobs.size,
-      isMonitoring: this.isMonitoring
-    };
-    
-    if (this.queueManager) {
-      const queueStats = this.queueManager.getStats();
-      return {
-        ...baseStats,
-        queueLength: queueStats.pending || 0,
-        completedCount: queueStats.completed || 0,
-        failedCount: queueStats.failed || 0,
-        totalFiles: queueStats.total || 0
-      };
-    }
-    
-    return {
-      ...baseStats,
-      queueLength: 0,
-      completedCount: this.completedFiles.length,
-      failedCount: this.failedFiles.length,
-      totalFiles: 0
-    };
   }
   
   /**
-   * Get queue manager for direct access (if needed)
+   * Notifications from above
    */
-  getQueueManager() {
-    return this.queueManager;
+
+  onUserActivitySignal() {
+    this.backOffManager.reset();
   }
-  
+
   /**
    * Cleanup method
    */

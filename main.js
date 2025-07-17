@@ -1,5 +1,6 @@
 const { app, globalShortcut, BrowserWindow, Menu, systemPreferences } = require('electron');
 const path = require('path');
+const { runInCommandLineMode } = require('./cmdline.js');
 
 /*
   Determine runtime mode and configuration
@@ -11,7 +12,7 @@ const path = require('path');
 // Are we running in development mode?
 function getIsDevelopment() {
   // Check for --dev command line argument
-  if (typeof process !== 'undefined' && process.argv && process.argv.includes('--dev')) {
+  if (process.argv.includes('--dev')) {
       return true;
   }
 
@@ -23,8 +24,8 @@ app.isDevelopmentMode = getIsDevelopment();
 console.log('ZenTransfer is running in ' + (app.isDevelopmentMode ? 'development' : 'production') + ' mode');
 
 // Set up global information
-const zenTransferGlobals = require('./src/main/configuration/Globals.js');
-app.globals = zenTransferGlobals;
+const { ZenTransferGlobals } = require('./src/main/configuration/Globals.js');
+app.globals = new ZenTransferGlobals(app.isDevelopmentMode);
 
 // Get started with logging
 const logger = require('./src/main/utils/Logger.js');
@@ -39,9 +40,10 @@ app.disableHardwareAcceleration();
 
 // Now load or initialize the configuration
 const { ConfigurationManager } = require('./src/main/configuration/ConfigurationManager.js');
-app.configurationManager = new ConfigurationManager(zenTransferGlobals.serverBaseUrl);
+app.configurationManager = new ConfigurationManager(app.globals.serverBaseUrl);
 logger.info('Configuration loaded from ' + app.configurationManager.getConfigFilename());
 logger.info('Device ID: ' + app.configurationManager.get('deviceId'));
+logger.info('Server URL: ' + app.globals.serverBaseUrl);
 
 // Enable live reload for Electron in development
 const DO_LIVE_ELECTRON_RELOAD = false;
@@ -141,7 +143,30 @@ function setupWorkerPools() {
   const { ImportWorkerPool } = require('./src/main/pools/ImportWorkerPool.js');
   app.importWorkerPool = new ImportWorkerPool(importWorkerPoolSize);
 
-  setupHandlersBetweenRendererAndMainProcess();
+  setupCommandLineMode();
+}
+
+
+
+/*
+ *
+ * Stage 3b of startup: Are we running in command line mode?
+ *
+*/
+
+function setupCommandLineMode() {
+  
+  if (process.argv.includes('--cli')) {
+
+    logger.info('Running in command line mode');
+    runInCommandLineMode();
+    
+  } else {
+
+    setupHandlersBetweenRendererAndMainProcess();
+
+  }
+
 }
 
 

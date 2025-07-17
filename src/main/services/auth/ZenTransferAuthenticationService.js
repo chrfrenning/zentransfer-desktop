@@ -4,7 +4,7 @@
  * Moved from renderer LoginAPI for better security
  */
 
-const sharedConfig = require('../../configuration/Globals.js');
+const { app } = require('electron');
 const { AuthenticationServiceBase } = require('./AuthenticationServiceBase.js');
 const logger = require('../../utils/Logger.js');
 
@@ -13,10 +13,10 @@ class ZenTransferAuthenticationService extends AuthenticationServiceBase {
         super();
         
         this.configManager = configManager;
-        this.serverBaseUrl = sharedConfig.serverBaseUrl;
-        this.appName = sharedConfig.appName;
-        this.appVersion = sharedConfig.appVersion;
-        this.clientId = sharedConfig.clientId;
+        this.serverBaseUrl = app.globals.serverBaseUrl;
+        this.appName = app.globals.appName;
+        this.appVersion = app.globals.appVersion;
+        this.clientId = app.globals.clientId;
         
         logger.info(`MainAuthService initialized for server: ${this.serverBaseUrl}`);
         logger.info(`MainAuthService: app_name=${this.appName}, app_version=${this.appVersion}, client_id=${this.clientId}`);

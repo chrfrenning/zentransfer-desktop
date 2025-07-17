@@ -6,6 +6,7 @@
   "scripts": {
     "start": "electron .",
     "main": "electron . --dev",
+    "cli": "electron . --dev --cli",
     "dev": "concurrently \"npm run dev-react\" \"wait-on http://127.0.0.1:4000 && electron . --dev\"",
     "dev-react": "vite --config vite.config.js",
     "build-react": "vite build --config vite.config.js",

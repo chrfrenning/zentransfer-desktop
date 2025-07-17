@@ -470,15 +470,7 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    
    // Reset server polling backoff on UI activity
    ipcMain.handle('ui-activity-signal', async (event) => {
-     try {
-       if (downloadWorkerPool && downloadWorkerPool.isMonitoring) {
-         downloadWorkerPool.resetBackoff();
-       }
-       return { success: true };
-     } catch (error) {
-       console.error('Failed to handle UI activity:', error);
-       return { success: false, error: error.message };
-     }
+     app.downloadWorkerPool.onUserActivitySignal();
    });
 
 

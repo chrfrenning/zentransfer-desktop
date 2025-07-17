@@ -7,7 +7,7 @@
 const { BrowserWindow, app } = require('electron');
 const { Worker } = require('worker_threads');
 const { UploadQueue } = require('../queues/UploadQueue.js');
-const { BackoffManager } = require('../services/BackoffManager.js');
+const { BackOffManager } = require('../services/BackOffManager.js');
 const path = require('path');
 const logger = require('../utils/Logger.js');
 
@@ -26,7 +26,7 @@ class UploadWorkerPool {
 
     // Some help with exponential backoffs when stuff go awry
     const backoffConfig = app.configurationManager.get('uploadSettings.uploadBackoff');
-    this.backoffManager = new BackoffManager(
+    this.backoffManager = new BackOffManager(
       backoffConfig.initialInterval,
       backoffConfig.maxInterval, 
       backoffConfig.multiplier, 
