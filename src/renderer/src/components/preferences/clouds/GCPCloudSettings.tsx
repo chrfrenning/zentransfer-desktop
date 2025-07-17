@@ -237,7 +237,7 @@ const GCPCloudSettings: React.FC<GCPCloudSettingsProps> = ({ onChange }) => {
           )}
         </div>
         <p className="text-sm text-gray-500">
-          Upload your GCP service account JSON key file. The content will be stored securely.
+          Select your GCP service account JSON key file.
         </p>
       </div>
     </CloudServiceSection>

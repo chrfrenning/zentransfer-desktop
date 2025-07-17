@@ -7,6 +7,9 @@ import GCPCloudSettings, { GCPCloudSettingsChangeNotification } from '../compone
 import MinIOCloudSettings, { MinIOCloudSettingsChangeNotification } from '../components/preferences/clouds/MinIOCloudSettings';
 import AccountSection from '../components/preferences/AccountSection';
 import AutosortSection, { AutosortChangeNotification } from '../components/preferences/AutosortSection';
+import SignWithCertificateSection, { SignWithCertificateChangeNotification } from '../components/preferences/SignWithCertificateSection';
+import SignWithPGPSection, { SignWithPGPChangeNotification } from '../components/preferences/SignWithPGPSection';
+import CreateLedgerSection, { CreateLedgerChangeNotification } from '../components/preferences/CreateLedgerSection';
 import SupportSection from '../components/preferences/SupportSection';
 import AppInfoSection from '../components/preferences/AppInfoSection';
 import LogsSection from '../components/preferences/LogsSection';
@@ -104,21 +107,36 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout, onRequestLogi
     // Could emit to analytics, logging, etc.
   };
 
+  const handleSignWithCertificateChange = (notification: SignWithCertificateChangeNotification) => {
+    console.log('Sign with Certificate settings changed:', notification);
+    // Could emit to analytics, logging, etc.
+  };
+
+  const handleSignWithPGPChange = (notification: SignWithPGPChangeNotification) => {
+    console.log('Sign with PGP settings changed:', notification);
+    // Could emit to analytics, logging, etc.
+  };
+
+  const handleCreateLedgerChange = (notification: CreateLedgerChangeNotification) => {
+    console.log('Create Ledger settings changed:', notification);
+    // Could emit to analytics, logging, etc.
+  };
+
   const handleLearnMore = () => {
     openExternal('https://zentransfer.io');
   };
 
   // Support handlers
   const handleHelpClick = () => {
-    openExternal('https://zentransfer.io/support');
+    openExternal('https://zentransfer.io/faq');
   };
 
   const handlePrivacyClick = () => {
-    openExternal('https://zentransfer.io/privacy');
+    openExternal('https://zentransfer.io/privacy-policy');
   };
 
   const handleTermsClick = () => {
-    openExternal('https://zentransfer.io/terms');
+    openExternal('https://zentransfer.io/terms-of-service');
   };
 
   const handleDownloadClick = () => {
@@ -206,6 +224,12 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ onLogout, onRequestLogi
           />
 
           <AutosortSection onChange={handleAutosortChange} />
+
+          <SignWithCertificateSection onChange={handleSignWithCertificateChange} />
+
+          <SignWithPGPSection onChange={handleSignWithPGPChange} />
+
+          <CreateLedgerSection onChange={handleCreateLedgerChange} />
 
           <SupportSection
             onHelpClick={handleHelpClick}

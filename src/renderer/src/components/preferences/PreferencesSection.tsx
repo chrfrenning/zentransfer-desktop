@@ -53,6 +53,13 @@ const PreferencesSection: React.FC<PreferencesProps> = ({
           settingKey="preferences.createIndexFiles"
           onChange={onChange}
         />
+
+        <PreferenceSetting
+          label="Public URLs"
+          description="Store public URLs in indexes"
+          settingKey="preferences.publicUrlsInIndexes"
+          onChange={onChange}
+        />
       </div>
     </div>
   );

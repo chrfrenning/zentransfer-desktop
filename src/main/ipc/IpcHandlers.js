@@ -14,6 +14,7 @@ const path = require('path');
 const logger = require('../utils/Logger.js');
 const { awsLoadRegions } = require('../services/AWSRegions.js');
 const { CloudFactory } = require('../services/CloudFactory.js');
+const { estimatePOWPerformance } = require('../utils/EstimatePowPerformance.js');
 
 function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool) {
   logger.info('Setting up IPC handlers...');
@@ -820,6 +821,17 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
      } catch (error) {
        return { success: false, error: error.message };
      }
+   });
+
+
+
+   /*
+    * Utility operations
+    *
+    */
+
+   ipcMain.handle('estimate-pow-performance', async (event, bits) => {
+    return estimatePOWPerformance(bits);
    });
 }
 

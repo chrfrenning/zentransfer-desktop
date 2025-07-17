@@ -339,6 +339,17 @@ export interface ZenTransferAPI {
     openExternal(url: string): Promise<void>;
     showItemInFolder(fullPath: string): Promise<void>;
   };
+
+  readonly utility: {
+    estimatePOWPerformance(bits: number): Promise<{
+      bits: number;
+      coresUsed: number;
+      totalCores: number;
+      hashRatePerCore: string;
+      totalHashRate: string;
+      estimatedTime: string;
+    }>;
+  };
 }
 
 // ============================================================================

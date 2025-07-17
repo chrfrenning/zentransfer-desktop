@@ -18,6 +18,7 @@ class ConfigurationData {
             createPreviews: false,              // Generate preview and thumbnails for cloud stores
             extractMetaData: false,             // Extract metadata and save as json in cloud stores
             createIndexFiles: false,            // Generate json indexes of uploaded files
+            publicUrlsInIndexes: false,         // Include public urls in indexes
             thumbnailSize: 400,                 // Thumbnail size in pixels
             thumbnailQuality: 90,               // Thumbnail quality (0-100)
             previewSize: 1920,                  // Preview size in pixels
@@ -151,6 +152,9 @@ class ConfigurationData {
             importSettings: this.importSettings,
             uploadSettings: this.uploadSettings,
             autoSort: this.autoSort,
+            signWithCertificate: this.signWithCertificate,
+            signWithPGP: this.signWithPGP,
+            ledger: this.ledger,
             lastUpdated: new Date().toISOString()
         };
     }

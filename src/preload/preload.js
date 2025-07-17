@@ -205,6 +205,11 @@ const electronAPI = {
     openExternal: (url) => ipcRenderer.invoke('shell-open-external', url),
     //openPath: (path) => ipcRenderer.invoke('shell-open-path', path),
     showItemInFolder: (fullPath) => ipcRenderer.invoke('shell-show-item-in-folder', fullPath)
+  },
+
+  // Utility APIs
+  utility: {
+    estimatePOWPerformance: (bits) => ipcRenderer.invoke('estimate-pow-performance', bits)
   }
 };
 
