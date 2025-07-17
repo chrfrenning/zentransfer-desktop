@@ -39,7 +39,6 @@ const FileList: React.FC<FileListProps> = ({ files, formatFileSize }) => {
 
   return (
     <div className="mb-6">
-      <h3 className="text-lg font-medium text-gray-900 mb-4">Selected Files ({files.length})</h3>
       <div className="space-y-4">
         {sortedFiles.map(file => (
           <FileTile 

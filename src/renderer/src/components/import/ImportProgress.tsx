@@ -50,34 +50,6 @@ const ImportProgress: React.FC<ImportProgressProps> = ({
         </Button>
       </div>
 
-      {/* Current File Progress */}
-      {progressData.currentFile && (
-        <div className="mb-6">
-          <div className="flex justify-between items-center text-sm text-gray-600 mb-3">
-            <div className="flex-1 min-w-0">
-              <span className="font-medium">Current File:</span>
-              <span className="ml-2 truncate text-gray-900" title={progressData.currentFile.name}>
-                {progressData.currentFile.name}
-              </span>
-            </div>
-            <span className="ml-4 flex-shrink-0">{progressData.currentFileProgress}%</span>
-          </div>
-          
-          {progressData.currentDestination && (
-            <div className="text-xs text-gray-500 mb-2">
-              Destination: {progressData.currentDestination}
-            </div>
-          )}
-          
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className="bg-green-600 h-3 rounded-full transition-all duration-300 ease-out" 
-              style={{ width: `${progressData.currentFileProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
       {/* Overall Progress using OperationProgress component */}
       <OperationProgress
         queued={stats.queued}
@@ -130,21 +102,30 @@ const ImportProgress: React.FC<ImportProgressProps> = ({
 
       {/* File List - scrollable */}
       <div className="flex-1 overflow-y-auto">
-        <FileList files={files.map(file => ({
-          id: file.id,
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          path: file.path,
-          source: file.source,
-          status: file.status === 'processing' ? 'uploading' : 
-                  file.status === 'completed' ? 'completed' :
-                  file.status === 'failed' ? 'failed' :
-                  undefined,
-          progress: file.progress,
-          error: file.error,
-          lastModified: file.lastModified
-        }))} formatFileSize={formatFileSize} />
+        <FileList files={files.map(file => {
+          const mappedFile: any = {
+            id: file.id,
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            path: file.path,
+            source: file.source,
+            progress: file.progress,
+            error: file.error,
+            lastModified: file.lastModified
+          };
+          
+          // Only set status if we have a valid mapping
+          if (file.status === 'processing') {
+            mappedFile.status = 'uploading';
+          } else if (file.status === 'completed') {
+            mappedFile.status = 'completed';
+          } else if (file.status === 'failed') {
+            mappedFile.status = 'failed';
+          }
+          
+          return mappedFile;
+        })} formatFileSize={formatFileSize} />
       </div>
     </div>
   );

@@ -141,7 +141,7 @@ const SignWithCertificateSection: React.FC<SignWithCertificateSectionProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <KeyIcon className="h-5 w-5 text-gray-500" />
-            <h3 className="text-lg font-semibold text-gray-900">Sign with Certificate</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Sign with Digital ID</h3>
           </div>
           <div className="animate-pulse">
             <div className="h-6 w-12 bg-gray-200 rounded"></div>
@@ -156,7 +156,7 @@ const SignWithCertificateSection: React.FC<SignWithCertificateSectionProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <KeyIcon className="h-5 w-5 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Sign with Certificate</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Sign with Digital ID</h3>
         </div>
         <SimpleSwitch
           checked={settings.enabled}
