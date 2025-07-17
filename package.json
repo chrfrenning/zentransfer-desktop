@@ -1,6 +1,6 @@
 {
   "name": "ZenTransfer",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "description": "File transfer for professional photographers",
   "homepage": "https://zentransfer.io",
   "bugs": {
@@ -81,11 +81,15 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "category": "Utility",
