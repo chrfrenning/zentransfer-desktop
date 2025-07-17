@@ -95,7 +95,10 @@ const ImportScreen = () => {
     switch (mode) {
       case 'setup':
         return (
-          <ImportSetupForm
+          <>
+            <ScreenHeader mode="import" />
+            
+            <ImportSetupForm
             settings={settings}
             onSettingsChange={updateSettings}
             onStartImport={handleStartImport}
@@ -104,6 +107,7 @@ const ImportScreen = () => {
             isDiscovering={isDiscovering}
             hasFiles={hasFiles()}
           />
+          </>
         );
 
       case 'processing':
@@ -125,26 +129,14 @@ const ImportScreen = () => {
             formatFileSize={formatFileSize}
           />
         );
-
-      default:
-        return (
-          <ImportSetupForm
-            settings={settings}
-            onSettingsChange={updateSettings}
-            onStartImport={handleStartImport}
-            onStartDiscovery={handleStartDiscovery}
-            canStartImport={canStartImport()}
-            isDiscovering={isDiscovering}
-            hasFiles={hasFiles()}
-          />
-        );
     }
   };
 
   return (
-    <div className="h-full px-4 pt-2 pb-6 overflow-y-auto">
-      <div className="w-full">
-        <ScreenHeader mode="import" />
+    <div className="h-full flex flex-col px-4 pt-2">
+      <div className="flex-shrink-0">
+      </div>
+      <div className="flex-1 min-h-0">
         {renderContent()}
       </div>
     </div>

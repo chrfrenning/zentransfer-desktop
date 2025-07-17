@@ -73,13 +73,13 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
 
   const handleTypeFilterChange = (value: string): void => {
     onSettingsChange({ 
-      importTypeFilter: value //as 'allFiles' | 'imageFiles' | 'jpegOnly' | 'rawOnly'
+      importTypeFilter: value as 'allFiles' | 'imageFiles' | 'jpegOnly' | 'rawOnly'
     });
   };
 
   const handleTimeFilterChange = (value: string): void => {
     onSettingsChange({ 
-      importTimeFilter: value //as 'allTime' | 'today' | 'yesterday' | 'highWaterMark'
+      importTimeFilter: value as 'allTime' | 'today' | 'yesterday' | 'highWaterMark'
     });
   };
 
@@ -111,7 +111,9 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
   ];
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-2xl h-full flex flex-col">
+      {/* Scrollable Form Content */}
+      <div className="flex-1 overflow-y-auto space-y-6 pb-4">
       {/* Source Directory */}
       <FolderSelector
         label="Import from"
@@ -288,9 +290,10 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
         onServiceChange={handleCloudServiceChange}
         disabled={disabled}
       />
+      </div>
 
-      {/* Discovery and Import Actions */}
-      <div className="space-y-3 pt-4 border-t border-gray-200">
+      {/* Fixed Bottom Section - Discovery and Import Actions */}
+      <div className="flex-shrink-0 -mx-4 px-4 space-y-3 pt-4 border-t border-gray-200 bg-white">
         {/* Discover Files Button */}
         {!hasFiles && (
           <Button

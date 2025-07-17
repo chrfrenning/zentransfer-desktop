@@ -77,7 +77,10 @@ class ConfigurationData {
             uploadToAzure: false,
             uploadToGcp: false,
             uploadToMinio: false,
-            enableCloudUpload: false
+            enableCloudUpload: false,
+
+            // Operational settings
+            autoStartJobInSecs: 60
         };
 
         // Upload settings (for upload screen preferences)
