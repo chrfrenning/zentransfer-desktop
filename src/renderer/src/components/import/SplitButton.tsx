@@ -75,9 +75,9 @@ const SplitButton: React.FC<SplitButtonProps> = ({
   const availablePaths = recentPaths.filter(path => path !== value);
 
   return (
-    <div className="relative flex" ref={dropdownRef}>
+    <div className="relative flex w-full" ref={dropdownRef}>
       {/* Main input area with dropdown */}
-      <div className="flex-1 relative">
+      <div className="flex-1 min-w-0 relative">
         <div
           className={`flex items-center w-full px-3 py-2 text-sm border rounded-l-lg bg-white cursor-pointer ${
             error 
@@ -128,7 +128,7 @@ const SplitButton: React.FC<SplitButtonProps> = ({
         outline
         onClick={onBrowse}
         disabled={disabled}
-        className={`flex-shrink-0 text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 flex items-center justify-center rounded-l-none border-l-0 ${
+        className={`flex-shrink-0 w-20 text-sm text-gray-500 hover:text-gray-700 hover:border-gray-400 flex items-center justify-center rounded-l-none border-l-0 ${
           error ? 'border-red-300' : 'border-gray-300'
         }`}
         style={{ fontWeight: '300', lineHeight: '1' }}

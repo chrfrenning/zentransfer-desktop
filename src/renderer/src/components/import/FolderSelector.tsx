@@ -82,7 +82,7 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({
   };
 
   return (
-    <div className="space-y-2">
+    <div className="w-full space-y-2">
       <label className="block text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
