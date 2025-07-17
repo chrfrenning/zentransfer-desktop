@@ -18,7 +18,7 @@ const ScreenHeader: React.FC<ScreenHeaderProps> = ({ mode = 'import' }) => {
   const modeConfig: Record<ScreenMode, ModeConfig> = {
     import: {
       title: 'Import',
-      description: 'Import from your camera',
+      description: 'Import from SD/CF cards or folders',
       color: 'bg-purple-500',
       icon: (
         <>
