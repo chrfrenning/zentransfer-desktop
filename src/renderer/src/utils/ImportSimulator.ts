@@ -107,7 +107,10 @@ class ImportSimulator {
     // Generate mock files for import using addFiles
     const testFiles: Partial<ImportFile>[] = [];
     for (let i = 1; i <= discoveryStats.filesToImport; i++) {
-      testFiles.push(this.generateRandomFile(i));
+      const file = this.generateRandomFile(i);
+      // Set status to 'queued' so they're ready for processing
+      file.status = 'queued';
+      testFiles.push(file);
     }
     
     store.addFiles(testFiles);
@@ -390,7 +393,7 @@ class ImportSimulator {
       if (settings.uploadToMinio) destinations.push('MinIO');
     }
 
-    return destinations.length > 0 ? destinations[0] : 'Processing';
+    return destinations.length > 0 ? destinations[0]! : 'Processing';
   }
 
   public getStatus(): SimulatorStatus {
