@@ -71,6 +71,9 @@ export interface ImportSettings {
   readonly skipExisting: boolean;
   readonly createPreviews: boolean;
   readonly extractMetadata: boolean;
+  
+  // Auto-start configuration
+  readonly autoStartJobInSecs: number;
 }
 
 // Discovery statistics for source analysis

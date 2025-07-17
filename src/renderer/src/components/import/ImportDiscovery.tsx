@@ -1,20 +1,24 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../catalyst/button';
 import { Text } from '../catalyst/text';
 import { Heading } from '../catalyst/heading';
-import type { DiscoveryStats } from '../../types/import';
+import type { DiscoveryStats, ImportSettings } from '../../types/import';
 
 interface ImportDiscoveryProps {
   discoveryStats: DiscoveryStats;
+  settings: Partial<ImportSettings>;
   onConfirmImport: () => void;
   onCancel: () => void;
+  onSettingsChange: (updates: Partial<ImportSettings>) => void;
   formatFileSize: (bytes: number) => string;
 }
 
 const ImportDiscovery: React.FC<ImportDiscoveryProps> = ({
   discoveryStats,
+  settings,
   onConfirmImport,
   onCancel,
+  onSettingsChange,
   formatFileSize
 }) => {
   const {
@@ -39,6 +43,93 @@ const ImportDiscovery: React.FC<ImportDiscoveryProps> = ({
   const toImportPercentage = totalFilesInSource > 0 
     ? Math.round((filesToImport / totalFilesInSource) * 100) 
     : 0;
+
+  // Auto-start countdown state
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [showTimerDropdown, setShowTimerDropdown] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Timer options
+  const timerOptions = [
+    { value: 0, label: 'Disabled' },
+    { value: 10, label: '10 seconds' },
+    { value: 20, label: '20 seconds' },
+    { value: 30, label: '30 seconds' },
+    { value: 45, label: '45 seconds' },
+    { value: 60, label: '60 seconds' },
+    { value: 90, label: '90 seconds' }
+  ];
+
+  // Initialize countdown if auto-start is enabled
+  useEffect(() => {
+    const autoStartSecs = settings.autoStartJobInSecs || 0;
+    if (autoStartSecs > 0) {
+      setCountdown(autoStartSecs);
+    }
+  }, [settings.autoStartJobInSecs]);
+
+  // Handle countdown timer
+  useEffect(() => {
+    if (countdown === null || countdown <= 0) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      if (countdown === 0) {
+        onConfirmImport();
+      }
+      return;
+    }
+
+    intervalRef.current = setInterval(() => {
+      setCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [countdown, onConfirmImport]);
+
+  // Handle clicking outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowTimerDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleCancelCountdown = () => {
+    setCountdown(null);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const handleTimerChange = (seconds: number) => {
+    onSettingsChange({ autoStartJobInSecs: seconds });
+    setShowTimerDropdown(false);
+    if (seconds > 0) {
+      setCountdown(seconds);
+    } else {
+      handleCancelCountdown();
+    }
+  };
 
   return (
     <div className="h-full flex flex-col">
@@ -132,7 +223,7 @@ const ImportDiscovery: React.FC<ImportDiscoveryProps> = ({
         </div>
 
         {/* Cancel Link */}
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <button 
             onClick={onCancel}
             className="text-gray-500 hover:text-gray-700 text-sm underline"
@@ -140,6 +231,75 @@ const ImportDiscovery: React.FC<ImportDiscoveryProps> = ({
             Cancel - Back to Settings
           </button>
         </div>
+
+        {/* Auto-start Countdown */}
+        {countdown !== null && countdown > 0 && (
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center space-x-2">
+              <span className="text-sm text-gray-600">
+                Auto-starting in {countdown} second{countdown !== 1 ? 's' : ''}
+              </span>
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setShowTimerDropdown(!showTimerDropdown)}
+                  className="text-gray-400 hover:text-gray-600"
+                  title="Change timer setting"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {showTimerDropdown && (
+                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-32">
+                    {timerOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleTimerChange(option.value)}
+                        className={`block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 ${
+                          settings.autoStartJobInSecs === option.value ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Timer Settings for when countdown is not active */}
+        {(countdown === null || countdown <= 0) && settings.autoStartJobInSecs === 0 && (
+          <div className="text-center mb-6">
+            <div className="relative inline-block" ref={dropdownRef}>
+              <button
+                onClick={() => setShowTimerDropdown(!showTimerDropdown)}
+                className="text-gray-500 hover:text-gray-700 text-sm underline inline-flex items-center space-x-1"
+              >
+                <span>Enable auto-start</span>
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showTimerDropdown && (
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-10 min-w-32">
+                  {timerOptions.filter(opt => opt.value > 0).map((option) => (
+                    <button
+                      key={option.value}
+                      onClick={() => handleTimerChange(option.value)}
+                      className="block w-full text-left px-3 py-2 text-sm hover:bg-gray-100 text-gray-700"
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Action Button */}

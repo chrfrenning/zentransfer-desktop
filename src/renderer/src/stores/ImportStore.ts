@@ -45,7 +45,8 @@ const defaultSettings: Partial<ImportSettings> = {
   skipDuplicates: false,
   skipExisting: false,
   createPreviews: false,
-  extractMetadata: false
+  extractMetadata: false,
+  autoStartJobInSecs: 0
 };
 
 const useImportStore = create<ImportStore>((set, get) => ({
@@ -201,13 +202,17 @@ const useImportStore = create<ImportStore>((set, get) => ({
         const createPreviews = await api.config.get('preferences.createPreviews');
         const extractMetadata = await api.config.get('preferences.extractMetaData');
 
+        // Load auto-start setting
+        const autoStartJobInSecs = await api.config.get('importSettings.autoStartJobInSecs');
+
         // Create final settings object with preferences
         const finalSettings = {
           ...loadedSettings,
           skipDuplicates: skipDuplicates as boolean,
           skipExisting: skipExisting as boolean,
           createPreviews: createPreviews as boolean,
-          extractMetadata: extractMetadata as boolean
+          extractMetadata: extractMetadata as boolean,
+          autoStartJobInSecs: (autoStartJobInSecs as number) || 0
         };
 
         set({ settings: { ...defaultSettings, ...finalSettings } });
@@ -249,6 +254,7 @@ const useImportStore = create<ImportStore>((set, get) => ({
       await api.config.set('importSettings.uploadToMinio', settings.uploadToMinio);
       await api.config.set('importSettings.importTypeFilter', settings.importTypeFilter);
       await api.config.set('importSettings.importTimeFilter', settings.importTimeFilter);
+      await api.config.set('importSettings.autoStartJobInSecs', settings.autoStartJobInSecs);
 
       console.log('Import store: Saved settings to configuration');
     } catch (error) {

@@ -131,8 +131,10 @@ const ImportScreen = () => {
         return (
           <ImportDiscovery
             discoveryStats={discoveryStats!}
+            settings={settings}
             onConfirmImport={handleConfirmImport}
             onCancel={handleCancelDiscovery}
+            onSettingsChange={updateSettings}
             formatFileSize={formatFileSize}
           />
         );
