@@ -90,6 +90,7 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
         label="Import from"
         value={settings.sourcePath || ''}
         onChange={(path) => onSettingsChange({ sourcePath: path })}
+        type="source"
         placeholder="Select source directory (e.g., SD card)..."
         required
         disabled={disabled}
@@ -113,6 +114,7 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
         label="Destination"
         value={settings.destinationPath || ''}
         onChange={(path) => onSettingsChange({ destinationPath: path })}
+        type="destination"
         placeholder="Select destination directory..."
         required
         disabled={disabled}
@@ -219,6 +221,7 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
               label="Backup location"
               value={settings.backupPath || ''}
               onChange={(path) => onSettingsChange({ backupPath: path })}
+              type="destination"
               placeholder="Select backup directory..."
               required={settings.backupEnabled}
               disabled={disabled}

@@ -130,6 +130,12 @@ class ConfigurationData {
             complexityBits: 8,
             publicLinks: true
         }
+
+        // Last used folders
+        this.lastUsedFolders = {
+            sourceFolders: [],
+            destinationFolders: []
+        }
     }
 
     /**
@@ -155,6 +161,7 @@ class ConfigurationData {
             signWithCertificate: this.signWithCertificate,
             signWithPGP: this.signWithPGP,
             ledger: this.ledger,
+            lastUsedFolders: this.lastUsedFolders,
             lastUpdated: new Date().toISOString()
         };
     }

@@ -833,6 +833,37 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    ipcMain.handle('estimate-pow-performance', async (event, bits) => {
     return estimatePOWPerformance(bits);
    });
+
+   ipcMain.handle('get-last-used-destination-folders', async (event) => {
+    return app.configurationManager.get('lastUsedFolders.destinationFolders');
+   });
+
+   ipcMain.handle('get-last-used-source-folders', async (event) => {
+    return app.configurationManager.get('lastUsedFolders.sourceFolders');
+   });
+
+   ipcMain.handle('remember-destination-folder', async (event, folder) => {
+    let lastUsedFolders = app.configurationManager.get('lastUsedFolders.destinationFolders');
+    if (!lastUsedFolders.includes(folder)) {
+      if (lastUsedFolders.length >= 10) {
+        lastUsedFolders.shift();
+      }
+      lastUsedFolders.push(folder);
+    }
+
+    app.configurationManager.set('lastUsedFolders.destinationFolders', lastUsedFolders);
+    app.configurationManager.saveConfiguration();
+   });
+
+   ipcMain.handle('remember-source-folder', async (event, folder) => {
+    let lastUsedFolders = app.configurationManager.get('lastUsedFolders.sourceFolders');
+    if (!lastUsedFolders.includes(folder)) {
+      if (lastUsedFolders.length >= 10) {
+        lastUsedFolders.shift();
+      }
+      lastUsedFolders.push(folder);
+    }
+   });
 }
 
 module.exports = { setupIpcHandlers }; 

@@ -209,7 +209,11 @@ const electronAPI = {
 
   // Utility APIs
   utility: {
-    estimatePOWPerformance: (bits) => ipcRenderer.invoke('estimate-pow-performance', bits)
+    estimatePOWPerformance: (bits) => ipcRenderer.invoke('estimate-pow-performance', bits),
+    getLastUsedDestinationFolders: () => ipcRenderer.invoke('get-last-used-destination-folders'),
+    getLastUsedSourceFolders: () => ipcRenderer.invoke('get-last-used-source-folders'),
+    rememberDestinationFolder: (folder) => ipcRenderer.invoke('remember-destination-folder', folder),
+    rememberSourceFolder: (folder) => ipcRenderer.invoke('remember-source-folder', folder)
   }
 };
 

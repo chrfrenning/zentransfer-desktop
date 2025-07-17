@@ -349,6 +349,10 @@ export interface ZenTransferAPI {
       totalHashRate: string;
       estimatedTime: string;
     }>;
+    getLastUsedDestinationFolders(): Promise<ReadonlyArray<string>>;
+    getLastUsedSourceFolders(): Promise<ReadonlyArray<string>>;
+    rememberDestinationFolder(folder: string): Promise<void>;
+    rememberSourceFolder(folder: string): Promise<void>;
   };
 }
 
