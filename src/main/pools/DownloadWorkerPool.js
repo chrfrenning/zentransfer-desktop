@@ -412,6 +412,7 @@ class DownloadWorkerPool {
    */
   cleanup() {
     if (this.queueManager) {
+      logger.info('DownloadWorkerPool: Closing DownloadQueue database');
       this.queueManager.close();
       this.queueManager = null;
     }

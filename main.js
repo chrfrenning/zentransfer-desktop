@@ -230,6 +230,15 @@ function createAndShowMainWindow() {
       app.mainWindow = createWindow();
     }
   }); */
+
+  app.on('before-quit', () => {
+    logger.info('Application qutting, doing some housekeeping...');
+
+      app.downloadWorkerPool.cleanup();
+      app.downloadWorkerPool.cleanup();
+
+    logger.info('Application autumn cleaning completed');
+  });
   
 }
 

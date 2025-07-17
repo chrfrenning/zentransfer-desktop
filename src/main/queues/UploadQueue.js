@@ -347,7 +347,14 @@ class UploadQueue {
      */
     close() {
         if (this.db) {
+
+            console.log("Compacting the upload queue database");
+            this.db.pragma('wal_checkpoint(TRUNCATE)');
+            this.db.exec('VACUUM');
+            
+            console.log("Closing the upload queue database");
             this.db.close();
+
             this.db = null;
             this.isInitialized = false;
         }
