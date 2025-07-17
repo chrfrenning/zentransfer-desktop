@@ -73,19 +73,19 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
 
   const handleTypeFilterChange = (value: string): void => {
     onSettingsChange({ 
-      importTypeFilter: value as 'allFiles' | 'imageFiles' | 'jpegOnly' | 'rawOnly'
+      importTypeFilter: value //as 'allFiles' | 'imageFiles' | 'jpegOnly' | 'rawOnly'
     });
   };
 
   const handleTimeFilterChange = (value: string): void => {
     onSettingsChange({ 
-      importTimeFilter: value as 'allTime' | 'today' | 'yesterday' | 'highWaterMark'
+      importTimeFilter: value //as 'allTime' | 'today' | 'yesterday' | 'highWaterMark'
     });
   };
 
   const fileTypeOptions: DropdownOption[] = [
-    { value: 'allFiles', label: 'All files' },
-    { value: 'imageFiles', label: 'Only image files' },
+    { value: 'allFiles', label: 'All file types' },
+    { value: 'imageFiles', label: 'Only images' },
     { value: 'jpegOnly', label: 'Only JPEGs' },
     { value: 'rawOnly', label: 'Only RAWs' }
   ];
@@ -143,7 +143,6 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
         options={fileTypeOptions}
         onChange={handleTypeFilterChange}
         disabled={disabled}
-        className="max-w-sm"
       />
 
       {/* Time Filter */}
@@ -153,7 +152,6 @@ const ImportSetupForm: React.FC<ImportSetupFormProps> = ({
         options={timeFilterOptions}
         onChange={handleTimeFilterChange}
         disabled={disabled}
-        className="max-w-sm"
       />
 
       {/* Destination Directory */}

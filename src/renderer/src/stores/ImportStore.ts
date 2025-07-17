@@ -246,6 +246,8 @@ const useImportStore = create<ImportStore>((set, get) => ({
       await api.config.set('importSettings.uploadToAzure', settings.uploadToAzure);
       await api.config.set('importSettings.uploadToGcp', settings.uploadToGcp);
       await api.config.set('importSettings.uploadToMinio', settings.uploadToMinio);
+      await api.config.set('importSettings.importTypeFilter', settings.importTypeFilter);
+      await api.config.set('importSettings.importTimeFilter', settings.importTimeFilter);
 
       console.log('Import store: Saved settings to configuration');
     } catch (error) {

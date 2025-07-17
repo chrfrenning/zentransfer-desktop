@@ -68,6 +68,8 @@ class ConfigurationData {
             folderOrganizationType: 'date',
             customFolderName: '',
             dateFormat: 'YYYY-MM-DD',
+            importTypeFilter: 'allFiles',
+            importTimeFilter: 'allTime',
             
             // Upload settings
             uploadEnabled: false,
@@ -231,6 +233,26 @@ class ConfigurationData {
         // Load autoSort settings
         if (config.autoSort) {
             this.autoSort = { ...this.autoSort, ...config.autoSort };
+        }
+
+        // Load signWithCertificate settings
+        if (config.signWithCertificate) {
+            this.signWithCertificate = { ...this.signWithCertificate, ...config.signWithCertificate };
+        }
+
+        // Load signWithPGP settings
+        if (config.signWithPGP) {   
+            this.signWithPGP = { ...this.signWithPGP, ...config.signWithPGP };
+        }
+
+        // Load ledger settings
+        if (config.ledger) {
+            this.ledger = { ...this.ledger, ...config.ledger };
+        }
+
+        // Load last used folders
+        if (config.lastUsedFolders) {
+            this.lastUsedFolders = { ...this.lastUsedFolders, ...config.lastUsedFolders };
         }
     }
 
