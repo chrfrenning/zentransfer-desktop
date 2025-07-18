@@ -119,6 +119,7 @@ const electronAPI = {
     stopMonitoring: () => ipcRenderer.invoke('stop-download-monitoring'),
     getStats: () => ipcRenderer.invoke('get-download-stats'),
     resetSyncTime: (resetTime) => ipcRenderer.invoke('reset-sync-time', resetTime),
+    getLastSyncTime: () => ipcRenderer.invoke('get-last-sync-time'),
     signalUIActivity: () => ipcRenderer.invoke('ui-activity-signal'),
     
     // Download progress listener

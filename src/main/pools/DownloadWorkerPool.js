@@ -408,6 +408,14 @@ class DownloadWorkerPool {
     this.backOffManager.reset();
   }
 
+  resetSyncTime(syncTime) {
+    this.queueManager.clearAll();
+  }
+
+  getLastSyncTime() {
+    return this.queueManager.getMaxCreatedAt();
+  }
+
   /**
    * Cleanup method
    */
