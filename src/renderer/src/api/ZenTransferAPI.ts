@@ -350,6 +350,8 @@ export interface ZenTransferAPI {
     onProgress(callback: (data: DownloadProgressData) => void): ListenerCleanup;
     onCompleted(callback: (data: DownloadCompletedData) => void): ListenerCleanup;
     onError(callback: (data: DownloadErrorData) => void): ListenerCleanup;
+    onMonitoringStarted(callback: () => void): ListenerCleanup;
+    onMonitoringStopped(callback: () => void): ListenerCleanup;
     onUpdate(callback: (data: DownloadUpdateData) => void): ListenerCleanup;
     removeAllListeners(): void;
   };
