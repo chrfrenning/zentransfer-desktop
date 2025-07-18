@@ -57,7 +57,6 @@ class ZenTransferService extends StorageServiceBase {
                     success: false,
                     message: `Configuration invalid: ${validation.errors.join(', ')}`
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -76,7 +75,6 @@ class ZenTransferService extends StorageServiceBase {
             // Store the session for future uploads
             this.currentSession = session;
             
-            this._storeTestResult(result);
             this._log('info', 'ZenTransfer connection test successful');
             return result;
 
@@ -87,7 +85,6 @@ class ZenTransferService extends StorageServiceBase {
                 details: { error: error.message }
             };
             
-            this._storeTestResult(result);
             this._log('error', 'ZenTransfer connection test failed', { error: error.message });
             return result;
         }
@@ -207,48 +204,6 @@ class ZenTransferService extends StorageServiceBase {
             this._log('error', 'ZenTransfer upload failed', uploadResult.details);
             return uploadResult;
         }
-    }
-
-    async getUploadProgress(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) {
-            return { progress: 0, status: 'not_found' };
-        }
-
-        return {
-            progress: upload.progress,
-            status: upload.status,
-            startTime: upload.startTime,
-            endTime: upload.endTime
-        };
-    }
-
-    async cancelUpload(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload || upload.status !== 'uploading') {
-            return false;
-        }
-
-        // In a real implementation, you would cancel the actual HTTP request
-        this.activeUploads.set(uploadId, {
-            ...upload,
-            status: 'cancelled',
-            endTime: Date.now()
-        });
-
-        this._log('info', 'ZenTransfer upload cancelled', { uploadId });
-        return true;
-    }
-
-    sanitizeSettings(settings) {
-        const sanitized = super.sanitizeSettings(settings);
-        
-        // ZenTransfer-specific sensitive fields
-        if (sanitized.token) {
-            sanitized.token = '[REDACTED]';
-        }
-        
-        return sanitized;
     }
 
     /**

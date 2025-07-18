@@ -157,7 +157,7 @@ class DownloadWorkerPool {
         logger.debug(`Received error from worker ${worker.id}`, message);
         this.sendMessageToRendererWindows('download-error', message);
         
-        this.queueManager.markFileAsFailed(fileId, message.errorMessage);
+        this.queueManager.markFileAsFailed(fileRecord.file_id, message.errorMessage);
 
         worker.currentFileId = null;
         break;

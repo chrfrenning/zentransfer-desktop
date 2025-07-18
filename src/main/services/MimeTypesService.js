@@ -20,6 +20,7 @@ class MimeTypesService {
     loadMimeTypes() {
         if (this.loaded) return;
         try {
+
             // Find the root directory relative to this file
             const rootDir = path.resolve(__dirname, '../../');
             const mimeTypesPath = path.join(rootDir, 'resources', 'mime.types');
@@ -27,6 +28,7 @@ class MimeTypesService {
                 console.warn(`MimeTypesService: mime.types file not found at ${mimeTypesPath}`);
                 return;
             }
+
             const content = fs.readFileSync(mimeTypesPath, 'utf8');
             const lines = content.split('\n');
             for (const line of lines) {
@@ -43,7 +45,11 @@ class MimeTypesService {
                     this.extensionMap.set(ext.toLowerCase(), mimeType);
                 }
             }
+
             this.loaded = true;
+
+            console.log('MimeTypesService: Loaded mime.types file with ' + this.mimeMap.size + ' mime types');
+
         } catch (err) {
             console.error('MimeTypesService: Failed to load mime.types:', err);
         }
@@ -60,9 +66,11 @@ class MimeTypesService {
             ext = path.extname(fileNameOrExt).slice(1);
         }
         ext = ext.toLowerCase();
+        
         if (this.extensionMap.has(ext)) {
             return this.extensionMap.get(ext);
         }
+
         return 'application/octet-stream';
     }
 
@@ -76,9 +84,4 @@ class MimeTypesService {
     }
 }
 
-const mimeTypesServiceSingleton = new MimeTypesService();
-
-module.exports = {
-    MimeTypesService,
-    mimeTypesServiceSingleton
-};
+module.exports = { MimeTypesService };

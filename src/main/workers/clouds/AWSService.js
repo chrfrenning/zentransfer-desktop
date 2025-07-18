@@ -67,7 +67,6 @@ class AWSService extends StorageServiceBase {
                     success: false,
                     message: `Configuration invalid: ${validation.errors.join(', ')}`
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -113,7 +112,6 @@ class AWSService extends StorageServiceBase {
                             suggestion: 'Verify the bucket name and region are correct'
                         }
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else if (headError.name === 'Forbidden' || headError.$metadata?.httpStatusCode === 403) {
                     const result = {
@@ -126,7 +124,6 @@ class AWSService extends StorageServiceBase {
                             suggestion: 'Verify your AWS access key, secret key, and bucket permissions'
                         }
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else if (headError.name === 'InvalidAccessKeyId') {
                     const result = {
@@ -137,7 +134,6 @@ class AWSService extends StorageServiceBase {
                             suggestion: 'Check your AWS access key ID'
                         }
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else if (headError.name === 'SignatureDoesNotMatch') {
                     const result = {
@@ -148,7 +144,6 @@ class AWSService extends StorageServiceBase {
                             suggestion: 'Check your AWS secret access key'
                         }
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else {
                     // Re-throw unexpected errors to be caught by outer catch block
@@ -196,7 +191,6 @@ class AWSService extends StorageServiceBase {
                 }
             };
             
-            this._storeTestResult(result);
             this._log('info', 'AWS S3 connection test completed successfully');
             return result;
 
@@ -212,7 +206,6 @@ class AWSService extends StorageServiceBase {
                 }
             };
             
-            this._storeTestResult(result);
             this._log('error', 'AWS S3 connection test failed', { error: error.message, errorName: error.name });
             return result;
         }
@@ -481,47 +474,6 @@ class AWSService extends StorageServiceBase {
             this._log('error', 'AWS S3 upload failed', uploadResult.details);
             return uploadResult;
         }
-    }
-
-    async getUploadProgress(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) {
-            return { progress: 0, status: 'not_found' };
-        }
-
-        return {
-            progress: upload.progress,
-            status: upload.status,
-            startTime: upload.startTime,
-            endTime: upload.endTime
-        };
-    }
-
-    async cancelUpload(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload || upload.status !== 'uploading') {
-            return false;
-        }
-
-        this.activeUploads.set(uploadId, {
-            ...upload,
-            status: 'cancelled',
-            endTime: Date.now()
-        });
-
-        this._log('info', 'AWS S3 upload cancelled', { uploadId });
-        return true;
-    }
-
-    sanitizeSettings(settings) {
-        const sanitized = super.sanitizeSettings(settings);
-        
-        // AWS-specific sensitive fields
-        if (sanitized.accessKey) {
-            sanitized.accessKey = sanitized.accessKey.substring(0, 8) + '...[REDACTED]';
-        }
-        
-        return sanitized;
     }
 
     /**

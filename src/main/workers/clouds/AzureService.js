@@ -81,7 +81,6 @@ class AzureService extends StorageServiceBase {
                     success: false,
                     message: `Configuration invalid: ${validation.errors.join(', ')}`
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -109,7 +108,6 @@ class AzureService extends StorageServiceBase {
                         containerName: this.settings.containerName
                     }
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -124,7 +122,6 @@ class AzureService extends StorageServiceBase {
                 }
             };
             
-            this._storeTestResult(result);
             this._log('info', 'Azure Blob Storage connection test completed');
             return result;
 
@@ -135,7 +132,6 @@ class AzureService extends StorageServiceBase {
                 details: { error: error.message }
             };
             
-            this._storeTestResult(result);
             this._log('error', 'Azure Blob Storage connection test failed', { error: error.message });
             return result;
         }
@@ -396,55 +392,6 @@ class AzureService extends StorageServiceBase {
             this._log('error', 'Azure Blob Storage upload failed', uploadResult.details);
             return uploadResult;
         }
-    }
-
-    async getUploadProgress(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) {
-            return { progress: 0, status: 'not_found' };
-        }
-
-        return {
-            progress: upload.progress,
-            status: upload.status,
-            startTime: upload.startTime,
-            endTime: upload.endTime
-        };
-    }
-
-    async cancelUpload(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload || upload.status !== 'uploading') {
-            return false;
-        }
-
-        this.activeUploads.set(uploadId, {
-            ...upload,
-            status: 'cancelled',
-            endTime: Date.now()
-        });
-
-        this._log('info', 'Azure Blob Storage upload cancelled', { uploadId });
-        return true;
-    }
-
-    sanitizeSettings(settings) {
-        const sanitized = super.sanitizeSettings(settings);
-        
-        // Azure-specific sensitive fields
-        if (sanitized.connectionString) {
-            // Show only the account name part, redact the key
-            const parts = sanitized.connectionString.split(';');
-            const sanitizedParts = parts.map(part => {
-                if (part.startsWith('AccountKey=')) {
-                    return 'AccountKey=[REDACTED]';
-                }
-                return part;
-            });
-            sanitized.connectionString = sanitizedParts.join(';');
-        }
-        
-        return sanitized;
     }
 
     /**

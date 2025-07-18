@@ -9,6 +9,25 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/Logger.js');
 
+/* DATABASE SCHEMA
+
+
+    0	id	                INTEGER	    0		  1	Unique identifier for the file
+    1	file_path	        TEXT	    1		  0
+    2	filename	        TEXT	    1		  0
+    3	file_size	        INTEGER	    1		  0
+    4	mime_type	        TEXT	    0		  0
+    5	service_type	    TEXT	    1		  0
+    6	status	            TEXT	    1	      'queued'	0
+    7	retry_count	        INTEGER	    0	      0	0
+    8	date_added	        TEXT	    1		  0
+    9	last_retry_at	    TEXT	    0		  0
+    10	error_message	    TEXT	    0		  0
+    11	final_url	        TEXT	    0		  0
+    12	import_settings	    TEXT	    0		  0
+
+*/
+
 class UploadQueue {
     constructor() {
         this.db = null;
@@ -56,36 +75,45 @@ class UploadQueue {
      * Create database tables
      * 
      * status: queued, processing, retry, completed, failed
+     * 
+     * Not quite sure how to empty the info_cache, but one way may be to
+     * delete all rows when the queue length is 0
+     * 
      */
     createTables() {
         const createTableSQL = `
             CREATE TABLE IF NOT EXISTS upload_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_path TEXT NOT NULL,
-                filename TEXT NOT NULL,
+                source_path TEXT NOT NULL,
+                file_name TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
                 file_date DATETIME NOT NULL,
-                source_foldername TEXT,
                 mime_type TEXT,
-                checksum_md5 TEXT,
-                checksum_sha256 TEXT,
-                checksum_sha512 TEXT,
                 service_type TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'queued',
                 retry_count INTEGER DEFAULT 0,
-                date_added TEXT NOT NULL,
-                last_retry_at TEXT,
-                error_message TEXT,
-                final_url TEXT,
-                import_settings TEXT
+                date_added DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_retry_at DATETIME DEFAULT NULL,
+                error_message TEXT DEFAULT NULL,
+                final_url TEXT DEFAULT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS info_cache (
+                source_path TEXT PRIMARY KEY,
+                checksum_md5 TEXT,
+                checksum_sha256 TEXT,
+                checksum_sha512 TEXT,
+                tiny_thumbnail BLOB,
+                thumbnail BLOB,
+                preview BLOB,
+                exif TEXT
             );
         `;
         
         const createIndexesSQL = [
-            'CREATE INDEX IF NOT EXISTS idx_status ON upload_queue(status);',
-            'CREATE INDEX IF NOT EXISTS idx_filename ON upload_queue(filename);',
-            'CREATE INDEX IF NOT EXISTS idx_service_type ON upload_queue(service_type);',
-            'CREATE INDEX IF NOT EXISTS idx_date_added ON upload_queue(date_added);'
+            'CREATE INDEX IF NOT EXISTS idx_uq_status ON upload_queue(status);',
+            'CREATE INDEX IF NOT EXISTS idx_uq_source_path ON upload_queue(source_path);',
+            'CREATE INDEX IF NOT EXISTS idx_ic_source_path ON info_cache(source_path);',
         ];
         
         this.db.exec(createTableSQL);
@@ -98,9 +126,15 @@ class UploadQueue {
     prepareStatements() {
         this.statements = {
             addFile: this.db.prepare(`
-                INSERT INTO upload_queue 
-                (file_path, filename, file_size, mime_type, service_type, date_added, import_settings)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO upload_queue (
+                    source_path,
+                    file_name,
+                    file_size,
+                    file_date,
+                    mime_type,
+                    service_type
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
             `),
             
             getQueuedFiles: this.db.prepare(`
@@ -113,6 +147,12 @@ class UploadQueue {
                 SELECT * FROM upload_queue 
                 WHERE status = 'failed' 
                 ORDER BY date_added ASC
+            `),
+
+            getAllFiles: this.db.prepare(`
+                SELECT * FROM upload_queue
+                ORDER BY date_added DESC
+                LIMIT 5000
             `),
             
             updateFileStatus: this.db.prepare(`
@@ -127,15 +167,24 @@ class UploadQueue {
                 WHERE id = ?
             `),
             
+            updateUploadRetry: this.db.prepare(`
+                UPDATE upload_queue 
+                SET status = 'retry', error_message = ?, retry_count = retry_count + 1, last_retry_at = datetime('now')
+                WHERE id = ?
+            `),
+            
             updateUploadFailure: this.db.prepare(`
                 UPDATE upload_queue 
-                SET status = 'failed', error_message = ?, retry_count = retry_count + 1, 
-                    last_retry_at = datetime('now')
+                SET status = 'failed', error_message = ?, retry_count = retry_count + 1, last_retry_at = datetime('now')
                 WHERE id = ?
             `),
             
             getFileById: this.db.prepare(`
                 SELECT * FROM upload_queue WHERE id = ?
+            `),
+
+            countFileInQueue: this.db.prepare(`
+                SELECT COUNT(*) as count FROM upload_queue WHERE source_path = ? and status in ('queued', 'retry')
             `),
             
             getQueueStats: this.db.prepare(`
@@ -148,50 +197,97 @@ class UploadQueue {
             
             getIncompleteFiles: this.db.prepare(`
                 SELECT * FROM upload_queue 
-                WHERE status IN ('queued', 'processing', 'failed')
-                AND (status != 'failed' OR retry_count < ?)
+                WHERE status IN ('queued', 'processing', 'retry')
                 ORDER BY date_added ASC
             `),
             
             deleteFile: this.db.prepare(`
                 DELETE FROM upload_queue WHERE id = ?
             `),
+
+            cancelJob: this.db.prepare(`
+                UPDATE upload_queue SET status = 'cancelled' WHERE id = ?
+            `),
+
+            cancelAll: this.db.prepare(`
+                UPDATE upload_queue SET status = 'cancelled' WHERE status IN ('queued', 'retry')
+            `),
             
             clearCompleted: this.db.prepare(`
                 DELETE FROM upload_queue WHERE status = 'completed'
+            `),
+
+            clearFailed: this.db.prepare(`
+                DELETE FROM upload_queue WHERE status = 'failed'
+            `),
+
+            clearAll: this.db.prepare(`
+                DELETE FROM upload_queue
             `),
             
             resetProcessingFiles: this.db.prepare(`
                 UPDATE upload_queue 
                 SET status = 'queued'
                 WHERE status = 'processing'
+            `),
+
+            /* Info cache */
+
+            addToCache: this.db.prepare(`
+                INSERT INTO info_cache (
+                    source_path,
+                    checksum_md5,
+                    checksum_sha256,
+                    checksum_sha512,
+                    tiny_thumbnail,
+                    thumbnail,
+                    preview,
+                    exif
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `),
+
+            getFromCache: this.db.prepare(`
+                SELECT * FROM info_cache WHERE source_path = ?
             `)
         };
     }
     
-    /**
-     * Add files to the queue
-     */
+
+
+    /* Add files to the queue - this is time sensitive, we will get many files at the same time */
+
     addFiles(files) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         
         const transaction = this.db.transaction((files) => {
             const results = [];
+
             for (const file of files) {
                 try {
+                    /*
+                        source_path,
+                        file_name,
+                        file_size,
+                        file_date,
+                        mime_type,
+                        service_type
+                    */
+                    console.log("Adding file to queue:", file);
+
                     const result = this.statements.addFile.run(
-                        file.filePath,
-                        file.filename,
-                        file.fileSize,
-                        file.mimeType,
-                        file.serviceType,
-                        file.dateAdded,
-                        file.importSettings || null
+                        file.source_path,
+                        file.file_name,
+                        file.file_size,
+                        file.file_date.toISOString(),
+                        file.mime_type,
+                        file.service_type
                     );
-                    results.push({ id: result.lastInsertRowid, added: true });
+
+                    results.push(result.lastInsertRowid);
+
                 } catch (error) {
-                    console.error(`Failed to add file ${file.filename} to queue:`, error);
-                    results.push({ filename: file.filename, added: false, reason: 'error', error: error.message });
+                    console.error(`Failed to add file ${file.source_path} to queue:`, error);
                 }
             }
             return results;
@@ -200,60 +296,96 @@ class UploadQueue {
         return transaction(files);
     }
     
-    /**
-     * Get files ready for upload (only queued files)
-     */
-    getReadyFiles(limit = null) {
-        if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        const queuedFiles = this.statements.getQueuedFiles.all();
-        
-        if (limit && limit > 0) {
-            return queuedFiles.slice(0, limit);
-        }
-        
-        return queuedFiles;
-    }
+
     
-    /**
-     * Mark file as processing
-     */
+    /* Manage a specific file in the queue*/
+    
     startUpload(fileId) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
         return this.statements.updateFileStatus.run('processing', fileId);
     }
     
-    /**
-     * Mark upload as completed
-     */
     completeUpload(fileId, finalUrl) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
         return this.statements.updateUploadSuccess.run(finalUrl, fileId);
     }
     
-    /**
-     * Mark upload as failed with retry logic
-     */
-    failUpload(fileId, errorMessage) {
+    retryUpload(fileId) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.statements.updateUploadFailure.run(errorMessage, fileId);
+        return this.statements.updateUploadRetry.run(fileId);
     }
     
-    /**
-     * Get file by ID
-     */
+    failUpload(fileId, errorMessage) {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.updateUploadFailure.run(errorMessage, fileId);
+    }
+
+    cancelUpload(fileId) {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.cancelJob.run(fileId);
+    }
+
+
+
+    /* Managing specific files */
+
     getFileById(fileId) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         
         return this.statements.getFileById.get(fileId);
     }
     
-    /**
-     * Get queue statistics
-     */
+    removeFile(fileId) {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.deleteFile.run(fileId);
+    }
+
+
+
+    /* Managing the queue / dataset */
+    
+    getQueuedFiles() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        
+        const queuedFiles = this.statements.getQueuedFiles.all();
+        return queuedFiles;
+    }
+
+    getFailedFiles() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.getFailedFiles.all();
+    }
+
+    getAllFiles() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.getAllFiles.all();
+    }
+    
+    resetProcessingFiles() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.resetProcessingFiles.run();
+    }
+
+    clearCompleted() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        
+        return this.statements.clearCompleted.run();
+    }
+
+    clearFailed() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.clearFailed.run();
+    }
+
+    clearAll() {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.clearAll.run();
+    }
+
+
+
+    /* Statistics */
+    
     getStats() {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         
@@ -261,8 +393,10 @@ class UploadQueue {
         const result = {
             queued: 0,
             processing: 0,
+            retry: 0,
             completed: 0,
             failed: 0,
+            cancelled: 0,
             total: 0
         };
         
@@ -273,85 +407,37 @@ class UploadQueue {
         
         return result;
     }
-    
-    /**
-     * Get all incomplete files (for app restart recovery)
-     */
-    getIncompleteFiles(maxUploadRetries) {
+
+
+
+    /* Cache */
+
+    addToCache(source_path, checksumMD5, checksumSHA256, checksumSHA512, tiny_thumbnail, thumbnail, preview, exif) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.statements.getIncompleteFiles.all(maxUploadRetries);
+        try {
+            this.statements.addToCache.run(source_path, checksumMD5, checksumSHA256, checksumSHA512, tiny_thumbnail, thumbnail, preview, exif);
+        } catch (error) {
+            console.warn('Failed to add file to cache:', error);
+        }
     }
-    
-    /**
-     * Clean up completed uploads
-     */
-    clearCompleted() {
+
+    getFromCache(source_path) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.statements.clearCompleted.run();
+        return this.statements.getFromCache.get(source_path);
     }
-    
-    /**
-     * Clear all entries from the upload queue
-     */
-    clearAll() {
+
+    flushCache() {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        logger.info('UploadQueue.clearAll() called');
-        const result = this.db.prepare('DELETE FROM upload_queue').run();
-        logger.info('UploadQueue.clearAll() result:', result);
-        
-        // Verify the deletion worked
-        const count = this.db.prepare('SELECT COUNT(*) as count FROM upload_queue').get();
-        logger.info('Rows remaining after clearAll():', count.count);
-        
-        return result;
+
+        this.db.prepare(`DELETE FROM info_cache;`).run();
+        this.db.pragma('wal_checkpoint(TRUNCATE)');
+        this.db.exec('VACUUM');
     }
-    
-    /**
-     * Remove file from queue
-     */
-    removeFile(fileId) {
-        if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.statements.deleteFile.run(fileId);
-    }
-    
-    /**
-     * Reset processing files to queued (for app restart)
-     */
-    resetProcessingFiles() {
-        if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.statements.resetProcessingFiles.run();
-    }
-    
-    /**
-     * Get all failed files (for external retry logic)
-     */
-    getFailedFiles() {
-        if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.statements.getFailedFiles.all();
-    }
-    
-    /**
-     * Reset a specific file from failed to queued status (for external retry logic)
-     */
-    retryFile(fileId) {
-        if (!this.isInitialized) throw new Error('Queue manager not initialized');
-        
-        return this.db.prepare(`
-            UPDATE upload_queue 
-            SET status = 'queued', error_message = NULL
-            WHERE id = ?
-        `).run(fileId);
-    }
-    
-    /**
-     * Close database connection
-     */
+
+
+
+    /* We're done, do housekeeping */
+
     close() {
         if (this.db) {
 
@@ -365,13 +451,6 @@ class UploadQueue {
             this.db = null;
             this.isInitialized = false;
         }
-    }
-    
-    /**
-     * Get database path
-     */
-    getDatabasePath() {
-        return this.databasePath;
     }
 }
 

@@ -63,7 +63,6 @@ class MinioService extends StorageServiceBase {
                     success: false,
                     message: `Configuration invalid: ${validation.errors.join(', ')}`
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -108,28 +107,24 @@ class MinioService extends StorageServiceBase {
                         success: false,
                         message: `MinIO bucket '${this.settings.bucket}' does not exist or is not accessible`
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else if (error.name === 'Forbidden' || error.name === 'AccessDenied') {
                     const result = {
                         success: false,
                         message: 'Access denied to MinIO bucket. Check your credentials and permissions.'
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else if (error.name === 'NetworkingError' || error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
                     const result = {
                         success: false,
                         message: `Cannot connect to MinIO server at ${this.settings.endpoint}:${this.settings.port}. Check endpoint and network connectivity.`
                     };
-                    this._storeTestResult(result);
                     return result;
                 } else {
                     const result = {
                         success: false,
                         message: `MinIO connection failed: ${error.message}`
                     };
-                    this._storeTestResult(result);
                     return result;
                 }
             }
@@ -186,7 +181,6 @@ class MinioService extends StorageServiceBase {
                     success: false,
                     message: `MinIO upload test failed: ${error.message}. Check write permissions.`
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -201,7 +195,6 @@ class MinioService extends StorageServiceBase {
                     port: this.settings.port
                 }
             };
-            this._storeTestResult(result);
             return result;
 
         } catch (error) {
@@ -210,7 +203,6 @@ class MinioService extends StorageServiceBase {
                 success: false,
                 message: `MinIO connection test failed: ${error.message}`
             };
-            this._storeTestResult(result);
             return result;
         }
     }
@@ -446,49 +438,6 @@ class MinioService extends StorageServiceBase {
                 details: { uploadId, error: error.message }
             };
         }
-    }
-
-    async getUploadProgress(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) {
-            return { progress: 0, status: 'not_found' };
-        }
-
-        return {
-            progress: upload.progress,
-            status: upload.status,
-            remoteName: upload.remoteName,
-            fileSize: upload.fileSize,
-            startTime: upload.startTime
-        };
-    }
-
-    async cancelUpload(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) {
-            return false;
-        }
-
-        // Update status
-        upload.status = 'cancelled';
-        this.activeUploads.delete(uploadId);
-
-        this._log('info', 'MinIO upload cancelled', { uploadId });
-        return true;
-    }
-
-    sanitizeSettings(settings) {
-        const sanitized = { ...settings };
-        
-        // Remove sensitive fields
-        if (sanitized.accessKey) {
-            sanitized.accessKey = '[REDACTED]';
-        }
-        if (sanitized.secretKey) {
-            sanitized.secretKey = '[REDACTED]';
-        }
-        
-        return sanitized;
     }
 
     /**

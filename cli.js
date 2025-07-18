@@ -38,6 +38,22 @@ function runInCommandLineMode() {
     });
 }
 
+function checkCommandLineArgument(arg) {
+    if (process.argv.includes(arg)) {
+        return true;
+    }
+
+    return false;
+}
+
+function getNamedArgument(arg) {
+    const index = process.argv.indexOf(arg);
+    if (index > -1) {
+        return process.argv[index + 1];
+    }
+    return null;
+}
+
 function startCommandLineInterface(hiddenWindow) {
     console.log('Starting command line interface');
 
@@ -49,9 +65,16 @@ function startCommandLineInterface(hiddenWindow) {
     }, 1000);
 
     // start downloads
-    const downloadPath = app.configurationManager.get('downloadSettings.downloadPath');
-    const lastSyncTime = app.configurationManager.get('downloadSettings.lastSyncTime');
-    app.downloadWorkerPool.startMonitoring(downloadPath, lastSyncTime);
+    console.log(process.argv);
+    if (false && checkCommandLineArgument('download')) {
+        const downloadPath = app.configurationManager.get('downloadSettings.downloadPath');
+        console.log(`Downloading files to ${downloadPath}`);
+        app.downloadWorkerPool.startMonitoring();
+    } else if (true || checkCommandLineArgument('upload')) {
+        console.log('Uploading files simulation...');
+        const uploadPath = "D:\\ZenTransfer Test\\ZT Source"
+        app.uploadWorkerPool.addFiles([uploadPath], 'zentransfer');
+    }
 
     // ask user for input
     const readline = require('readline');

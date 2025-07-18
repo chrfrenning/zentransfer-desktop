@@ -101,7 +101,6 @@ class GoogleService extends StorageServiceBase {
                     success: false,
                     message: `Configuration invalid: ${validation.errors.join(', ')}`
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -156,7 +155,6 @@ class GoogleService extends StorageServiceBase {
                         error: listError.message
                     }
                 };
-                this._storeTestResult(result);
                 return result;
             }
 
@@ -182,7 +180,6 @@ class GoogleService extends StorageServiceBase {
                 }
             };
             
-            this._storeTestResult(result);
             this._log('info', 'GCP Cloud Storage connection test completed');
             return result;
 
@@ -193,7 +190,6 @@ class GoogleService extends StorageServiceBase {
                 details: { error: error.message }
             };
             
-            this._storeTestResult(result);
             this._log('error', 'GCP Cloud Storage connection test failed', { error: error.message });
             return result;
         }
@@ -468,61 +464,6 @@ class GoogleService extends StorageServiceBase {
             this._log('error', 'GCP Cloud Storage upload failed', uploadResult.details);
             return uploadResult;
         }
-    }
-
-    async getUploadProgress(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload) {
-            return { progress: 0, status: 'not_found' };
-        }
-
-        return {
-            progress: upload.progress,
-            status: upload.status,
-            startTime: upload.startTime,
-            endTime: upload.endTime
-        };
-    }
-
-    async cancelUpload(uploadId) {
-        const upload = this.activeUploads.get(uploadId);
-        if (!upload || upload.status !== 'uploading') {
-            return false;
-        }
-
-        this.activeUploads.set(uploadId, {
-            ...upload,
-            status: 'cancelled',
-            endTime: Date.now()
-        });
-
-        this._log('info', 'GCP Cloud Storage upload cancelled', { uploadId });
-        return true;
-    }
-
-    sanitizeSettings(settings) {
-        const sanitized = super.sanitizeSettings(settings);
-        
-        // GCP-specific sensitive fields
-        if (sanitized.serviceAccountKey) {
-            try {
-                const keyData = JSON.parse(settings.serviceAccountKey);
-                const sanitizedKey = {
-                    type: keyData.type,
-                    project_id: keyData.project_id,
-                    client_email: keyData.client_email,
-                    client_id: keyData.client_id,
-                    universe_domain: keyData.universe_domain,
-                    private_key_id: '[REDACTED]',
-                    private_key: '[REDACTED]'
-                };
-                sanitized.serviceAccountKey = JSON.stringify(sanitizedKey, null, 2);
-            } catch (error) {
-                sanitized.serviceAccountKey = '[INVALID JSON]';
-            }
-        }
-        
-        return sanitized;
     }
 
     /**

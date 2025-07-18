@@ -319,7 +319,7 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
     }
   });
 
-  ipcMain.handle('upload-queue-cancel-job', async (event, jobId) => {
+  ipcMain.handle('upload-cancel-job', async (event, jobId) => {
     try {
       uploadWorkerPool.cancelJob(jobId);
       return { success: true };

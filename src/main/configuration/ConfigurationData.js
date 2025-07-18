@@ -91,7 +91,8 @@ class ConfigurationData {
                 maxInterval: 300000,      // 5 minutes
                 multiplier: 2.0,          // Double each time
                 resetOnSuccess: true
-            }
+            },
+            maxRetries: 5
         };
 
         // Worker pools

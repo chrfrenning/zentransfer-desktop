@@ -15,7 +15,11 @@ const { ConfigurationData } = require('./ConfigurationData.js');
  */
 
 class ConfigurationManager {
-    constructor(serverUrl) {
+    constructor() {
+        this.config = new ConfigurationData();
+    }
+
+    loadFromDisk(serverUrl) {
         this.userDataPath = app.getPath('userData');
         this.serverUrl = serverUrl;
         this.hostname = this.extractHostname(serverUrl);

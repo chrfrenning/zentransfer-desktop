@@ -40,7 +40,10 @@ app.disableHardwareAcceleration();
 
 // Now load or initialize the configuration
 const { ConfigurationManager } = require('./src/main/configuration/ConfigurationManager.js');
-app.configurationManager = new ConfigurationManager(app.globals.serverBaseUrl);
+
+app.configurationManager = new ConfigurationManager();
+app.configurationManager.loadFromDisk(app.globals.serverBaseUrl);
+
 logger.info('Configuration loaded from ' + app.configurationManager.getConfigFilename());
 logger.info('Device ID: ' + app.configurationManager.get('deviceId'));
 logger.info('Server URL: ' + app.globals.serverBaseUrl);
