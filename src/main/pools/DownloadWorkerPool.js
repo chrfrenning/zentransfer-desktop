@@ -194,7 +194,8 @@ class DownloadWorkerPool {
 
   async startMonitoring() {
     if (this.isMonitoring) {
-      throw new Error('Monitoring already in progress');
+      logger.warn('Monitoring already in progress');
+      return;
     }
 
     logger.info(`Starting download monitoring`);
