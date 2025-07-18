@@ -154,6 +154,28 @@ const electronAPI = {
       };
     },
     
+    // Download monitoring started listener
+    onMonitoringStarted: (callback) => {
+      const wrappedCallback = (event) => callback();
+      ipcRenderer.on('download-monitoring-started', wrappedCallback);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('download-monitoring-started', wrappedCallback);
+      };
+    },
+    
+    // Download monitoring stopped listener
+    onMonitoringStopped: (callback) => {
+      const wrappedCallback = (event) => callback();
+      ipcRenderer.on('download-monitoring-stopped', wrappedCallback);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('download-monitoring-stopped', wrappedCallback);
+      };
+    },
+    
     // Download update listener (legacy, keeping for compatibility)
     onUpdate: (callback) => {
       const wrappedCallback = (event, updateData) => callback(updateData);
@@ -170,6 +192,8 @@ const electronAPI = {
       ipcRenderer.removeAllListeners('download-progress');
       ipcRenderer.removeAllListeners('download-completed');
       ipcRenderer.removeAllListeners('download-error');
+      ipcRenderer.removeAllListeners('download-monitoring-started');
+      ipcRenderer.removeAllListeners('download-monitoring-stopped');
       ipcRenderer.removeAllListeners('download-update');
     }
   },
