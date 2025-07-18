@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileTileProps } from '../types/file';
+import { getElectronAPI } from '../api/ZenTransferAPI';
 
 const FileTile: React.FC<FileTileProps> = ({ file, formatFileSize }) => {
   const getFileIcon = (fileType?: string) => {
@@ -29,11 +30,39 @@ const FileTile: React.FC<FileTileProps> = ({ file, formatFileSize }) => {
     }
   };
 
+  // Handle clicking on file icon for completed files
+  const handleIconClick = async () => {
+    if (file.status !== 'completed') {
+      return;
+    }
+
+    try {
+      const api = getElectronAPI();
+      
+      // Get the appropriate file path
+      // For download files, use filePath property; for others use path property
+      const fileAny = file as any;
+      const filePath = fileAny.filePath || file.path;
+      
+      if (filePath) {
+        await api.shell.showItemInFolder(filePath);
+      }
+    } catch (error) {
+      console.error('Failed to show file in folder:', error);
+    }
+  };
+
+  // Determine if the icon should be clickable
+  const isIconClickable = file.status === 'completed' && ((file as any).filePath || file.path);
+
     return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3 flex-1 min-w-0">
-          <div className="flex-shrink-0">
+          <div 
+            className={`flex-shrink-0 ${isIconClickable ? 'cursor-pointer' : ''}`}
+            onClick={handleIconClick}
+          >
             {getFileIcon(file.type)}
           </div>
           <div className="flex-1 min-w-0">
