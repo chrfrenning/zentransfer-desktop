@@ -54,6 +54,8 @@ class UploadQueue {
     
     /**
      * Create database tables
+     * 
+     * status: queued, processing, retry, completed, failed
      */
     createTables() {
         const createTableSQL = `
@@ -62,7 +64,12 @@ class UploadQueue {
                 file_path TEXT NOT NULL,
                 filename TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
+                file_date DATETIME NOT NULL,
+                source_foldername TEXT,
                 mime_type TEXT,
+                checksum_md5 TEXT,
+                checksum_sha256 TEXT,
+                checksum_sha512 TEXT,
                 service_type TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'queued',
                 retry_count INTEGER DEFAULT 0,
