@@ -29,7 +29,11 @@ const electronAPI = {
     set: (section, value) => ipcRenderer.invoke('config-set', section, value),
     getCloudSettings: (serviceType) => ipcRenderer.invoke('config-get-cloud-settings', serviceType),
     updateCloudSettings: (serviceType, settings) => ipcRenderer.send('config-update-cloud-settings', serviceType, settings),
-    getUrls: () => ipcRenderer.invoke('config-get-urls')
+    getUrls: () => ipcRenderer.invoke('config-get-urls'),
+    getLastUsedDestinationFolders: () => ipcRenderer.invoke('get-last-used-destination-folders'),
+    getLastUsedSourceFolders: () => ipcRenderer.invoke('get-last-used-source-folders'),
+    rememberDestinationFolder: (folder) => ipcRenderer.invoke('remember-destination-folder', folder),
+    rememberSourceFolder: (folder) => ipcRenderer.invoke('remember-source-folder', folder)
   },
 
   auth: {
@@ -118,7 +122,7 @@ const electronAPI = {
     startMonitoring: () => ipcRenderer.invoke('start-download-monitoring'),
     stopMonitoring: () => ipcRenderer.invoke('stop-download-monitoring'),
     getStats: () => ipcRenderer.invoke('get-download-stats'),
-    resetSyncTime: (resetTime) => ipcRenderer.invoke('reset-sync-time', resetTime),
+    resetSyncTime: () => ipcRenderer.invoke('reset-sync-time'),
     getLastSyncTime: () => ipcRenderer.invoke('get-last-sync-time'),
     signalUIActivity: () => ipcRenderer.invoke('ui-activity-signal'),
     
@@ -270,11 +274,7 @@ const electronAPI = {
 
   // Utility APIs
   utility: {
-    estimatePOWPerformance: (bits) => ipcRenderer.invoke('estimate-pow-performance', bits),
-    getLastUsedDestinationFolders: () => ipcRenderer.invoke('get-last-used-destination-folders'),
-    getLastUsedSourceFolders: () => ipcRenderer.invoke('get-last-used-source-folders'),
-    rememberDestinationFolder: (folder) => ipcRenderer.invoke('remember-destination-folder', folder),
-    rememberSourceFolder: (folder) => ipcRenderer.invoke('remember-source-folder', folder)
+    estimatePOWPerformance: (bits) => ipcRenderer.invoke('estimate-pow-performance', bits)
   }
 };
 

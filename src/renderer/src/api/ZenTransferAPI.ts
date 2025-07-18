@@ -1,13 +1,107 @@
-import type { CloudServiceType, EnabledService, CloudSettingsResult, UpdateSettingsResult, CloudService, AwsRegion } from '../types/cloud';
+import type { EnabledService, CloudSettingsResult, UpdateSettingsResult, CloudService, AwsRegion } from '../types/cloud';
 import type { AppFile, FileStatus } from '../types/file';
 
 // ============================================================================
 // Base Interfaces
 // ============================================================================
 
+
+
+
+// ============================================================================
+// App Interfaces
+// ============================================================================
+
+export interface VersionCheckResult {
+  readonly success: boolean;
+  readonly upToDate: boolean;
+  readonly currentVersion: string;
+  readonly latestVersion?: string;
+  readonly error?: string;
+}
+
 export interface LogMeta {
   readonly [key: string]: unknown;
 }
+
+export interface ShowLogsFolderResult {
+  readonly success: boolean;
+  readonly error?: string;
+}
+
+export interface LogInfo {
+  readonly size?: number;
+  readonly path?: string;
+  readonly exists?: boolean;
+}
+
+// ============================================================================
+// Config Interfaces
+// ============================================================================
+
+export type CloudServiceType = 
+  | 'zentransfer' 
+  | 'aws-s3' 
+  | 'azure-blob' 
+  | 'gcp-storage' 
+  | 'minio';
+
+export interface CloudSettingsResult {
+  readonly serviceType: string;
+  readonly enabled: boolean;
+  readonly [key: string]: unknown; // Additional service-specific properties
+}
+
+export interface UrlsConfig {
+  readonly serverUrl: string;
+  readonly [key: string]: unknown;
+}
+
+// ============================================================================
+// Authentication Interfaces
+// ============================================================================
+
+export interface LoginInitResult {
+  readonly success: boolean;
+  readonly sessionId?: string;
+  readonly error?: string;
+}
+
+export interface LoginFinalizeResult {
+  readonly success: boolean;
+  readonly token?: string;
+  readonly email?: string;
+  readonly error?: string;
+}
+
+
+// ============================================================================
+// Cloud Services Interfaces (imported from cloud.ts)
+// ============================================================================
+
+// Enhanced cloud service with runtime information
+export interface CloudService {
+  readonly type: CloudServiceType;
+  readonly name: string;
+  readonly enabled: boolean;
+  readonly configured: boolean;
+}
+
+export interface EnabledService {
+  readonly serviceType: CloudServiceType;
+}
+
+export interface AwsRegion {
+  readonly code: string;
+  readonly name: string;
+  readonly location: string;
+} 
+
+// ============================================================================
+// Dialog Interfaces
+// ============================================================================
+
+
 
 export interface FileDialogOptions {
   readonly defaultPath?: string;
@@ -34,98 +128,21 @@ export interface DirectoryDialogResult {
   readonly filePaths: ReadonlyArray<string>;
 }
 
-export interface LogInfo {
-  readonly size?: number;
-  readonly path?: string;
-  readonly exists?: boolean;
-}
-
-export interface ShowLogsFolderResult {
-  readonly success: boolean;
-  readonly error?: string;
-}
-
-export interface VersionCheckResult {
-  readonly success: boolean;
-  readonly upToDate: boolean;
-  readonly currentVersion: string;
-  readonly latestVersion?: string;
-  readonly error?: string;
-}
-
-export interface UrlsConfig {
-  readonly serverUrl: string;
-  readonly [key: string]: unknown;
-}
-
-// ============================================================================
-// Authentication Interfaces
-// ============================================================================
-
-export interface LoginInitResult {
-  readonly success: boolean;
-  readonly sessionId?: string;
-  readonly error?: string;
-}
-
-export interface LoginFinalizeResult {
-  readonly success: boolean;
-  readonly token?: string;
-  readonly email?: string;
-  readonly error?: string;
-}
-
-export interface ValidationResult {
-  readonly success: boolean;
-  readonly valid: boolean;
-  readonly error?: string;
-}
-
-// ============================================================================
-// Cloud Services Interfaces (imported from cloud.ts)
-// ============================================================================
-
 // ============================================================================
 // Upload Interfaces
 // ============================================================================
 
-export interface UploadFile {
-  readonly id: string;
-  readonly name: string;
-  readonly size: number;
-  readonly type: string;
+export interface UploadRequest {
   readonly path: string;
-  readonly source: string;
-  readonly lastModified: number;
 }
 
 export interface UploadJob {
   readonly id: string;
-  readonly files: ReadonlyArray<UploadFile>;
   readonly status: 'queued' | 'uploading' | 'completed' | 'failed' | 'cancelled';
-  readonly progress: number;
-  readonly error?: string;
-  readonly createdAt: number;
-  readonly updatedAt: number;
-  readonly completedAt?: number;
-}
-
-export interface UploadProgressData {
-  readonly jobId: string;
-  readonly fileId?: string;
-  readonly progress: number;
-  readonly status: FileStatus;
-  readonly error?: string;
-  readonly bytesTransferred?: number;
-  readonly totalBytes?: number;
-  readonly speed?: number;
-  readonly eta?: number;
-}
-
-export interface UploadUpdateData {
-  readonly type: 'job_added' | 'job_updated' | 'job_completed' | 'job_failed' | 'job_cancelled' | 'queue_cleared';
-  readonly job?: UploadJob;
-  readonly stats?: UploadStats;
+  readonly fileName: string;
+  readonly fileSize: number;
+  readonly bytesTransferred: number;
+  readonly errorMessage?: string;
 }
 
 export interface UploadStats {
@@ -135,18 +152,22 @@ export interface UploadStats {
   readonly failed: number;
   readonly totalFiles: number;
   readonly totalSize: number;
-  readonly uploadedSize: number;
 }
 
 // ============================================================================
 // Import Interfaces
 // ============================================================================
 
-export interface ImportSource {
-  readonly type: 'local' | 'cloud';
+export interface ImportRequest {
   readonly path?: string;
-  readonly cloudService?: CloudServiceType;
-  readonly settings?: Record<string, unknown>;
+}
+
+export interface ImportJob {
+  readonly id: string;
+  readonly status: 'queued' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  readonly fileName: string;
+  readonly fileSize: number;
+  readonly errorMessage?: string;
 }
 
 export interface ImportStats {
@@ -158,23 +179,21 @@ export interface ImportStats {
   readonly progress: number;
 }
 
-export interface ImportUpdateData {
-  readonly type: 'started' | 'progress' | 'completed' | 'failed' | 'cancelled';
-  readonly stats?: ImportStats;
-  readonly error?: string;
-  readonly message?: string;
-}
-
-export interface ImportCompleteData {
-  readonly success: boolean;
-  readonly stats: ImportStats;
-  readonly duration: number;
-  readonly errors?: ReadonlyArray<string>;
-}
-
 // ============================================================================
 // Download Interfaces
 // ============================================================================
+
+export interface DownloadJob {
+  readonly type: 'queued' | 'downloading' | 'completed' | 'failed';
+  readonly fileRecord: {
+    readonly id: string | number;
+    readonly name: string;
+    readonly size: number;
+    readonly type: string;
+  };
+  readonly downloadedBytes?: number;
+  readonly errorMessage?: string;
+}
 
 export interface DownloadStats {
   readonly totalFiles: number;
@@ -187,74 +206,21 @@ export interface DownloadStats {
   readonly lastSyncTime?: number;
 }
 
-export interface DownloadUpdateData {
-  readonly type: 'started' | 'progress' | 'completed' | 'failed' | 'stopped';
-  readonly stats?: DownloadStats;
-  readonly error?: string;
-  readonly message?: string;
-}
-
-export interface DownloadProgressData {
-  readonly fileRecord: {
-    readonly file_id: string | number;
-    readonly name: string;
-    readonly size: number;
-    readonly type: string;
-  };
-  readonly downloadedBytes: number;
-  readonly totalBytes: number;
-}
-
-export interface DownloadCompletedData {
-  readonly fileRecord: {
-    readonly file_id: string | number;
-    readonly name: string;
-    readonly size: number;
-    readonly type: string;
-  };
-  readonly filePath: string;
-}
-
-export interface DownloadErrorData {
-  readonly fileRecord: {
-    readonly file_id: string | number;
-    readonly name: string;
-    readonly size: number;
-    readonly type: string;
-  };
-  readonly errorMessage: string;
-}
-
 // ============================================================================
 // Auto-Updater Interfaces
 // ============================================================================
 
 export type UpdateStatus = 
-  | 'checking-for-update'
-  | 'update-available' 
-  | 'update-not-available'
-  | 'update-downloaded'
-  | 'download-progress'
-  | 'error';
-
-export interface UpdateProgressInfo {
-  readonly bytesPerSecond: number;
-  readonly percent: number;
-  readonly transferred: number;
-  readonly total: number;
-}
-
-export interface UpdateInfo {
-  readonly version: string;
-  readonly releaseDate: string;
-  readonly releaseName?: string;
-  readonly releaseNotes?: string;
-}
+  | 'ok'
+  | 'outdated' 
+  | 'required'
+  | 'down'
 
 export interface UpdateCheckResult {
-  readonly available: boolean;
-  readonly info?: UpdateInfo;
-  readonly error?: string;
+  readonly status: UpdateStatus;
+  readonly maintenanceUntil?: Date;
+  readonly message?: string;
+  readonly latestVersion?: string;
 }
 
 // ============================================================================
@@ -309,7 +275,7 @@ export interface ZenTransferAPI {
     getEmail(): Promise<string | null>;
     initializeLogin(email: string): Promise<boolean>;
     finalizeLogin(otp: string): Promise<boolean>;
-    validateConnection(): Promise<ValidationResult>;
+    validateConnection(): Promise<boolean>;
     logout(): Promise<void>;
   };
 
@@ -325,42 +291,51 @@ export interface ZenTransferAPI {
   };
 
   readonly upload: {
-    addToQueue(files: ReadonlyArray<UploadFile>): Promise<string>;
+    addToQueue(files: ReadonlyArray<UploadRequest>): Promise<ReadonlyArray<UploadJob>>;
     cancelJob(jobId: string): Promise<boolean>;
     cancelAll(): Promise<void>;
     getQueueStats(): Promise<UploadStats>;
-    onProgress(callback: (data: UploadProgressData) => void): ListenerCleanup;
-    onUpdate(callback: (data: UploadUpdateData) => void): ListenerCleanup;
+    onProgress(callback: (data: UploadJob) => void): ListenerCleanup;
+    onUpdate(callback: (data: UploadJob) => void): ListenerCleanup;
   };
 
   readonly import: {
-    start(source: ImportSource): Promise<boolean>;
+    start(source: ImportRequest): Promise<boolean>;
     cancel(): Promise<void>;
+    
+    onUpdate(callback: (data: ImportJob) => void): ListenerCleanup;
+    onComplete(callback: (data: ImportJob) => void): ListenerCleanup;
+
+    onImportStarted(callback: () => void): ListenerCleanup;
+    onImportCompleted(callback: () => void): ListenerCleanup;
+
     getQueueStats(): Promise<ImportStats>;
-    onUpdate(callback: (data: ImportUpdateData) => void): ListenerCleanup;
-    onComplete(callback: (data: ImportCompleteData) => void): ListenerCleanup;
   };
 
   readonly download: {
     startMonitoring(): Promise<void>;
     stopMonitoring(): Promise<void>;
-    getStats(): Promise<DownloadStats>;
-    resetSyncTime(resetTime: number): Promise<void>;
+    
+    resetSyncTime(): Promise<void>;
+    getLastSyncTime(): Promise<number>;
     signalUIActivity(): Promise<void>;
-    onProgress(callback: (data: DownloadProgressData) => void): ListenerCleanup;
-    onCompleted(callback: (data: DownloadCompletedData) => void): ListenerCleanup;
-    onError(callback: (data: DownloadErrorData) => void): ListenerCleanup;
+
+    onProgress(callback: (data: DownloadJob) => void): ListenerCleanup;
+    onCompleted(callback: (data: DownloadJob) => void): ListenerCleanup;
+    onError(callback: (data: DownloadJob) => void): ListenerCleanup;
+    onUpdate(callback: (data: DownloadJob) => void): ListenerCleanup;
+
     onMonitoringStarted(callback: () => void): ListenerCleanup;
     onMonitoringStopped(callback: () => void): ListenerCleanup;
-    onUpdate(callback: (data: DownloadUpdateData) => void): ListenerCleanup;
     removeAllListeners(): void;
+
+    getStats(): Promise<DownloadStats>;
   };
 
   readonly updater: {
     checkForUpdates(): Promise<UpdateCheckResult>;
     downloadUpdate(): Promise<void>;
     quitAndInstall(): Promise<void>;
-    onStatus(callback: (status: UpdateStatus, data?: UpdateProgressInfo | UpdateInfo | Error) => void): ListenerCleanup;
   };
 
   readonly node: {
@@ -385,6 +360,7 @@ export interface ZenTransferAPI {
       totalHashRate: string;
       estimatedTime: string;
     }>;
+    
     getLastUsedDestinationFolders(): Promise<ReadonlyArray<string>>;
     getLastUsedSourceFolders(): Promise<ReadonlyArray<string>>;
     rememberDestinationFolder(folder: string): Promise<void>;

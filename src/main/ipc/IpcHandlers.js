@@ -358,7 +358,7 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
   
   ipcMain.handle('import-start', async (event, source) => {
     try {
-      return await importWorkerPool.startImport(source);
+      return await importWorkerPool.startImport(source.path);
     } catch (error) {
       console.error('Import failed:', error);
       return false;
@@ -420,9 +420,9 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    });
    
    // Reset sync time
-   ipcMain.handle('reset-sync-time', async (event, syncTime) => {
+   ipcMain.handle('reset-sync-time', async (event) => {
      try {
-       app.downloadWorkerPool.resetSyncTime(syncTime);
+       app.downloadWorkerPool.resetSyncTime();
      } catch (error) {
        console.error('Failed to reset sync time:', error);
        return false;
@@ -447,11 +447,26 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
    
    ipcMain.handle('check-for-updates', async () => {
      try {
-       const result = await autoUpdater.checkForUpdates();
-       return { success: true, result };
+       //const result = await autoUpdater.checkForUpdates();
+       
+       return { 
+        status: 'ok',
+        maintenanceUntil: null,
+        message: null,
+        latestVersion: null
+        };
+
      } catch (error) {
+
        console.error('Failed to check for updates:', error);
-       return { success: false, error: error.message };
+       
+       return { 
+        status: 'ok',
+        maintenanceUntil: null,
+        message: null,
+        latestVersion: null
+        };
+
      }
    });
    
