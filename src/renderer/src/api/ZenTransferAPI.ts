@@ -267,6 +267,11 @@ export interface ZenTransferAPI {
     getCloudSettings(serviceType: CloudServiceType): Promise<CloudSettingsResult>;
     updateCloudSettings(serviceType: CloudServiceType, settings: Record<string, unknown>): void;
     getUrls(): Promise<UrlsConfig>;
+    
+    getLastUsedDestinationFolders(): Promise<ReadonlyArray<string>>;
+    getLastUsedSourceFolders(): Promise<ReadonlyArray<string>>;
+    rememberDestinationFolder(folder: string): Promise<void>;
+    rememberSourceFolder(folder: string): Promise<void>;
   };
 
   readonly auth: {
@@ -360,11 +365,6 @@ export interface ZenTransferAPI {
       totalHashRate: string;
       estimatedTime: string;
     }>;
-    
-    getLastUsedDestinationFolders(): Promise<ReadonlyArray<string>>;
-    getLastUsedSourceFolders(): Promise<ReadonlyArray<string>>;
-    rememberDestinationFolder(folder: string): Promise<void>;
-    rememberSourceFolder(folder: string): Promise<void>;
   };
 }
 
