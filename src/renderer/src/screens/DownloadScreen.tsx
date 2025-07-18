@@ -1,202 +1,160 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import ScreenHeader from '../components/ScreenHeader';
 import { Button } from '../components/catalyst/button';
 import { Text } from '../components/catalyst/text';
 import { Heading } from '../components/catalyst/heading';
-
-interface FileItem {
-  id: string;
-  name: string;
-  size: number;
-  type: string;
-  status: 'queued' | 'downloading' | 'completed' | 'failed';
-  progress?: number;
-  downloadedBytes?: number;
-  totalBytes?: number;
-  created: string;
-  addedAt: number;
-  completedAt?: number;
-  error?: string;
-  thumbnail_url?: string;
-}
+import FolderSelector from '../components/import/FolderSelector';
+import { useDownloadStore } from '../stores/DownloadStore';
+import { getElectronAPI } from '../api/ZenTransferAPI';
 
 const DownloadScreen = () => {
-  const [isMonitoring, setIsMonitoring] = useState(false);
   const [downloadPath, setDownloadPath] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState('Never');
-  const [files, setFiles] = useState<FileItem[]>([]);
-  const simulatorRef = useRef<NodeJS.Timeout | null>(null);
-  const fileCounterRef = useRef(1);
+  const [isStarting, setIsStarting] = useState(false);
 
-  // Sample file names and types for simulation
-  const sampleFiles = [
-    { name: 'IMG_001.jpg', type: 'image/jpeg', size: 2500000 },
-    { name: 'DSC_002.jpg', type: 'image/jpeg', size: 3200000 },
-    { name: 'Photo_003.png', type: 'image/png', size: 1800000 },
-    { name: 'Video_001.mp4', type: 'video/mp4', size: 15000000 },
-    { name: 'Document.pdf', type: 'application/pdf', size: 850000 },
-    { name: 'Report.docx', type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 420000 },
-    { name: 'Spreadsheet.xlsx', type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', size: 320000 },
-    { name: 'Presentation.pptx', type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation', size: 1200000 },
-  ];
+  // Download store
+  const {
+    files,
+    stats,
+    isMonitoring,
+    setMonitoring,
+    setLastSyncTime: setStoreLastSyncTime,
+    addFiles,
+    updateFileStatus,
+    updateFileProgress
+  } = useDownloadStore();
 
-  // Generate random file
-  const generateRandomFile = (): FileItem => {
-    const template = sampleFiles[Math.floor(Math.random() * sampleFiles.length)];
-    if (!template) {
-      throw new Error('No sample files available');
-    }
-    const id = `file_${fileCounterRef.current++}_${Date.now()}`;
-    const now = new Date().toISOString();
+  // Set up download message listeners with console logging
+  useEffect(() => {
+    const electronAPI = getElectronAPI();
     
-    return {
-      id,
-      name: template.name.replace(/\d+/, String(fileCounterRef.current - 1).padStart(3, '0')),
-      size: template.size + Math.floor(Math.random() * 1000000),
-      type: template.type,
-      status: 'queued',
-      created: now,
-      addedAt: Date.now(),
-    };
-  };
-
-  // Start download simulation for a file
-  const startDownload = (fileId: string) => {
-    setFiles(prev => prev.map(file => 
-      file.id === fileId 
-        ? { ...file, status: 'downloading', progress: 0, downloadedBytes: 0, totalBytes: file.size }
-        : file
-    ));
-
-    // Simulate download progress
-    const progressInterval = setInterval(() => {
-      setFiles(prev => {
-        const file = prev.find(f => f.id === fileId);
-        if (!file || file.status !== 'downloading') {
-          clearInterval(progressInterval);
-          return prev;
-        }
-
-        const newProgress = Math.min(100, (file.progress || 0) + Math.random() * 15);
-        const newDownloadedBytes = Math.floor((newProgress / 100) * file.size);
-
-        if (newProgress >= 100) {
-          clearInterval(progressInterval);
-          // 90% chance of success, 10% chance of failure
-          const success = Math.random() > 0.1;
-          
-                     return prev.map(f => {
-             if (f.id === fileId) {
-               const updatedFile: FileItem = {
-                 ...f,
-                 status: success ? 'completed' : 'failed',
-                 progress: success ? 100 : (f.progress || 0),
-                 downloadedBytes: success ? f.size : (f.downloadedBytes || 0),
-                 completedAt: Date.now()
-               };
-               if (!success) {
-                 updatedFile.error = 'Download failed - network error';
-               }
-               return updatedFile;
-             }
-             return f;
-           });
-        }
-
-        return prev.map(f => 
-          f.id === fileId 
-            ? { ...f, progress: newProgress, downloadedBytes: newDownloadedBytes }
-            : f
-        );
-      });
-    }, 200 + Math.random() * 300); // Random interval for realism
-  };
-
-  // Start file simulator
-  const startSimulator = () => {
-    if (simulatorRef.current) return;
-
-    simulatorRef.current = setInterval(() => {
-      // Add 1-3 random files
-      const numFiles = Math.floor(Math.random() * 3) + 1;
-      const newFiles = Array.from({ length: numFiles }, generateRandomFile);
+    console.log('🔄 Setting up download message listeners...');
+    
+    // Set up progress listener
+    const progressCleanup = electronAPI.download.onProgress((progressData) => {
+      console.log('📈 Download Progress:', progressData);
       
-      setFiles(prev => [...prev, ...newFiles]);
-
-      // Start downloading queued files (simulate processing queue)
-      setTimeout(() => {
-        setFiles(prev => {
-          const queuedFiles = prev.filter(f => f.status === 'queued');
-          if (queuedFiles.length > 0) {
-            // Start downloading the oldest queued file
-            const oldestQueued = queuedFiles.reduce((oldest, current) => 
-              current.addedAt < oldest.addedAt ? current : oldest
-            );
-            startDownload(oldestQueued.id);
-          }
-          return prev;
-        });
-      }, 500);
-    }, 3000);
-  };
-
-  // Stop file simulator
-  const stopSimulator = () => {
-    if (simulatorRef.current) {
-      clearInterval(simulatorRef.current);
-      simulatorRef.current = null;
-    }
-  };
-
-  // Handle browse path
-  const handleBrowsePath = () => {
-    // Simulate directory selection
-    const paths = [
-      '/Users/john/Downloads/ZenTransfer',
-      'C:\\Users\\Jane\\Downloads\\ZenTransfer',
-      '/home/user/Downloads/ZenTransfer',
-      'C:\\Downloads\\Photos',
-      '/Users/photographer/Desktop/Incoming'
-    ];
-    const selectedPath = paths[Math.floor(Math.random() * paths.length)];
-    if (selectedPath) {
-      setDownloadPath(selectedPath);
-    }
-  };
+      const { fileRecord, downloadedBytes, totalBytes } = progressData;
+      
+      // Calculate progress percentage
+      const progress = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
+      
+      // Update store
+      updateFileProgress(fileRecord.file_id, progress, downloadedBytes, totalBytes);
+      
+      console.log(`📈 Updated progress for ${fileRecord.name}: ${progress}% (${downloadedBytes}/${totalBytes} bytes)`);
+    });
+    
+    // Set up completed listener
+    const completedCleanup = electronAPI.download.onCompleted((completedData) => {
+      console.log('✅ Download Completed:', completedData);
+      
+      const { fileRecord, filePath } = completedData;
+      
+      // Update store
+      updateFileStatus(fileRecord.file_id, 'completed', 100);
+      
+      console.log(`✅ Completed download: ${fileRecord.name} -> ${filePath}`);
+    });
+    
+    // Set up error listener
+    const errorCleanup = electronAPI.download.onError((errorData) => {
+      console.log('❌ Download Error:', errorData);
+      
+      const { fileRecord, errorMessage } = errorData;
+      
+      // Update store
+      updateFileStatus(fileRecord.file_id, 'failed', 0, errorMessage);
+      
+      console.log(`❌ Failed download: ${fileRecord.name} - Error: ${errorMessage}`);
+    });
+    
+    console.log('✅ Download message listeners configured');
+    
+    // Cleanup function
+    return () => {
+      console.log('🧹 Cleaning up download message listeners...');
+      progressCleanup();
+      completedCleanup();
+      errorCleanup();
+    };
+  }, [updateFileStatus, updateFileProgress]);
 
   // Handle reset sync
-  const handleResetSync = () => {
+  const handleResetSync = async () => {
     if (confirm('Reset sync time? This will re-download all files from the beginning.')) {
-      setLastSyncTime('Never');
-      // Clear existing files
-      setFiles([]);
+      try {
+        const electronAPI = getElectronAPI();
+        await electronAPI.download.resetSyncTime(0);
+        setLastSyncTime('Never');
+        setStoreLastSyncTime('Never');
+        console.log('🔄 Sync time reset');
+      } catch (error) {
+        console.error('Failed to reset sync time:', error);
+        alert('Failed to reset sync time');
+      }
     }
   };
 
   // Handle start monitoring
-  const handleStartMonitoring = () => {
+  const handleStartMonitoring = async () => {
     if (!downloadPath) {
       alert('Please set a download directory first');
       return;
     }
     
-    setIsMonitoring(true);
-    setLastSyncTime(new Date().toLocaleString());
-    startSimulator();
+    setIsStarting(true);
+    
+    try {
+      const electronAPI = getElectronAPI();
+      
+      console.log('🚀 Starting download monitoring...');
+      await electronAPI.download.startMonitoring();
+      
+      setMonitoring(true);
+      const now = new Date().toLocaleString();
+      setLastSyncTime(now);
+      setStoreLastSyncTime(now);
+      
+      console.log('✅ Download monitoring started successfully');
+    } catch (error) {
+      console.error('❌ Failed to start monitoring:', error);
+      alert('Failed to start download monitoring');
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   // Handle stop monitoring
-  const handleStopMonitoring = () => {
-    setIsMonitoring(false);
-    stopSimulator();
+  const handleStopMonitoring = async () => {
+    try {
+      const electronAPI = getElectronAPI();
+      
+      console.log('🛑 Stopping download monitoring...');
+      await electronAPI.download.stopMonitoring();
+      
+      setMonitoring(false);
+      
+      console.log('✅ Download monitoring stopped successfully');
+    } catch (error) {
+      console.error('❌ Failed to stop monitoring:', error);
+      alert('Failed to stop download monitoring');
+    }
+  };
+
+  // Handle folder selection
+  const handleFolderChange = (path: string) => {
+    setDownloadPath(path);
+    console.log('📁 Download path selected:', path);
   };
 
   // Remove file from list
-  const handleRemoveFile = (fileId: string) => {
-    const file = files.find(f => f.id === fileId);
+  const handleRemoveFile = (fileId: string | number) => {
+    const file = files.find(f => f.file_id === fileId);
     if (file && (file.status === 'completed' || file.status === 'failed')) {
-      if (confirm(`Remove "${file.name}" from queue?`)) {
-        setFiles(prev => prev.filter(f => f.id !== fileId));
+      if (confirm(`Remove "${file.name}" from list?`)) {
+        // Note: We don't have a removeFile action in the store yet, but we could add it
+        console.log(`🗑️ Would remove file: ${file.name}`);
       }
     }
   };
@@ -278,13 +236,6 @@ const DownloadScreen = () => {
       }
     });
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      stopSimulator();
-    };
-  }, []);
-
   if (!isMonitoring) {
     // Setup Mode
     return (
@@ -308,21 +259,14 @@ const DownloadScreen = () => {
           {/* Settings */}
           <div className="max-w-2xl space-y-6">
             {/* Download Path */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Download files to</label>
-              <div className="flex space-x-2">
-                <input 
-                  type="text" 
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm" 
-                  placeholder="Select download directory..."
-                  value={downloadPath}
-                  readOnly
-                />
-                <Button outline onClick={handleBrowsePath}>
-                  Browse
-                </Button>
-              </div>
-            </div>
+            <FolderSelector
+              label="Download files to"
+              value={downloadPath}
+              onChange={handleFolderChange}
+              type="destination"
+              placeholder="Select download directory..."
+              required={true}
+            />
 
             {/* Last Sync */}
             <div className="flex items-center justify-between">
@@ -338,14 +282,45 @@ const DownloadScreen = () => {
               </button>
             </div>
 
+            {/* Stats Preview */}
+            {stats.queued + stats.downloading + stats.completed + stats.failed > 0 && (
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <Text className="text-sm font-medium mb-2">Current Status</Text>
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-yellow-600">{stats.queued}</div>
+                    <div className="text-xs text-gray-600">Queued</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-blue-600">{stats.downloading}</div>
+                    <div className="text-xs text-gray-600">Downloading</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-green-600">{stats.completed}</div>
+                    <div className="text-xs text-gray-600">Completed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-red-600">{stats.failed}</div>
+                    <div className="text-xs text-gray-600">Failed</div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Console Logging Info */}
+            <div className="text-xs text-gray-600 p-3 bg-blue-50 border border-blue-200 rounded">
+              <p className="font-medium mb-1">Console Logging Active:</p>
+              <p>Open browser dev tools (F12) → Console tab to see detailed download events</p>
+            </div>
+
             {/* Start Button */}
             <Button 
               color="green"
               className="w-full"
               onClick={handleStartMonitoring}
-              disabled={!downloadPath}
+              disabled={!downloadPath || isStarting}
             >
-              Start Monitoring
+              {isStarting ? 'Starting...' : 'Start Monitoring'}
             </Button>
           </div>
         </div>
@@ -373,12 +348,34 @@ const DownloadScreen = () => {
                 <Heading level={2} className="text-lg leading-tight">Download</Heading>
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
-              <Text className="text-sm text-green-600 leading-tight">Monitoring active</Text>
+              <Text className="text-sm text-green-600 leading-tight">
+                Monitoring active • {files.length} files
+              </Text>
             </div>
           </div>
           <Button color="red" onClick={handleStopMonitoring}>
             Stop
           </Button>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="text-center p-3 bg-white rounded border">
+            <div className="text-2xl font-bold text-yellow-600">{stats.queued}</div>
+            <div className="text-sm text-gray-600">Queued</div>
+          </div>
+          <div className="text-center p-3 bg-white rounded border">
+            <div className="text-2xl font-bold text-blue-600">{stats.downloading}</div>
+            <div className="text-sm text-gray-600">Downloading</div>
+          </div>
+          <div className="text-center p-3 bg-white rounded border">
+            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+            <div className="text-sm text-gray-600">Completed</div>
+          </div>
+          <div className="text-center p-3 bg-white rounded border">
+            <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
+            <div className="text-sm text-gray-600">Failed</div>
+          </div>
         </div>
 
         {/* File List */}
@@ -395,9 +392,9 @@ const DownloadScreen = () => {
             ) : (
               sortedFiles.map(file => (
                 <div 
-                  key={file.id} 
+                  key={file.file_id} 
                   className="p-4 hover:bg-gray-50 cursor-pointer"
-                  onClick={() => handleRemoveFile(file.id)}
+                  onClick={() => handleRemoveFile(file.file_id)}
                 >
                   <div className="flex items-center space-x-4">
                     {/* Thumbnail */}
@@ -422,7 +419,9 @@ const DownloadScreen = () => {
                       <div className="flex items-center space-x-4 mt-1">
                         <Text className="text-xs text-gray-500">{formatFileSize(file.size)}</Text>
                         <Text className="text-xs text-gray-500">{file.type.split('/')[0] || 'Unknown'}</Text>
-                        <Text className="text-xs text-gray-500">{new Date(file.created).toLocaleDateString()}</Text>
+                        {file.created && (
+                          <Text className="text-xs text-gray-500">{new Date(file.created).toLocaleDateString()}</Text>
+                        )}
                       </div>
                       {file.status === 'downloading' && file.progress !== undefined && (
                         <div className="mt-2">

@@ -121,7 +121,40 @@ const electronAPI = {
     resetSyncTime: (resetTime) => ipcRenderer.invoke('reset-sync-time', resetTime),
     signalUIActivity: () => ipcRenderer.invoke('ui-activity-signal'),
     
-    // Download update listener
+    // Download progress listener
+    onProgress: (callback) => {
+      const wrappedCallback = (event, progressData) => callback(progressData);
+      ipcRenderer.on('download-progress', wrappedCallback);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('download-progress', wrappedCallback);
+      };
+    },
+    
+    // Download completed listener
+    onCompleted: (callback) => {
+      const wrappedCallback = (event, completedData) => callback(completedData);
+      ipcRenderer.on('download-completed', wrappedCallback);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('download-completed', wrappedCallback);
+      };
+    },
+    
+    // Download error listener
+    onError: (callback) => {
+      const wrappedCallback = (event, errorData) => callback(errorData);
+      ipcRenderer.on('download-error', wrappedCallback);
+      
+      // Return cleanup function
+      return () => {
+        ipcRenderer.removeListener('download-error', wrappedCallback);
+      };
+    },
+    
+    // Download update listener (legacy, keeping for compatibility)
     onUpdate: (callback) => {
       const wrappedCallback = (event, updateData) => callback(updateData);
       ipcRenderer.on('download-update', wrappedCallback);
@@ -134,6 +167,9 @@ const electronAPI = {
     
     // Remove all listeners
     removeAllListeners: () => {
+      ipcRenderer.removeAllListeners('download-progress');
+      ipcRenderer.removeAllListeners('download-completed');
+      ipcRenderer.removeAllListeners('download-error');
       ipcRenderer.removeAllListeners('download-update');
     }
   },

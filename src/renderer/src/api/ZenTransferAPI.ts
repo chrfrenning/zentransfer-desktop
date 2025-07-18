@@ -194,6 +194,37 @@ export interface DownloadUpdateData {
   readonly message?: string;
 }
 
+export interface DownloadProgressData {
+  readonly fileRecord: {
+    readonly file_id: string | number;
+    readonly name: string;
+    readonly size: number;
+    readonly type: string;
+  };
+  readonly downloadedBytes: number;
+  readonly totalBytes: number;
+}
+
+export interface DownloadCompletedData {
+  readonly fileRecord: {
+    readonly file_id: string | number;
+    readonly name: string;
+    readonly size: number;
+    readonly type: string;
+  };
+  readonly filePath: string;
+}
+
+export interface DownloadErrorData {
+  readonly fileRecord: {
+    readonly file_id: string | number;
+    readonly name: string;
+    readonly size: number;
+    readonly type: string;
+  };
+  readonly errorMessage: string;
+}
+
 // ============================================================================
 // Auto-Updater Interfaces
 // ============================================================================
@@ -316,6 +347,9 @@ export interface ZenTransferAPI {
     getStats(): Promise<DownloadStats>;
     resetSyncTime(resetTime: number): Promise<void>;
     signalUIActivity(): Promise<void>;
+    onProgress(callback: (data: DownloadProgressData) => void): ListenerCleanup;
+    onCompleted(callback: (data: DownloadCompletedData) => void): ListenerCleanup;
+    onError(callback: (data: DownloadErrorData) => void): ListenerCleanup;
     onUpdate(callback: (data: DownloadUpdateData) => void): ListenerCleanup;
     removeAllListeners(): void;
   };

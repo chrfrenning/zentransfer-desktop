@@ -390,20 +390,16 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
   
   ipcMain.handle('start-download-monitoring', async (event) => {
     try {
-      // Get download settings from config
-      const downloadSettings = getConfig('downloadSettings');
-      const downloadPath = downloadSettings?.downloadPath;
-      const lastSyncTime = downloadSettings?.lastSyncTime || '2025-01-01T00:00:00.000Z';
-      
-      if (!downloadPath) {
-        throw new Error('Download path not configured');
+
+      if ( !app.configurationManager.get('downloadSettings.downloadPath') ) {
+        return false;
       }
       
-      const result = await downloadWorkerPool.startMonitoring(downloadPath, lastSyncTime);
-      return { success: true, result };
+      app.downloadWorkerPool.startMonitoring();
+      return true;
+      
     } catch (error) {
       console.error('Download monitoring failed:', error);
-      return { success: false, error: error.message };
     }
   });
   
