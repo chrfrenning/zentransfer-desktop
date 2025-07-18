@@ -56,21 +56,29 @@ const DownloadMonitor: React.FC = () => {
       console.log('📈 Download Progress:', progressData);
       
       const { fileRecord, downloadedBytes, totalBytes } = progressData;
+      console.log('📋 FileRecord structure:', fileRecord);
       
       // Calculate progress percentage
       const progress = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
       
       // Ensure file exists in store (main process might have added it)
-      addOrUpdateFile(fileRecord.file_id, {
+      // Map all available properties from fileRecord
+      const fileRecordAny = fileRecord as any;
+      const fileData = {
         file_id: fileRecord.file_id,
         name: fileRecord.name,
-        size: fileRecord.size,
-        type: fileRecord.type,
-        status: 'downloading',
+        size: fileRecord.size || fileRecordAny.file_size || 0,
+        type: fileRecord.type || fileRecordAny.mime_type || 'application/octet-stream',
+        created: fileRecordAny.created,
+        thumbnail_url: fileRecordAny.thumbnail_url,
+        status: 'downloading' as const,
         progress,
         downloadedBytes,
         totalBytes
-      });
+      };
+      
+      console.log('📝 Storing file data:', fileData);
+      addOrUpdateFile(fileRecord.file_id, fileData);
       
       console.log(`📈 Updated progress for ${fileRecord.name}: ${progress}% (${downloadedBytes}/${totalBytes} bytes)`);
       dumpStoreState('PROGRESS UPDATE');
@@ -81,9 +89,17 @@ const DownloadMonitor: React.FC = () => {
       console.log('✅ Download Completed:', completedData);
       
       const { fileRecord, filePath } = completedData;
+      console.log('📋 Completed FileRecord structure:', fileRecord);
       
-      // Update store with completion
+      // Update store with completion - preserve all file data
+      const fileRecordAny = fileRecord as any;
       addOrUpdateFile(fileRecord.file_id, {
+        file_id: fileRecord.file_id,
+        name: fileRecord.name,
+        size: fileRecord.size || fileRecordAny.file_size || 0,
+        type: fileRecord.type || fileRecordAny.mime_type || 'application/octet-stream',
+        created: fileRecordAny.created,
+        thumbnail_url: fileRecordAny.thumbnail_url,
         status: 'completed',
         progress: 100,
         filePath,
@@ -99,9 +115,17 @@ const DownloadMonitor: React.FC = () => {
       console.log('❌ Download Error:', errorData);
       
       const { fileRecord, errorMessage } = errorData;
+      console.log('📋 Error FileRecord structure:', fileRecord);
       
-      // Update store with error
+      // Update store with error - preserve all file data
+      const fileRecordAny = fileRecord as any;
       addOrUpdateFile(fileRecord.file_id, {
+        file_id: fileRecord.file_id,
+        name: fileRecord.name,
+        size: fileRecord.size || fileRecordAny.file_size || 0,
+        type: fileRecord.type || fileRecordAny.mime_type || 'application/octet-stream',
+        created: fileRecordAny.created,
+        thumbnail_url: fileRecordAny.thumbnail_url,
         status: 'failed',
         error: errorMessage,
         completedAt: Date.now()
@@ -141,7 +165,7 @@ const DownloadMonitor: React.FC = () => {
       monitoringStoppedCleanup();
       updateCleanup();
     };
-      }, [files, stats, isMonitoring, addFiles, updateFile, addOrUpdateFile, updateFileStatus, updateFileProgress, setMonitoring, setLastSyncTime]);
+  }, [files, stats, isMonitoring, addFiles, updateFile, addOrUpdateFile, updateFileStatus, updateFileProgress, setMonitoring, setLastSyncTime]);
 
   // This component doesn't render anything - it's purely for background monitoring
   return null;

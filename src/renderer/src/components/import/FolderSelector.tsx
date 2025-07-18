@@ -38,9 +38,9 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({
       let folders: ReadonlyArray<string>;
       
       if (type === 'destination') {
-        folders = await api.utility.getLastUsedDestinationFolders();
+        folders = await api.config.getLastUsedDestinationFolders();
       } else {
-        folders = await api.utility.getLastUsedSourceFolders();
+        folders = await api.config.getLastUsedSourceFolders();
       }
       
       setRecentFolders([...folders]);
@@ -55,9 +55,9 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({
       const api = getElectronAPI();
       
       if (type === 'destination') {
-        await api.utility.rememberDestinationFolder(folder);
+        await api.config.rememberDestinationFolder(folder);
       } else {
-        await api.utility.rememberSourceFolder(folder);
+        await api.config.rememberSourceFolder(folder);
       }
       
       // Reload recent folders to update the list

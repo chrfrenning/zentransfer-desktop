@@ -3,12 +3,22 @@
  * Communicates with the main process cloud services via IPC
  */
 
-import type { 
-  CloudServiceType, 
-  ServiceDisplayInfo, 
-  ServiceWithDisplayInfo, 
-  CloudServiceSettings 
-} from '../types/cloud';
+import type { CloudServiceType } from '../api/ZenTransferAPI';
+
+export interface ServiceDisplayInfo {
+  readonly name: string;
+  readonly description: string;
+  readonly icon: string;
+  readonly color: string;
+}
+
+export interface ServiceWithDisplayInfo extends ServiceDisplayInfo {
+  readonly type: CloudServiceType;
+}
+
+export interface CloudServiceSettings {
+  readonly [key: string]: unknown;
+}
 
 export class CloudFacade {
   private readonly serviceType: CloudServiceType;

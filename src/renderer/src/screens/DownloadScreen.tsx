@@ -155,6 +155,7 @@ const DownloadScreen = () => {
   useEffect(() => {
     console.log(`📋 DownloadScreen: ${files.length} download files -> ${displayFiles.length} display files`);
     if (files.length > 0) {
+      console.log(files[0])
       console.log('📋 Raw download files:', files.map(f => ({
         file_id: f.file_id,
         name: f.name,
@@ -177,7 +178,7 @@ const DownloadScreen = () => {
       <div className="h-full px-4 pt-2 pb-6 overflow-y-auto">
         <div className="w-full">
           {/* Compact Header */}
-          <div className="flex items-center mt-2 mb-6 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+          <div className="flex items-center mt-2 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="flex-shrink-0 mr-6">
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-md">
                 <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -191,8 +192,32 @@ const DownloadScreen = () => {
             </div>
           </div>
 
+          {/* Stats Preview */}
+          {stats.queued + stats.downloading + stats.completed + stats.failed > 0 && (
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-lg font-bold text-yellow-600">{stats.queued}</div>
+                  <div className="text-xs text-gray-600">Queued</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-blue-600">{stats.downloading}</div>
+                  <div className="text-xs text-gray-600">Downloading</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-green-600">{stats.completed}</div>
+                  <div className="text-xs text-gray-600">Completed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-bold text-red-600">{stats.failed}</div>
+                  <div className="text-xs text-gray-600">Failed</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Settings */}
-          <div className="max-w-2xl space-y-6">
+          <div className="max-w-2xl space-y-6 mt-6">
             {/* Download Path */}
             <FolderSelector
               label="Download files to"
@@ -217,31 +242,6 @@ const DownloadScreen = () => {
                 Reset
               </button>
             </div>
-
-            {/* Stats Preview */}
-            {stats.queued + stats.downloading + stats.completed + stats.failed > 0 && (
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <Text className="text-sm font-medium mb-2">Current Status</Text>
-                <div className="grid grid-cols-4 gap-4">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-yellow-600">{stats.queued}</div>
-                    <div className="text-xs text-gray-600">Queued</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-blue-600">{stats.downloading}</div>
-                    <div className="text-xs text-gray-600">Downloading</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-green-600">{stats.completed}</div>
-                    <div className="text-xs text-gray-600">Completed</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-red-600">{stats.failed}</div>
-                    <div className="text-xs text-gray-600">Failed</div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Start Button */}
             <Button 
