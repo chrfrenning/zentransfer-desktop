@@ -416,6 +416,10 @@ class DownloadWorkerPool {
     return this.queueManager.getMaxCreatedAt();
   }
 
+  getQueueLength() {
+    return this.queueManager.getPendingFiles().length;
+  }
+
   /**
    * Cleanup method
    */

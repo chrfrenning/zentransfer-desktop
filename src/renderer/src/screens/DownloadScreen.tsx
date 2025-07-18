@@ -9,11 +9,45 @@ import { useDownloadStore } from '../stores/DownloadStore';
 import { getElectronAPI } from '../api/ZenTransferAPI';
 import { downloadFilesToAppFiles } from '../utils/downloadFileAdapter';
 
+// Stats component for download metrics
+const DownloadStats = ({ stats, className = "" }: { 
+  stats: { queued: number; downloading: number; completed: number; failed: number };
+  className?: string;
+}) => {
+  const totalFiles = stats.queued + stats.downloading + stats.completed + stats.failed;
+  
+  if (totalFiles === 0) return null;
+  
+  return (
+    <div className={`p-4 bg-gray-50 rounded-lg ${className}`}>
+      <div className="grid grid-cols-4 gap-4">
+        <div className="text-center">
+          <div className="text-lg font-bold text-yellow-600">{stats.queued}</div>
+          <div className="text-xs text-gray-600">Queued</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-bold text-blue-600">{stats.downloading}</div>
+          <div className="text-xs text-gray-600">Downloading</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-bold text-green-600">{stats.completed}</div>
+          <div className="text-xs text-gray-600">Completed</div>
+        </div>
+        <div className="text-center">
+          <div className="text-lg font-bold text-red-600">{stats.failed}</div>
+          <div className="text-xs text-gray-600">Failed</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DownloadScreen = () => {
   const [downloadPath, setDownloadPath] = useState('');
   const [lastSyncTime, setLastSyncTime] = useState('Never');
   const [isStarting, setIsStarting] = useState(false);
   const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+  const [lastActivitySignal, setLastActivitySignal] = useState(0);
 
   // Download store
   const {
@@ -50,6 +84,45 @@ const DownloadScreen = () => {
   useEffect(() => {
     console.log(`📊 DownloadScreen: isMonitoring = ${isMonitoring}`);
   }, [isMonitoring]);
+
+  // Activity monitoring - signal UI activity when user interacts during download monitoring
+  useEffect(() => {
+    if (!isMonitoring) {
+      return; // Only monitor activity when download monitoring is active
+    }
+
+    const ACTIVITY_THROTTLE_MS = 15000; // Signal at most once every 30 seconds
+
+    const handleActivity = async () => {
+      const now = Date.now();
+      if (now - lastActivitySignal > ACTIVITY_THROTTLE_MS) {
+        try {
+          const electronAPI = getElectronAPI();
+          await electronAPI.download.signalUIActivity();
+          setLastActivitySignal(now);
+          console.log('🎯 UI activity signaled to keep system active');
+        } catch (error) {
+          console.error('❌ Failed to signal UI activity:', error);
+        }
+      }
+    };
+
+    // Add event listeners for user activity
+    const events = ['mousemove', 'keydown', 'click', 'scroll'];
+    events.forEach(event => {
+      document.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    console.log('🔍 Started activity monitoring for download session');
+
+    // Cleanup function
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity);
+      });
+      console.log('🔍 Stopped activity monitoring');
+    };
+  }, [isMonitoring, lastActivitySignal]);
 
   // Handle reset sync
   const handleResetSync = async () => {
@@ -193,28 +266,7 @@ const DownloadScreen = () => {
           </div>
 
           {/* Stats Preview */}
-          {stats.queued + stats.downloading + stats.completed + stats.failed > 0 && (
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <div className="grid grid-cols-4 gap-4">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-yellow-600">{stats.queued}</div>
-                  <div className="text-xs text-gray-600">Queued</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-blue-600">{stats.downloading}</div>
-                  <div className="text-xs text-gray-600">Downloading</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-600">{stats.completed}</div>
-                  <div className="text-xs text-gray-600">Completed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-lg font-bold text-red-600">{stats.failed}</div>
-                  <div className="text-xs text-gray-600">Failed</div>
-                </div>
-              </div>
-            </div>
-          )}
+          <DownloadStats stats={stats} />
 
           {/* Settings */}
           <div className="max-w-2xl space-y-6 mt-6">
@@ -279,7 +331,7 @@ const DownloadScreen = () => {
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
               </div>
               <Text className="text-sm text-green-600 leading-tight">
-                Monitoring active • {files.length} files
+                Monitoring active
               </Text>
             </div>
           </div>
@@ -289,24 +341,7 @@ const DownloadScreen = () => {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="text-center p-3 bg-white rounded border">
-            <div className="text-2xl font-bold text-yellow-600">{stats.queued}</div>
-            <div className="text-sm text-gray-600">Queued</div>
-          </div>
-          <div className="text-center p-3 bg-white rounded border">
-            <div className="text-2xl font-bold text-blue-600">{stats.downloading}</div>
-            <div className="text-sm text-gray-600">Downloading</div>
-          </div>
-          <div className="text-center p-3 bg-white rounded border">
-            <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-            <div className="text-sm text-gray-600">Completed</div>
-          </div>
-          <div className="text-center p-3 bg-white rounded border">
-            <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
-            <div className="text-sm text-gray-600">Failed</div>
-          </div>
-        </div>
+        <DownloadStats stats={stats} className="mb-6" />
 
         {/* File List using consistent components */}
         {displayFiles.length === 0 ? (

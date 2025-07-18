@@ -60,6 +60,15 @@ const FileTile: React.FC<FileTileProps> = ({ file, formatFileSize }) => {
                         Uploading
                       </span>
                     </div>
+                  ) : file.status === 'downloading' ? (
+                    <div className="flex items-center space-x-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Downloading
+                      </span>
+                    </div>
                   ) : file.status === 'completed' ? (
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                       <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,8 +94,8 @@ const FileTile: React.FC<FileTileProps> = ({ file, formatFileSize }) => {
                 </div>
       </div>
       
-      {/* Progress Bar for Uploading Files */}
-      {file.status === 'uploading' && (
+      {/* Progress Bar for Uploading/Downloading Files */}
+      {(file.status === 'uploading' || file.status === 'downloading') && (
         <div className="mt-3">
           <div className="flex items-center space-x-3">
             <div className="flex-1">

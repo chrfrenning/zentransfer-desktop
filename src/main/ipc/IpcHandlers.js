@@ -415,8 +415,8 @@ function setupIpcHandlers(uploadWorkerPool, importWorkerPool, downloadWorkerPool
     }
   });
   
-   ipcMain.handle('get-download-stats', async () => {
-     return downloadWorkerPool.getStats();
+   ipcMain.handle('get-download-queue-length', async () => {
+     return downloadWorkerPool.getQueueLength();
    });
    
    // Reset sync time

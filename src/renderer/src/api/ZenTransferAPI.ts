@@ -319,7 +319,8 @@ export interface ZenTransferAPI {
   readonly download: {
     startMonitoring(): Promise<void>;
     stopMonitoring(): Promise<void>;
-    
+
+    getQueueLength(): Promise<number>;
     resetSyncTime(): Promise<void>;
     getLastSyncTime(): Promise<number>;
     signalUIActivity(): Promise<void>;
