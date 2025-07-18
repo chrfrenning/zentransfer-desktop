@@ -1,6 +1,6 @@
 const { app, globalShortcut, BrowserWindow, Menu, systemPreferences } = require('electron');
 const path = require('path');
-const { runInCommandLineMode } = require('./cmdline.js');
+const { runInCommandLineMode } = require('./cli.js');
 
 /*
   Determine runtime mode and configuration
