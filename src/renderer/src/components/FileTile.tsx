@@ -36,7 +36,7 @@ const FileTile: React.FC<FileTileProps> = ({ file, formatFileSize }) => {
               {file.name}
             </div>
             <div className="text-xs text-gray-500">
-              {file.size ? formatFileSize(file.size) : 'Unknown size'} • Source: {file.source}
+              {file.size ? formatFileSize(file.size) : 'Unknown size'}
             </div>
             {file.path && file.path !== '(no path property)' && (
               <div className="text-xs text-gray-400 truncate" title={file.path}>
