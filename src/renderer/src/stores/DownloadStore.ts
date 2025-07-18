@@ -50,6 +50,43 @@ const useDownloadStore = create<DownloadStore>((set, get) => ({
     });
   },
 
+  addOrUpdateFile: (fileId: string | number, fileData: Partial<DownloadFile>): void => {
+    set((state) => {
+      const existingFileIndex = state.files.findIndex(file => file.file_id === fileId);
+      
+      if (existingFileIndex >= 0) {
+        // File exists, update it
+        const updatedFiles = state.files.map(file =>
+          file.file_id === fileId
+            ? { ...file, ...fileData, updatedAt: Date.now() }
+            : file
+        );
+        return {
+          files: updatedFiles,
+          stats: calculateStats(updatedFiles)
+        };
+      } else {
+        // File doesn't exist, add it
+        const newFile: DownloadFile = {
+          file_id: fileId,
+          name: fileData.name || 'Unknown',
+          size: fileData.size || 0,
+          type: fileData.type || 'application/octet-stream',
+          status: fileData.status || 'queued',
+          progress: fileData.progress || 0,
+          addedAt: Date.now(),
+          updatedAt: Date.now(),
+          ...fileData
+        };
+        const updatedFiles = [...state.files, newFile];
+        return {
+          files: updatedFiles,
+          stats: calculateStats(updatedFiles)
+        };
+      }
+    });
+  },
+
   updateFileStatus: (fileId: string | number, status: DownloadFile['status'], progress?: number, error?: string): void => {
     set((state) => {
       const updatedFiles = state.files.map(file =>

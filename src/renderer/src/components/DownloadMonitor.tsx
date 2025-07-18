@@ -3,13 +3,16 @@ import { useDownloadStore } from '../stores/DownloadStore';
 import { getElectronAPI } from '../api/ZenTransferAPI';
 
 /**
- * DownloadMonitor - Demo component to test download message handling
+ * DownloadMonitor - Persistent background component for download management
  * 
- * This component:
+ * This component runs continuously and:
  * 1. Sets up listeners for download messages from the main process
  * 2. Updates the download store based on received messages
  * 3. Logs all activity to console for debugging
- * 4. Provides basic stats display
+ * 4. Handles download events even when UI is not actively monitoring
+ * 
+ * The main process can initiate downloads independently, so this must
+ * always be active to maintain accurate state.
  */
 const DownloadMonitor: React.FC = () => {
   const {
@@ -17,15 +20,36 @@ const DownloadMonitor: React.FC = () => {
     stats,
     isMonitoring,
     addFiles,
+    updateFile,
+    addOrUpdateFile,
     updateFileStatus,
     updateFileProgress,
-    setMonitoring
+    setMonitoring,
+    setLastSyncTime
   } = useDownloadStore();
+
+  // Helper function to dump store state for debugging
+  const dumpStoreState = (context: string) => {
+    console.log(`🗂️ [${context}] Download Store State:`, {
+      fileCount: files.length,
+      stats,
+      isMonitoring,
+      files: files.map(f => ({
+        file_id: f.file_id,
+        name: f.name,
+        status: f.status,
+        progress: f.progress,
+        size: f.size,
+        addedAt: f.addedAt,
+        updatedAt: f.updatedAt
+      }))
+    });
+  };
 
   useEffect(() => {
     const electronAPI = getElectronAPI();
     
-    console.log('🔄 Setting up download message listeners...');
+    console.log('🔄 Setting up persistent download message listeners...');
     
     // Set up progress listener
     const progressCleanup = electronAPI.download.onProgress((progressData) => {
@@ -36,10 +60,20 @@ const DownloadMonitor: React.FC = () => {
       // Calculate progress percentage
       const progress = totalBytes > 0 ? Math.round((downloadedBytes / totalBytes) * 100) : 0;
       
-      // Update store
-      updateFileProgress(fileRecord.file_id, progress, downloadedBytes, totalBytes);
+      // Ensure file exists in store (main process might have added it)
+      addOrUpdateFile(fileRecord.file_id, {
+        file_id: fileRecord.file_id,
+        name: fileRecord.name,
+        size: fileRecord.size,
+        type: fileRecord.type,
+        status: 'downloading',
+        progress,
+        downloadedBytes,
+        totalBytes
+      });
       
       console.log(`📈 Updated progress for ${fileRecord.name}: ${progress}% (${downloadedBytes}/${totalBytes} bytes)`);
+      dumpStoreState('PROGRESS UPDATE');
     });
     
     // Set up completed listener
@@ -48,10 +82,16 @@ const DownloadMonitor: React.FC = () => {
       
       const { fileRecord, filePath } = completedData;
       
-      // Update store
-      updateFileStatus(fileRecord.file_id, 'completed', 100);
+      // Update store with completion
+      addOrUpdateFile(fileRecord.file_id, {
+        status: 'completed',
+        progress: 100,
+        filePath,
+        completedAt: Date.now()
+      });
       
       console.log(`✅ Completed download: ${fileRecord.name} -> ${filePath}`);
+      dumpStoreState('DOWNLOAD COMPLETED');
     });
     
     // Set up error listener
@@ -60,129 +100,51 @@ const DownloadMonitor: React.FC = () => {
       
       const { fileRecord, errorMessage } = errorData;
       
-      // Update store
-      updateFileStatus(fileRecord.file_id, 'failed', 0, errorMessage);
+      // Update store with error
+      addOrUpdateFile(fileRecord.file_id, {
+        status: 'failed',
+        error: errorMessage,
+        completedAt: Date.now()
+      });
       
       console.log(`❌ Failed download: ${fileRecord.name} - Error: ${errorMessage}`);
+      dumpStoreState('DOWNLOAD FAILED');
     });
     
-    console.log('✅ Download message listeners configured');
+    // Set up monitoring state listeners
+    const monitoringStartedCleanup = electronAPI.download.onMonitoringStarted(() => {
+      console.log('🚀 Download monitoring started');
+      setMonitoring(true);
+      setLastSyncTime(new Date().toLocaleString());
+      dumpStoreState('MONITORING STARTED');
+    });
+    
+    const monitoringStoppedCleanup = electronAPI.download.onMonitoringStopped(() => {
+      console.log('🛑 Download monitoring stopped');
+      setMonitoring(false);
+    });
+    
+    // Set up additional download events (for other event types)
+    const updateCleanup = electronAPI.download.onUpdate((updateData) => {
+      console.log('🔄 Download Update:', updateData);
+    });
+    
+    console.log('✅ Persistent download message listeners configured');
     
     // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up download message listeners...');
+      console.log('🧹 Cleaning up persistent download message listeners...');
       progressCleanup();
       completedCleanup();
       errorCleanup();
+      monitoringStartedCleanup();
+      monitoringStoppedCleanup();
+      updateCleanup();
     };
-  }, [updateFileStatus, updateFileProgress]);
+      }, [files, stats, isMonitoring, addFiles, updateFile, addOrUpdateFile, updateFileStatus, updateFileProgress, setMonitoring, setLastSyncTime]);
 
-  // Helper to simulate adding test files (for development/testing)
-  const addTestFiles = () => {
-    const testFiles = [
-      {
-        file_id: `test_${Date.now()}_1`,
-        name: 'test-image-1.jpg',
-        size: 2500000,
-        type: 'image/jpeg',
-        created: new Date().toISOString(),
-        status: 'queued' as const,
-        progress: 0
-      },
-      {
-        file_id: `test_${Date.now()}_2`,
-        name: 'test-video-1.mp4',
-        size: 15000000,
-        type: 'video/mp4',
-        created: new Date().toISOString(),
-        status: 'queued' as const,
-        progress: 0
-      }
-    ];
-    
-    addFiles(testFiles);
-    console.log('🧪 Added test files to download store:', testFiles);
-  };
-
-  return (
-    <div className="p-4 border rounded-lg bg-gray-50">
-      <h3 className="text-lg font-semibold mb-4">Download Monitor (Console Demo)</h3>
-      
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-4">
-        <div className="text-center p-2 bg-white rounded border">
-          <div className="text-2xl font-bold text-blue-600">{stats.queued}</div>
-          <div className="text-sm text-gray-600">Queued</div>
-        </div>
-        <div className="text-center p-2 bg-white rounded border">
-          <div className="text-2xl font-bold text-yellow-600">{stats.downloading}</div>
-          <div className="text-sm text-gray-600">Downloading</div>
-        </div>
-        <div className="text-center p-2 bg-white rounded border">
-          <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
-          <div className="text-sm text-gray-600">Completed</div>
-        </div>
-        <div className="text-center p-2 bg-white rounded border">
-          <div className="text-2xl font-bold text-red-600">{stats.failed}</div>
-          <div className="text-sm text-gray-600">Failed</div>
-        </div>
-      </div>
-      
-      {/* Status */}
-      <div className="mb-4">
-        <p className="text-sm">
-          <span className="font-medium">Monitoring:</span> 
-          <span className={`ml-2 px-2 py-1 rounded text-xs ${isMonitoring ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-            {isMonitoring ? 'Active' : 'Inactive'}
-          </span>
-        </p>
-        <p className="text-sm mt-1">
-          <span className="font-medium">Total Files:</span> {files.length}
-        </p>
-      </div>
-      
-      {/* Test Controls */}
-      <div className="mb-4">
-        <button 
-          onClick={addTestFiles}
-          className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-        >
-          Add Test Files
-        </button>
-      </div>
-      
-      {/* Instructions */}
-      <div className="text-xs text-gray-600 p-3 bg-yellow-50 border border-yellow-200 rounded">
-        <p className="font-medium mb-1">Console Demo Instructions:</p>
-        <p>1. Open browser dev tools (F12) and check the Console tab</p>
-        <p>2. Start download monitoring from the main download screen</p>
-        <p>3. Watch console for download progress, completed, and error messages</p>
-        <p>4. See stats update in real-time above</p>
-      </div>
-      
-      {/* File List (abbreviated for demo) */}
-      {files.length > 0 && (
-        <div className="mt-4">
-          <h4 className="font-medium mb-2">Recent Files ({files.length})</h4>
-          <div className="max-h-32 overflow-y-auto">
-            {files.slice(-5).map((file) => (
-              <div key={file.file_id} className="text-xs p-1 border-b border-gray-200 flex justify-between">
-                <span className="truncate">{file.name}</span>
-                <span className={`px-1 rounded ${
-                  file.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  file.status === 'downloading' ? 'bg-yellow-100 text-yellow-800' :
-                  file.status === 'failed' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {file.status} {file.progress > 0 && `${file.progress}%`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  // This component doesn't render anything - it's purely for background monitoring
+  return null;
 };
 
 export default DownloadMonitor; 

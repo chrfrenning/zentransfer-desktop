@@ -76,6 +76,7 @@ export interface DownloadStoreActions {
   // File management
   addFiles: (newFiles: ReadonlyArray<Partial<DownloadFile>>) => void;
   updateFile: (fileId: string | number, updates: Partial<DownloadFile>) => void;
+  addOrUpdateFile: (fileId: string | number, fileData: Partial<DownloadFile>) => void;
   updateFileStatus: (fileId: string | number, status: DownloadFile['status'], progress?: number, error?: string) => void;
   updateFileProgress: (fileId: string | number, progress: number, downloadedBytes?: number, totalBytes?: number) => void;
   removeFile: (fileId: string | number) => void;

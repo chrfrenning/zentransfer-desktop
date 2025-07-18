@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'r
 import LoaderScreen from './screens/LoaderScreen';
 import LoginScreen from './screens/LoginScreen';
 import MainInterface from './screens/MainInterface';
+import DownloadMonitor from './components/DownloadMonitor';
 import { getElectronAPI } from './api/ZenTransferAPI';
 import './RendererLogger';
 
@@ -216,6 +217,8 @@ const AppRouter: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Router>
+      {/* Persistent download monitor - always active for background download management */}
+      <DownloadMonitor />
       <AppRouter />
     </Router>
   );
