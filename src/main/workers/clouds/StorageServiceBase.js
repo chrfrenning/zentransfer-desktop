@@ -26,14 +26,6 @@ class StorageServiceBase extends UploadServiceBase {
     constructor(settings = {}) {
         super(settings);
     }
-
-    async initialize(options) {
-        if ( options.createPreviews ) {
-            this.thumbnailService = new ThumbnailService();
-        }
-
-        this.metadataService = new MetadataService();
-    }
     
     async getUploadPreferences(options) {
         // Check if preferences are passed in options first
@@ -59,7 +51,11 @@ class StorageServiceBase extends UploadServiceBase {
         }
 
         console.log('Going into file processing for metadata and previews');
-        this.initialize(preferences);
+
+        const thumbnailService = new ThumbnailService();
+        const metadataService = new MetadataService();
+
+        let extractedPreviews = null;
 
         // Enhanced upload flow
         try {
@@ -93,7 +89,7 @@ class StorageServiceBase extends UploadServiceBase {
 
             let metadataResult = null;
             if ( preferences.extractMetadata || preferences.createPreviews ) {
-                metadataResult = await this.metadataService.extractMetadata(filePath);
+                metadataResult = await metadataService.extractMetadata(filePath);
             }
 
             if ( metadataResult && metadataResult.success  ) {
@@ -105,9 +101,9 @@ class StorageServiceBase extends UploadServiceBase {
                 }
             }
             
-            let extractedPreviews = null;
+            
             if ( metadataResult && metadataResult.success ) {
-                extractedPreviews = await this.metadataService.extractThumbnailAndPreview(filePath);
+                extractedPreviews = await metadataService.extractThumbnailAndPreview(filePath);
                 //console.log("Extracted previews:", extractedPreviews);
             }
 
@@ -126,7 +122,7 @@ class StorageServiceBase extends UploadServiceBase {
             if ( CREATE_TINY_THUMB ) {
                 if ( extractedPreviews && extractedPreviews.thumbnail ) {
 
-                    tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.thumbnail, {
+                    tinyThumb = await thumbnailService.generatePreview(extractedPreviews.thumbnail, {
                         size: 80,
                         quality: 60
                     });
@@ -134,7 +130,7 @@ class StorageServiceBase extends UploadServiceBase {
 
                 } else if ( extractedPreviews && extractedPreviews.preview ) {
 
-                    tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
+                    tinyThumb = await thumbnailService.generatePreview(extractedPreviews.preview, {
                         size: 80,
                         quality: 60
                     });
@@ -154,9 +150,9 @@ class StorageServiceBase extends UploadServiceBase {
 
                 // Preview
 
-                const previewRemoteName = this.thumbnailService.generatePreviewFilename(remoteName);
+                const previewRemoteName = thumbnailService.generatePreviewFilename(remoteName);
                 
-                const previewResult = await this.thumbnailService.generatePreview(filePath, {
+                const previewResult = await thumbnailService.generatePreview(filePath, {
                     size: preferences.previewSize,
                     quality: preferences.previewQuality
                 });
@@ -189,9 +185,9 @@ class StorageServiceBase extends UploadServiceBase {
 
                 // Thumbnail
 
-                const thumbnailRemoteName = this.thumbnailService.generateThumbnailFilename(remoteName);
+                const thumbnailRemoteName = thumbnailService.generateThumbnailFilename(remoteName);
 
-                const thumbnailResult = await this.thumbnailService.generatePreview(filePath, {
+                const thumbnailResult = await thumbnailService.generatePreview(filePath, {
                     size: preferences.thumbnailSize,
                     quality: preferences.thumbnailQuality
                 });
@@ -209,7 +205,7 @@ class StorageServiceBase extends UploadServiceBase {
                     thumbnail = thumbnailResult.buffer;
 
                     if ( !tinyThumb && CREATE_TINY_THUMB ) {
-                        tinyThumb = await this.thumbnailService.generatePreview(filePath, {
+                        tinyThumb = await thumbnailService.generatePreview(filePath, {
                             size: 80,
                             quality: 60
                         });
@@ -231,7 +227,7 @@ class StorageServiceBase extends UploadServiceBase {
 
                 } else if ( extractedPreviews && extractedPreviews.preview ) {
 
-                    const thumbnailResult = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
+                    const thumbnailResult = await thumbnailService.generatePreview(extractedPreviews.preview, {
                         size: preferences.thumbnailSize,
                         quality: preferences.thumbnailQuality
                     });
@@ -336,15 +332,7 @@ class StorageServiceBase extends UploadServiceBase {
             if ( additionalFiles.thumbnail ) result.thumbnailUrl = additionalFiles.thumbnail;
             if ( additionalFiles.preview ) result.previewUrl = additionalFiles.preview;
 
-            // Clean up temporary files
-
-            /* if ( extractedPreviews && extractedPreviews.thumbnail ) {
-                fs.unlinkSync(extractedPreviews.thumbnail);
-            }
-
-            if ( extractedPreviews && extractedPreviews.preview ) {
-                fs.unlinkSync(extractedPreviews.preview);
-            } */
+            
 
             return result;
 
@@ -354,13 +342,37 @@ class StorageServiceBase extends UploadServiceBase {
             console.warn('Enhanced upload failed, falling back to original:', error);
             return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
 
+        } finally {
+
+            // Close the metadata service
+            metadataService.cleanup();
+
+            // Clean up temporary files
+            try {
+                if ( extractedPreviews && extractedPreviews.thumbnail ) {
+                    fs.unlinkSync(extractedPreviews.thumbnail);
+                    //fs.promises.rm(extractedPreviews.thumbnail);
+                }
+            } catch (error) {
+                console.warn('XXX Failed to cleanup temporary thumbnail file:', error);
+            }
+
+            try {
+                if ( extractedPreviews && extractedPreviews.preview ) {
+                    fs.unlinkSync(extractedPreviews.preview);
+                    //fs.promises.rm(extractedPreviews.preview);
+                }
+            } catch (error) {
+                console.warn('XXX Failed to cleanup temporary preview file:', error);
+            }
+
         }
     }
     
     async processMetadataUpload(remoteFilePath, metadata) {
         try {
 
-            const remoteMetaDataPath = this.metadataService.generateMetadataFilename(remoteFilePath);
+            const remoteMetaDataPath = metadataService.generateMetadataFilename(remoteFilePath);
             
             // Upload metadata JSON
             const uploadResult = await this.uploadFromBuffer(
