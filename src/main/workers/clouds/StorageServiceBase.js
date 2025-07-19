@@ -15,6 +15,11 @@ const os = require('os');
 
 const MAX_UNIQUE_FILENAME_GENERATIONS = 100;
 const POST_TO_INFO_CACHE = true;
+const EMIT_INFO = true;
+const CREATE_TINY_THUMB = true;
+const CALCULATE_CHECKSUMS = true;
+const POST_THUMBNAIL = false;
+const POST_PREVIEW = false;
 
 
 class StorageServiceBase extends UploadServiceBase {
@@ -47,7 +52,7 @@ class StorageServiceBase extends UploadServiceBase {
 
         // Get preferences from options or load defaults
         const preferences = await this.getUploadPreferences(options);
-        console.log('Processing preferences:', preferences);
+        console.log('Processing options:', options);
 
         if (!preferences.createPreviews && !preferences.extractMetadata) {
             return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
@@ -92,6 +97,8 @@ class StorageServiceBase extends UploadServiceBase {
             }
 
             if ( metadataResult && metadataResult.success  ) {
+                console.log("Metadata extracted successfully.");
+
                 const metadataUpload = await this.processMetadataUpload(remoteName, metadataResult.metadata);
                 if ( metadataUpload.success ) {
                     additionalFiles.metadata = metadataUpload.url;
@@ -101,6 +108,7 @@ class StorageServiceBase extends UploadServiceBase {
             let extractedPreviews = null;
             if ( metadataResult && metadataResult.success ) {
                 extractedPreviews = await this.metadataService.extractThumbnailAndPreview(filePath);
+                //console.log("Extracted previews:", extractedPreviews);
             }
 
 
@@ -110,18 +118,33 @@ class StorageServiceBase extends UploadServiceBase {
              *
             */
 
+
+            // Very tiny thumbnail for database embedding
+
             let tinyThumb = null;
-            if ( extractedPreviews && extractedPreviews.thumbnail ) {
-                tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.tinyThumb, {
-                    size: 80,
-                    quality: 60
-                });
-            } else if ( extractedPreviews && extractedPreviews.preview ) {
-                tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
-                    size: 80,
-                    quality: 60
-                });
+
+            if ( CREATE_TINY_THUMB ) {
+                if ( extractedPreviews && extractedPreviews.thumbnail ) {
+
+                    tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.thumbnail, {
+                        size: 80,
+                        quality: 60
+                    });
+                    console.log("Tiny thumb from extracted thumbnail.");
+
+                } else if ( extractedPreviews && extractedPreviews.preview ) {
+
+                    tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
+                        size: 80,
+                        quality: 60
+                    });
+                    console.log("Tiny thumb from extracted preview.");
+
+                }
             }
+
+
+            // Normal sized thumb and preview, as set in configuration file (400 and 1920 by default)
 
             let thumbnail = null;
             let preview = null;
@@ -185,6 +208,15 @@ class StorageServiceBase extends UploadServiceBase {
 
                     thumbnail = thumbnailResult.buffer;
 
+                    if ( !tinyThumb && CREATE_TINY_THUMB ) {
+                        tinyThumb = await this.thumbnailService.generatePreview(filePath, {
+                            size: 80,
+                            quality: 60
+                        });
+
+                        console.log("Tiny thumb generated from original file");
+                    }
+
                 } else if ( extractedPreviews && extractedPreviews.thumbnail ) {
 
                     const thumbnailUpload = await this.uploadOriginalFile(extractedPreviews.thumbnail, thumbnailRemoteName, 'image/webp', {
@@ -219,18 +251,32 @@ class StorageServiceBase extends UploadServiceBase {
 
             /*
              *
+             * 4. Housekeeping for future optimization, regsitry, and ledger
              * Post this to the parent for caching, in case we upload to multiple services
              * 
              */
 
+            const fileInfo = fs.statSync(filePath);
+
+            const checksums = {
+                md5: null,
+                sha256: null,
+                sha512: null
+            };
+
+            if ( CALCULATE_CHECKSUMS ) {
+
+                const { calculateFileHashes } = require('../../utils/Checksums.js');
+                const fileHashes = await calculateFileHashes(filePath);
+
+                checksums.md5 = fileHashes.md5;
+                checksums.sha256 = fileHashes.sha256;
+                checksums.sha512 = fileHashes.sha512;
+            }
+
             if ( POST_TO_INFO_CACHE ) {
 
                 const { parentPort, workerData } = require('worker_threads');
-                const { calculateFileHashes } = require('../../utils/Checksums.js');
-
-                const fileInfo = fs.statSync(filePath);
-                const fileHashes = await calculateFileHashes(filePath);
-                console.log("!!! File hashes:", fileHashes);
 
                 parentPort.postMessage({
                     type: 'update-info-cache',
@@ -238,12 +284,30 @@ class StorageServiceBase extends UploadServiceBase {
                         source_path: filePath,
                         file_size: fileInfo.size,
                         file_date: fileInfo.mtime.toISOString(),
-                        checksumMd5: fileHashes.md5,
-                        checksumSHA256: fileHashes.sha256,
-                        checksumSHA512: fileHashes.sha512,
-                        tiny_thumb: tinyThumb,
-                        thumbnail: thumbnail,
-                        preview: preview,
+                        checksumMd5: checksums.md5,
+                        checksumSHA256: checksums.sha256,
+                        checksumSHA512: checksums.sha512,
+                        tiny_thumb: tinyThumb && CREATE_TINY_THUMB ? tinyThumb.buffer.toString('base64') : null,
+                        thumbnail: thumbnail && POST_THUMBNAIL ? thumbnail.toString('base64') : null,
+                        preview: preview && POST_PREVIEW ? preview.toString('base64') : null,
+                        exif: JSON.stringify(metadataResult.metadata)
+                    }
+                });
+            }
+
+            if ( EMIT_INFO ) {
+                this.emit('info', {
+                    type: 'update-info-cache',
+                    fileRecord: {
+                        source_path: filePath,
+                        file_size: fileInfo.size,
+                        file_date: fileInfo.mtime.toISOString(),
+                        checksumMd5: checksums.md5,
+                        checksumSHA256: checksums.sha256,
+                        checksumSHA512: checksums.sha512,
+                        tiny_thumb: tinyThumb && CREATE_TINY_THUMB ? tinyThumb.buffer.toString('base64') : null,
+                        thumbnail: thumbnail && POST_THUMBNAIL ? thumbnail.toString('base64') : null,
+                        preview: preview && POST_PREVIEW ? preview.toString('base64') : null,
                         exif: JSON.stringify(metadataResult.metadata)
                     }
                 });
@@ -251,7 +315,7 @@ class StorageServiceBase extends UploadServiceBase {
 
 
             /* 
-             * 4. Wait for the upload to complete, and mesh everything together
+             * 5. Wait for the upload to complete, and mesh everything together
              *
             */
 
@@ -271,6 +335,16 @@ class StorageServiceBase extends UploadServiceBase {
             if ( additionalFiles.metadata ) result.metadataUrl = additionalFiles.metadata;
             if ( additionalFiles.thumbnail ) result.thumbnailUrl = additionalFiles.thumbnail;
             if ( additionalFiles.preview ) result.previewUrl = additionalFiles.preview;
+
+            // Clean up temporary files
+
+            /* if ( extractedPreviews && extractedPreviews.thumbnail ) {
+                fs.unlinkSync(extractedPreviews.thumbnail);
+            }
+
+            if ( extractedPreviews && extractedPreviews.preview ) {
+                fs.unlinkSync(extractedPreviews.preview);
+            } */
 
             return result;
 
@@ -339,6 +413,7 @@ class StorageServiceBase extends UploadServiceBase {
             // Clean up temporary file
             try {
 
+                fs.closeSync(tempFile.fd);
                 fs.unlinkSync(tempFile.name);
 
             } catch (cleanupError) {

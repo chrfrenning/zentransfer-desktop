@@ -71,26 +71,26 @@ class MetadataService {
                 this.initialize();
             }
 
-            let thumbnailTempFile  = tmp.fileSync({ prefix: 'ztth-' });
-            await this.exiftool.extractThumbnail(filePath, thumbnailTempFile.name);
-            const thumbnailSize = fs.statSync(thumbnailTempFile.name).size;
+            let thumbnailTempFileName  = tmp.tmpNameSync({ prefix: 'ztth-' });
+            await this.exiftool.extractThumbnail(filePath, thumbnailTempFileName);
+            const thumbnailSize = fs.statSync(thumbnailTempFileName).size;
             if ( !thumbnailSize ) {
-                fs.unlinkSync(thumbnailTempFile.name);
-                thumbnailTempFile = null;
+                fs.unlinkSync(thumbnailTempFileName);
+                thumbnailTempFileName = null;
             }
 
-            let previewTempFile = tmp.fileSync({ prefix: 'ztpv-' });
-            await this.exiftool.extractPreview(filePath, previewTempFile.name);
-            const previewSize = fs.statSync(previewTempFile.name).size;
+            let previewTempFileName = tmp.tmpNameSync({ prefix: 'ztpv-' });
+            await this.exiftool.extractPreview(filePath, previewTempFileName);
+            const previewSize = fs.statSync(previewTempFileName).size;
             if ( !previewSize ) {
-                fs.unlinkSync(previewTempFile.name);
-                previewTempFile = null;
+                fs.unlinkSync(previewTempFileName);
+                previewTempFileName = null;
             }
 
             return {
                 success: true,
-                thumbnail: thumbnailTempFile ? thumbnailTempFile.name : null,
-                preview: previewTempFile ? previewTempFile.name : null
+                thumbnail: thumbnailTempFileName,
+                preview: previewTempFileName
             };
 
         }

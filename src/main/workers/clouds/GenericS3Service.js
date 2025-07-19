@@ -249,8 +249,7 @@ class GenericS3Service extends StorageServiceBase {
     }
 
     async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
-        const uploadId = this._generateUploadId();
-        this._log('info', 'Starting upload', { uploadId, filePath, remoteName, mimeType });
+        this._log('info', 'Starting upload', { filePath, remoteName, mimeType });
         console.log(`[GenericS3] Starting upload: ${filePath} -> ${remoteName} (${mimeType})`);
 
         try {
@@ -323,7 +322,6 @@ class GenericS3Service extends StorageServiceBase {
             const publicUrl = `${this.getEndpoint()}/${this.settings.bucket}/${finalRemoteName}`;
 
             this._log('info', 'GenericS3 upload completed', {
-                uploadId,
                 finalRemoteName,
                 fileSize: fileInfo.size,
                 uploadTime,
@@ -341,13 +339,11 @@ class GenericS3Service extends StorageServiceBase {
 
         } catch (error) {
             this._log('error', 'GenericS3 upload failed', { 
-                uploadId, 
                 error: error.message,
                 stack: error.stack
             });
 
             console.error(`[GenericS3] Upload failed: ${error.message}`);
-            console.error(`[GenericS3] Upload ID: ${uploadId}`);
             console.error(`[GenericS3] File: ${filePath}`);
             console.error(`[GenericS3] Remote name: ${remoteName}`);
             console.error(`[GenericS3] Error details:`, error);
@@ -378,7 +374,7 @@ class GenericS3Service extends StorageServiceBase {
 
             // Create S3 client configured for GenericS3
             const s3Client = new S3Client({
-                endpoint: this.getMinioEndpoint(),
+                endpoint: this.getEndpoint(),
                 region: this.settings.region || 'us-east-1',
                 credentials: {
                     accessKeyId: this.settings.accessKey,

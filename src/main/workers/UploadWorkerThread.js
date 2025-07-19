@@ -124,9 +124,13 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
 
   // Set up progress monitoring
   cloudService.on('progress', (progress) => {
-    console.log('--- Progress received:', progress);
+    console.log(`!!! ${fileRecord.source_path} upload to ${fileRecord.service_type}: ${progress} of ${fileRecord.file_size} bytes.`);
     const bytesTransferred = progress.bytesTransferred;
     sendUploadTransferProgress(fileRecord, bytesTransferred);
+  });
+
+  cloudService.on('info', (info) => {
+    //console.log('!!! Info received:', info);
   });
 
 

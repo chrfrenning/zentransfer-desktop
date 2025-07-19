@@ -141,7 +141,7 @@ class UploadWorkerPool {
           const sourceBaseName = path.basename(fileRecord.source_path);
           this.uploadQueue.addDupe(sourceBaseName, fileRecord.file_size, fileRecord.file_date, null, null, fileRecord.service_type);
 
-          // TBD: Add to index_queue, ledger_queue, dedupe, registry
+          // TBD: Add to index_queue, ledger_queue, registry
 
           // We could poll the queue here and give to the worker if there is any
           // instead of waiting for the timer to run, will make sure we keep momentum
@@ -171,7 +171,7 @@ class UploadWorkerPool {
       } else if ( type === 'update-info-cache' ) {
 
         const { source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512,tiny_thumb, thumbnail, preview, exif } = message.fileRecord;
-        console.log("!!! Updating info cache:", source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512, exif);
+        //console.log("Updating info cache:", source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512, exif);
 
         /*  type: 'update-info-cache',
               fileRecord: {
