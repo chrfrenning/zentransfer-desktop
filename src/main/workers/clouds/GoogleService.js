@@ -5,6 +5,7 @@
 
 const { StorageServiceBase } = require('./StorageServiceBase.js');
 const { Storage } = require('@google-cloud/storage');
+const fs = require('fs');
 
 class GoogleService extends StorageServiceBase {
     constructor(settings = {}) {
@@ -255,14 +256,6 @@ class GoogleService extends StorageServiceBase {
             // Get bucket and file references with final remote name
             const bucket = storage.bucket(this.settings.bucketName);
             const file = bucket.file(finalRemoteName);
-
-
-            // Read file content
-            this._emitProgress(2, fileInfo.size);
-            const fileContent = await this._readFile(filePath);
-
-            // Set upload options
-            this._emitProgress(3, fileInfo.size);
             const uploadOptions = {
                 metadata: {
                     contentType: mimeType,
@@ -272,9 +265,21 @@ class GoogleService extends StorageServiceBase {
                 validation: 'crc32c'
             };
 
-            // Upload the file
-            await file.save(fileContent, uploadOptions);
-            this._emitProgress(fileInfo.size, fileInfo.size);
+            await new Promise((resolve, reject) => {
+                const readStream = fs.createReadStream(filePath);
+                const writeStream = file.createWriteStream(uploadOptions);
+    
+                let uploadedBytes = 0;
+                readStream.on('data', (chunk) => {
+                    uploadedBytes += chunk.length;
+                    this._emitProgress(uploadedBytes, fileInfo.size);
+                });
+    
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+    
+                readStream.pipe(writeStream);
+            });
 
             // Construct the GCS URL with final remote name
             const gcsUrl = `https://storage.googleapis.com/${this.settings.bucketName}/${finalRemoteName}`;
