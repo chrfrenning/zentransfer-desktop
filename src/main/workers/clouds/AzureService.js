@@ -4,12 +4,11 @@
  */
 
 const { StorageServiceBase } = require('./StorageServiceBase.js');
+const { BlobServiceClient } = require('@azure/storage-blob');
 
 class AzureService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
-        this.activeUploads = new Map();
-        this.connectionParams = null;
     }
 
     getServiceName() {
@@ -72,20 +71,15 @@ class AzureService extends StorageServiceBase {
     }
 
     async testConnection() {
+
         this._log('info', 'Testing Azure Blob Storage connection');
         
         try {
             const validation = this.validateConfiguration();
             if (!validation.valid) {
-                const result = {
-                    success: false,
-                    message: `Configuration invalid: ${validation.errors.join(', ')}`
-                };
-                return result;
+                this._log('error', 'Connection test failed, invalid configuration');
+                return false;
             }
-
-            // Import Azure SDK
-            const { BlobServiceClient } = require('@azure/storage-blob');
 
             // Create blob service client
             const blobServiceClient = BlobServiceClient.fromConnectionString(this.settings.connectionString);
@@ -100,152 +94,73 @@ class AzureService extends StorageServiceBase {
             const containerExists = await containerClient.exists();
             
             if (!containerExists) {
-                const result = {
-                    success: false,
-                    message: `Container '${this.settings.containerName}' does not exist or is not accessible`,
-                    details: {
-                        accountName: this.connectionParams.accountName,
-                        containerName: this.settings.containerName
-                    }
-                };
-                return result;
-            }
-
-            const result = {
-                success: true,
-                message: 'Azure Blob Storage connection successful',
-                details: {
-                    accountName: this.connectionParams.accountName,
-                    containerName: this.settings.containerName,
-                    accountKind: accountInfo.accountKind,
-                    skuName: accountInfo.skuName
-                }
-            };
-            
-            this._log('info', 'Azure Blob Storage connection test completed');
-            return result;
-
-        } catch (error) {
-            const result = {
-                success: false,
-                message: `Azure Blob Storage connection failed: ${error.message}`,
-                details: { error: error.message }
-            };
-            
-            this._log('error', 'Azure Blob Storage connection test failed', { error: error.message });
-            return result;
-        }
-    }
-
-    /**
-     * Check if a blob exists in Azure and is a duplicate
-     * @param {string} remoteName - The remote blob name
-     * @param {number} expectedSize - Expected file size for duplicate comparison
-     * @returns {Promise<boolean>} True if blob exists and is a duplicate
-     */
-    async checkIfDuplicate(remoteName, expectedSize) {
-        try {
-            // Import Azure SDK
-            const { BlobServiceClient } = require('@azure/storage-blob');
-
-            // Create blob service client
-            const blobServiceClient = BlobServiceClient.fromConnectionString(this.settings.connectionString);
-            
-            // Get container client
-            const containerClient = blobServiceClient.getContainerClient(this.settings.containerName);
-            
-            // Get block blob client
-            const blockBlobClient = containerClient.getBlockBlobClient(remoteName);
-
-            // Check if blob exists
-            const exists = await blockBlobClient.exists();
-            if (!exists) {
+                this._log('error', `Container '${this.settings.containerName}' does not exist or is not accessible`);
                 return false;
             }
 
-            // Get blob properties to check size
+            this._log('info', 'Azure Blob Storage connection test completed');
+            return true;
+
+        } catch (error) {
+            
+            this._log('error', 'Azure Blob Storage connection test failed', { error: error.message });
+            return false;
+
+        }
+    }
+    
+    async checkIfDuplicate(remoteName, expectedSize) {
+        try {
+
+            const blobServiceClient = BlobServiceClient.fromConnectionString(this.settings.connectionString);
+            const containerClient = blobServiceClient.getContainerClient(this.settings.containerName);
+            const blockBlobClient = containerClient.getBlockBlobClient(remoteName);
+
+            const exists = await blockBlobClient.exists();
+            if (!exists) {
+                return {
+                    exists: false,
+                    isDuplicate: false
+                };
+            }
+
             const properties = await blockBlobClient.getProperties();
             
-            // Check if file sizes match (basic duplicate detection)
             if (properties.contentLength === expectedSize) {
                 this._log('info', 'Duplicate blob detected in Azure', { 
                     remoteName, 
                     expectedSize, 
                     actualSize: properties.contentLength 
                 });
-                return true;
+
+                return {
+                    exists: true,
+                    isDuplicate: true
+                };
             }
             
-            return false;
+            return {
+                exists: true,
+                isDuplicate: false
+            };
+
         } catch (error) {
             // Any errors (permissions, network, etc.) - assume not duplicate to be safe
             this._log('warn', 'Error checking Azure duplicate', { error: error.message, remoteName });
-            return false;
+            return {
+                exists: false,
+                isDuplicate: false
+            };
         }
-    }
-
-    /**
-     * Generate a unique filename if the original already exists
-     * @param {string} originalRemoteName - Original remote blob name
-     * @param {number} fileSize - File size for duplicate comparison
-     * @returns {Promise<string>} Unique remote name
-     */
-    async generateUniqueRemoteName(originalRemoteName, fileSize) {
-        // Parse the original name to extract base name and extension
-        const lastDotIndex = originalRemoteName.lastIndexOf('.');
-        let baseName, extension;
-        
-        if (lastDotIndex === -1) {
-            // No extension
-            baseName = originalRemoteName;
-            extension = '';
-        } else {
-            baseName = originalRemoteName.substring(0, lastDotIndex);
-            extension = originalRemoteName.substring(lastDotIndex);
-        }
-        
-        // Check if original name is available
-        const originalExists = await this.checkIfDuplicate(originalRemoteName, fileSize);
-        if (!originalExists) {
-            return originalRemoteName;
-        }
-        
-        // Find a unique name with counter
-        let counter = 1;
-        let uniqueName;
-        
-        do {
-            uniqueName = `${baseName} (${counter})${extension}`;
-            const exists = await this.checkIfDuplicate(uniqueName, fileSize);
-            if (!exists) {
-                break;
-            }
-            counter++;
-        } while (counter < 1000); // Safety limit to prevent infinite loop
-        
-        if (counter >= 1000) {
-            // Fallback: use timestamp
-            const timestamp = Date.now();
-            uniqueName = `${baseName}_${timestamp}${extension}`;
-        }
-        
-        this._log('info', 'Generated unique filename for Azure upload', { 
-            original: originalRemoteName, 
-            unique: uniqueName 
-        });
-        
-        return uniqueName;
     }
 
     async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         this._log('info', 'Starting Azure Blob Storage upload', { remoteName, mimeType });
         
-        // Generate upload ID early so it's available in error handling
-        const uploadId = this._generateUploadId();
-        
         try {
+        
             // Validate configuration
-            if (!this.validateConfiguration()) {
+            if (!this.validateConfiguration().valid) {
                 throw new Error('Service not properly configured');
             }
 
@@ -255,142 +170,63 @@ class AzureService extends StorageServiceBase {
                 throw new Error(`File not found or not accessible: ${filePath}`);
             }
 
-            const skipDuplicates = options.skipDuplicates !== undefined ? options.skipDuplicates : true;
-            let finalRemoteName = remoteName;
-            
-            if (skipDuplicates) {
-                // Original behavior: check for duplicates and skip if found
-                this._updateProgress(uploadId, 5, 'Checking for duplicates...');
-                const isDuplicate = await this.checkIfDuplicate(remoteName, fileInfo.size);
-                if (isDuplicate) {
-                    this._log('info', 'Skipping duplicate file upload to Azure', { remoteName, size: fileInfo.size });
-                    
-                    // Update upload status to skipped
-                    this.activeUploads.set(uploadId, {
-                        status: 'skipped',
-                        progress: 100,
-                        startTime: Date.now(),
-                        endTime: Date.now()
-                    });
+            this._emitProgress(0, fileInfo.size);
 
+            let finalRemoteName = remoteName;
+            if (options.skipDuplicates) {
+                const dupeCheck = await this.checkIfDuplicate(remoteName, fileInfo.size);
+                if ( dupeCheck.isDuplicate ) {
+                    this._log('info', 'Skipping duplicate file upload to Azure', { remoteName, size: fileInfo.size });
                     return {
                         success: true,
-                        skipped: true,
-                        message: 'File skipped - duplicate already exists in Azure Blob Storage',
-                        details: {
-                            uploadId,
-                            remoteName,
-                            reason: 'duplicate'
-                        }
-                    };
+                        url: `${this.getEndpointUrl()}/${remoteName}`,
+                        skipped: true
+                    }
                 }
             } else {
-                // New behavior: generate unique filename if original exists
-                this._updateProgress(uploadId, 5, 'Checking for unique filename...');
-                finalRemoteName = await this.generateUniqueRemoteName(remoteName, fileInfo.size);
-                
-                if (finalRemoteName !== remoteName) {
-                    this._log('info', 'Using unique filename for Azure upload', { 
-                        original: remoteName, 
-                        unique: finalRemoteName 
-                    });
-                }
+
+                finalRemoteName = await this.generateUniqueRemoteName(remoteName);
+
             }
 
             // Read file content
+            this._emitProgress(1, fileInfo.size);
             const fileContent = await this._readFile(filePath);
-            
-            // Track upload
-            this.activeUploads.set(uploadId, {
-                status: 'uploading',
-                progress: 0,
-                startTime: Date.now()
-            });
 
-            this._updateProgress(uploadId, 10, 'Initializing Azure upload...');
-
-            // Import Azure SDK
-            const { BlobServiceClient } = require('@azure/storage-blob');
-
-            // Create blob service client
             const blobServiceClient = BlobServiceClient.fromConnectionString(this.settings.connectionString);
-            
-            // Get container client
             const containerClient = blobServiceClient.getContainerClient(this.settings.containerName);
-            
-            this._updateProgress(uploadId, 20, 'Uploading to Azure...');
-
-            // Get block blob client with final remote name
             const blockBlobClient = containerClient.getBlockBlobClient(finalRemoteName);
 
-            // Set blob HTTP headers
+
+            // Upload the file
             const blobHTTPHeaders = {
                 blobContentType: mimeType
             };
 
-            // Add metadata if provided
             const metadata = options.metadata || {};
 
-            // Upload the file
             const uploadResponse = await blockBlobClient.upload(fileContent, fileContent.length, {
                 blobHTTPHeaders,
                 metadata
             });
 
-            this._updateProgress(uploadId, 90, 'Upload completed');
+            this._log('info', 'Azure Blob Storage upload completed', uploadResponse);
+            this._emitProgress(fileInfo.size, fileInfo.size);
 
-            // Construct the blob URL with final remote name
             const blobUrl = blockBlobClient.url;
-            
-            // Update upload status
-            this.activeUploads.set(uploadId, {
-                status: 'completed',
-                progress: 100,
-                startTime: this.activeUploads.get(uploadId).startTime,
-                endTime: Date.now()
-            });
-
-            const uploadResult = {
+            return {
                 success: true,
-                url: blobUrl,
-                message: 'File uploaded successfully to Azure Blob Storage',
-                details: {
-                    uploadId,
-                    size: fileInfo.size,
-                    remoteName: finalRemoteName, // Use final name in response
-                    originalRemoteName: remoteName, // Include original name for reference
-                    mimeType,
-                    accountName: this.connectionParams.accountName,
-                    containerName: this.settings.containerName,
-                    etag: uploadResponse.etag,
-                    requestId: uploadResponse.requestId,
-                    wasRenamed: finalRemoteName !== remoteName
-                }
+                url: blobUrl
             };
-
-            this._log('info', 'Azure Blob Storage upload completed', uploadResult.details);
-            return uploadResult;
 
         } catch (error) {
-            // Update upload status to failed
-            if (this.activeUploads.has(uploadId)) {
-                this.activeUploads.set(uploadId, {
-                    ...this.activeUploads.get(uploadId),
-                    status: 'failed',
-                    progress: 0,
-                    endTime: Date.now(),
-                    error: error.message
-                });
-            }
 
-            const uploadResult = {
+            this._log('error', 'Azure Blob Storage upload failed', error);
+
+            return {
                 success: false,
-                message: `Azure Blob Storage upload failed: ${error.message}`,
-                details: { error: error.message, filePath, remoteName }
+                message: `Azure Blob Storage upload failed: ${error.message}`
             };
-
-            this._log('error', 'Azure Blob Storage upload failed', uploadResult.details);
-            return uploadResult;
         }
     }
 
