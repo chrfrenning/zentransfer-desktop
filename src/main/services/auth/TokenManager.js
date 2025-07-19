@@ -270,8 +270,8 @@ class TokenManager {
         try {
             const token = this.configManager.get('authToken');
             if (token) {
-                logger.info('MainTokenManager: Retrieved token from config:', 'present');
-                logger.info('MainTokenManager: Token preview:', token ? `${token.substring(0, 20)}...` : 'null');
+                //logger.info('MainTokenManager: Retrieved token from config:', 'present');
+                //logger.info('MainTokenManager: Token preview:', token ? `${token.substring(0, 20)}...` : 'null');
                 return token;
             } else {
                 logger.info('MainTokenManager: Retrieved token from config:', 'null');

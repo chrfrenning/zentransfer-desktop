@@ -65,7 +65,7 @@ function startCommandLineInterface(hiddenWindow) {
     }, 1000);
 
     // start downloads
-    console.log(process.argv);
+    //console.log(process.argv);
     if (false && checkCommandLineArgument('download')) {
         const downloadPath = app.configurationManager.get('downloadSettings.downloadPath');
         console.log(`Downloading files to ${downloadPath}`);

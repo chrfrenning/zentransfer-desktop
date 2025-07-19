@@ -284,7 +284,7 @@ class UploadWorkerPool {
     // Prepare the current configuration
     const configuration = app.configurationManager.exportConfig();
     configuration.uploadSession = app.uploadSession.session;
-    console.log("Exported configuration:", configuration);
+    //console.log("Exported configuration:", configuration);
     
     // Mark worker as busy
     workerInfo.currentJob = file;

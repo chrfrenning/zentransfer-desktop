@@ -8,308 +8,243 @@ const { UploadServiceBase } = require('./UploadServiceBase.js');
 const { ThumbnailService } = require('../../services/ThumbnailService.js');
 const { MetadataService } = require('../../services/MetadataService.js');
 
+const tmp = require('tmp');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
 const MAX_UNIQUE_FILENAME_GENERATIONS = 100;
+
+
 
 class StorageServiceBase extends UploadServiceBase {
     constructor(settings = {}) {
         super(settings);
-        this.thumbnailService = new ThumbnailService();
+    }
+
+    async initialize(options) {
+        if ( options.createPreviews ) {
+            this.thumbnailService = new ThumbnailService();
+        }
+
         this.metadataService = new MetadataService();
     }
-
-    /**
-     * Override the main uploadFile method to add thumbnail/preview functionality
-     * Maintains exact same interface as original
-     * @param {string} filePath - Local file path
-     * @param {string} remoteName - Remote file name/path
-     * @param {string} mimeType - MIME type of the file
-     * @param {Object} options - Additional upload options
-     * @returns {Promise<Object>} Upload result with { success: boolean, url?: string, message: string, details?: any }
-     */
-    async uploadFile(filePath, remoteName, mimeType, options = {}) {
-        // Get preferences from options or load defaults
-        const preferences = await this.getUploadPreferences(options);
-        
-        console.log('Enhanced upload preferences:', preferences);
-        
-        // If no enhancements enabled, use original implementation
-        if (!preferences.createPreviews) {
-            return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
-        }
-
-        // Enhanced upload flow
-        try {
-            // 1. Always upload original file first
-            const originalResult = await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
-            
-            if (!originalResult.success) {
-                // If original upload fails, return immediately
-                return originalResult;
-            }
-
-            // 2. Process thumbnails and metadata in the background (don't block on failures)
-            const backgroundTasks = [];
-            
-            if (preferences.createPreviews && this.shouldCreateThumbnails(filePath, mimeType)) {
-                const thumbnailTask = this.processThumbnailUploads(filePath, remoteName, options, preferences)
-                    .catch(error => {
-                        console.warn('Thumbnail upload failed:', error);
-                        return { success: false, error: error.message };
-                    });
-                backgroundTasks.push(thumbnailTask);
-            }
-
-            if (preferences.extractMetadata && this.shouldExtractMetadata(filePath, mimeType)) {
-                const metadataTask = this.processMetadataUpload(filePath, remoteName, options, preferences)
-                    .catch(error => {
-                        console.warn('Metadata upload failed:', error);
-                        return { success: false, error: error.message };
-                    });
-                backgroundTasks.push(metadataTask);
-            }
-
-            // Wait for background tasks but don't fail if they fail
-            const backgroundResults = await Promise.allSettled(backgroundTasks);
-            
-            // Log any background failures but don't affect main result
-            backgroundResults.forEach((result, index) => {
-                if (result.status === 'rejected') {
-                    console.warn(`Background upload task ${index} failed:`, result.reason);
-                } else if (result.value && !result.value.success) {
-                    console.warn(`Background upload task ${index} failed:`, result.value.error);
-                }
-            });
-
-            // Count successful background tasks
-            let thumbnailsGenerated = false;
-            let metadataExtracted = false;
-            let taskIndex = 0;
-            
-            if (preferences.createPreviews && this.shouldCreateThumbnails(filePath, mimeType)) {
-                thumbnailsGenerated = backgroundResults[taskIndex]?.status === 'fulfilled' && backgroundResults[taskIndex]?.value?.success;
-                taskIndex++;
-            }
-            
-            if (preferences.extractMetadata && this.shouldExtractMetadata(filePath, mimeType)) {
-                metadataExtracted = backgroundResults[taskIndex]?.status === 'fulfilled' && backgroundResults[taskIndex]?.value?.success;
-                taskIndex++;
-            }
-
-            // Return original upload result (maintaining compatibility)
-            // Optionally add metadata about additional uploads in details
-            const enhancedResult = {
-                ...originalResult,
-                details: {
-                    ...originalResult.details,
-                    enhancedUpload: {
-                        thumbnailsGenerated,
-                        metadataExtracted,
-                        additionalFiles: this.getAdditionalFilesList(remoteName, preferences)
-                    }
-                }
-            };
-
-            return enhancedResult;
-
-        } catch (error) {
-            // If enhancement fails, try original upload as fallback
-            console.warn('Enhanced upload failed, falling back to original:', error);
-            return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
-        }
-    }
-
-    /**
-     * Abstract method that child classes must implement
-     * This is the original uploadFile logic
-     * @param {string} filePath - Local file path
-     * @param {string} remoteName - Remote file name/path
-     * @param {string} mimeType - MIME type of the file
-     * @param {Object} options - Additional upload options
-     * @returns {Promise<Object>} Upload result
-     */
-    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
-        throw new Error('uploadOriginalFile() must be implemented by subclass');
-    }
-
-    /**
-     * Get upload preferences from options or defaults
-     * @param {Object} options - Upload options
-     * @returns {Promise<Object>} Preferences object
-     */
+    
     async getUploadPreferences(options) {
         // Check if preferences are passed in options first
-        if (options.metadataOptions) {
-            return options.metadataOptions;
+        if (options.processingOptions) {
+            return options.processingOptions;
         }
 
         // Otherwise use defaults
         return {
             createPreviews: false,
-            extractMetadata: false,
-            thumbnailSize: 400,
-            thumbnailQuality: 90,
-            previewSize: 1920,
-            previewQuality: 90
+            extractMetadata: false
         };
     }
+    
+    async uploadFile(filePath, remoteName, mimeType, options = {}) {
 
-    /**
-     * Check if thumbnails should be created for this file
-     * @param {string} filePath - File path
-     * @param {string} mimeType - MIME type
-     * @returns {boolean} True if thumbnails should be created
-     */
-    shouldCreateThumbnails(filePath, mimeType) {
-        return this.thumbnailService.isSupported(filePath, mimeType);
-    }
+        // Get preferences from options or load defaults
+        const preferences = await this.getUploadPreferences(options);
+        console.log('Processing preferences:', preferences);
 
-    /**
-     * Check if metadata should be extracted for this file
-     * @param {string} filePath - File path
-     * @param {string} mimeType - MIME type
-     * @returns {boolean} True if metadata should be extracted
-     */
-    shouldExtractMetadata(filePath, mimeType) {
-        return this.metadataService.isSupported(filePath, mimeType);
-    }
+        if (!preferences.createPreviews && !preferences.extractMetadata) {
+            return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
+        }
 
-    /**
-     * Process and upload thumbnails/previews
-     * @param {string} filePath - Original file path
-     * @param {string} remoteName - Remote name of original file
-     * @param {Object} options - Upload options
-     * @param {Object} preferences - Upload preferences
-     * @returns {Promise<Object>} Upload results
-     */
-    async processThumbnailUploads(filePath, remoteName, options, preferences) {
+        console.log('Going into file processing for metadata and previews');
+        this.initialize(preferences);
+
+        // Enhanced upload flow
         try {
-            console.log(`Generating thumbnails for ${filePath}`);
+            const additionalFiles = {};
+
+
+            /*
+             *  0. Check if the file is a duplicate
+             *
+             *  We must know the remote name to coordinate across upload of md, th, pv
+             *
+            */
+
+            remoteName = await this.generateUniqueRemoteName(remoteName);
+
+
+            /* 
+             * 1. Always upload original file first async (at least start it)
+             *
+            */
+
+            console.log('Starting upload of original file...');
+            const originalResultPromise = this.uploadOriginalFile(filePath, remoteName, mimeType, options);
+
+
+
+            /* 
+             * 2. Extract and upload metadata if enabled
+             *
+            */
+
+            let metadataResult = null;
+            if ( preferences.extractMetadata || preferences.createPreviews ) {
+                metadataResult = await this.metadataService.extractMetadata(filePath);
+            }
+
+            if ( metadataResult && metadataResult.success  ) {
+                const metadataUpload = await this.processMetadataUpload(remoteName, metadataResult.metadata);
+                if ( metadataUpload.success ) {
+                    additionalFiles.metadata = metadataUpload.url;
+                }
+            }
             
-            // Generate both thumbnail and preview
-            const results = await this.thumbnailService.generateBoth(filePath, {
-                thumbnailSize: preferences.thumbnailSize,
-                thumbnailQuality: preferences.thumbnailQuality,
-                previewSize: preferences.previewSize,
-                previewQuality: preferences.previewQuality,
-                originalFilename: remoteName
-            });
+            let extractedPreviews = null;
+            if ( metadataResult && metadataResult.success ) {
+                extractedPreviews = await this.metadataService.extractThumbnailAndPreview(filePath);
+            }
 
-            const uploadResults = [];
 
-            // Upload thumbnail if generated successfully
-            if (results.thumbnail.success) {
-                try {
-                    const thumbnailResult = await this.uploadThumbnailBuffer(
-                        results.thumbnail.buffer,
-                        results.thumbnail.filename,
-                        results.thumbnail.mimeType,
-                        options
-                    );
-                    uploadResults.push({
-                        type: 'thumbnail',
-                        filename: results.thumbnail.filename,
-                        ...thumbnailResult
+
+            /* 
+             * 3. Create thumbnail and preview from the original file
+             *
+            */
+            
+            if ( preferences.createPreviews ) {
+
+
+                // Preview
+
+                const previewRemoteName = this.thumbnailService.generatePreviewFilename(remoteName);
+                
+                const previewResult = await this.thumbnailService.generatePreview(filePath, {
+                    size: preferences.previewSize,
+                    quality: preferences.previewQuality
+                });
+                
+                
+                if ( previewResult.success ) { 
+                    const previewUpload = await this.uploadFromBuffer(previewResult.buffer, previewRemoteName, 'image/webp', {
+                        skipDuplicates: false
                     });
-                    console.log(`Thumbnail uploaded successfully: ${results.thumbnail.filename}`);
-                } catch (error) {
-                    console.error('Failed to upload thumbnail:', error);
-                    uploadResults.push({
-                        type: 'thumbnail',
-                        filename: results.thumbnail.filename,
-                        success: false,
-                        error: error.message
+
+                    if ( previewUpload.success ) {
+                        additionalFiles.preview = previewUpload.url;
+                    }
+                } else if ( extractedPreviews && extractedPreviews.preview ) {
+
+                    const previewUpload = await this.uploadOriginalFile(extractedPreviews.preview, previewRemoteName, 'image/webp', {
+                        skipDuplicates: false
                     });
+
+                    if ( previewUpload.success ) {
+                        additionalFiles.preview = previewUpload.url;
+                    }
+                }
+
+
+                // Thumbnail
+
+                const thumbnailRemoteName = this.thumbnailService.generateThumbnailFilename(remoteName);
+
+                const thumbnailResult = await this.thumbnailService.generatePreview(filePath, {
+                    size: preferences.thumbnailSize,
+                    quality: preferences.thumbnailQuality
+                });
+
+                if ( thumbnailResult.success ) {
+
+                    const thumbnailUpload = await this.uploadFromBuffer(thumbnailResult.buffer, thumbnailRemoteName, 'image/webp', {
+                        skipDuplicates: false
+                    });
+
+                    if ( thumbnailUpload.success ) {
+                        additionalFiles.thumbnail = thumbnailUpload.url;
+                    }
+                } else if ( extractedPreviews && extractedPreviews.thumbnail ) {
+
+                    const thumbnailUpload = await this.uploadOriginalFile(extractedPreviews.thumbnail, thumbnailRemoteName, 'image/webp', {
+                        skipDuplicates: false
+                    });
+
+                    if ( thumbnailUpload.success ) {
+                        additionalFiles.thumbnail = thumbnailUpload.url;
+                    }
+                } else if ( extractedPreviews && extractedPreviews.preview ) {
+
+                    const thumbnailResult = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
+                        size: preferences.thumbnailSize,
+                        quality: preferences.thumbnailQuality
+                    });
+
+                    const thumbnailUpload = await this.uploadFromBuffer(thumbnailResult.buffer, thumbnailRemoteName, 'image/webp', {
+                        skipDuplicates: false
+                    });
+
+                    if ( thumbnailUpload.success ) {
+                        additionalFiles.thumbnail = thumbnailUpload.url;
+                    }
                 }
             }
 
-            // Upload preview if generated successfully
-            if (results.preview.success) {
-                try {
-                    const previewResult = await this.uploadThumbnailBuffer(
-                        results.preview.buffer,
-                        results.preview.filename,
-                        results.preview.mimeType,
-                        options
-                    );
-                    uploadResults.push({
-                        type: 'preview',
-                        filename: results.preview.filename,
-                        ...previewResult
-                    });
-                    console.log(`Preview uploaded successfully: ${results.preview.filename}`);
-                } catch (error) {
-                    console.error('Failed to upload preview:', error);
-                    uploadResults.push({
-                        type: 'preview',
-                        filename: results.preview.filename,
-                        success: false,
-                        error: error.message
-                    });
-                }
+
+            /* 
+             * 4. Wait for the upload to complete, and mesh everything together
+             *
+            */
+
+            // Wait for the original upload to complete
+            const originalResult = await originalResultPromise;
+            if ( !originalResult.success ) {
+                return originalResult;
             }
 
-            return {
+            // Return original upload result (maintaining compatibility)
+            // Optionally add metadata about additional uploads in details
+            const result = {
                 success: true,
-                uploads: uploadResults,
-                thumbnailGenerated: results.thumbnail.success,
-                previewGenerated: results.preview.success
+                url: originalResult.url
             };
+
+            if ( additionalFiles.metadata ) result.metadataUrl = additionalFiles.metadata;
+            if ( additionalFiles.thumbnail ) result.thumbnailUrl = additionalFiles.thumbnail;
+            if ( additionalFiles.preview ) result.previewUrl = additionalFiles.preview;
+
+            return result;
 
         } catch (error) {
-            console.error('Failed to process thumbnails:', error);
-            return {
-                success: false,
-                error: error.message,
-                uploads: []
-            };
+
+            // If enhancement fails, try original upload as fallback
+            console.warn('Enhanced upload failed, falling back to original:', error);
+            return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
+
         }
     }
-
-    /**
-     * Process and upload metadata
-     * @param {string} filePath - Original file path
-     * @param {string} remoteName - Remote name of original file
-     * @param {Object} options - Upload options
-     * @param {Object} preferences - Upload preferences
-     * @returns {Promise<Object>} Upload result
-     */
-    async processMetadataUpload(filePath, remoteName, options, preferences) {
+    
+    async processMetadataUpload(remoteFilePath, metadata) {
         try {
-            console.log(`Extracting metadata for ${filePath}`);
-            
-            // Extract metadata
-            const result = await this.metadataService.extractMetadata(filePath, {
-                originalFilename: remoteName
-            });
-            
-            if (!result.success) {
-                console.error('Metadata extraction failed:', result.error);
-                return {
-                    success: false,
-                    error: result.error
-                };
-            }
-            
-            console.log(`Metadata extracted successfully, uploading: ${result.filename}`);
+
+            const remoteMetaDataPath = this.metadataService.generateMetadataFilename(remoteFilePath);
             
             // Upload metadata JSON
-            const uploadResult = await this.uploadMetadataBuffer(
-                Buffer.from(result.jsonString, 'utf8'),
-                result.filename,
+            const uploadResult = await this.uploadFromBuffer(
+                Buffer.from(JSON.stringify(metadata), 'utf8'),
+                remoteMetaDataPath,
                 'application/json',
-                options
+                {
+                    skipDuplicates: false
+                }
             );
             
             if (uploadResult.success) {
-                console.log(`Metadata uploaded successfully: ${result.filename}`);
+                console.log(`Metadata uploaded successfully for: ${remoteFilePath}`);
             } else {
-                console.error('Failed to upload metadata:', uploadResult.message);
+                console.error('Failed to upload metadata for', remoteFilePath, uploadResult.message);
             }
             
             return {
                 success: uploadResult.success,
-                filename: result.filename,
-                uploadResult: uploadResult
+                url: uploadResult.url
             };
             
         } catch (error) {
@@ -320,71 +255,17 @@ class StorageServiceBase extends UploadServiceBase {
             };
         }
     }
+    
+    async uploadFromBuffer(buffer, remoteFilePath, mimeType, options) {
+        const tempFile = tmp.fileSync({ prefix: 'ztmp-' });
 
-    /**
-     * Upload a thumbnail/preview buffer
-     * Uses a temporary file approach to work with existing upload infrastructure
-     * @param {Buffer} buffer - Image buffer
-     * @param {string} filename - Target filename
-     * @param {string} mimeType - MIME type
-     * @param {Object} options - Upload options
-     * @returns {Promise<Object>} Upload result
-     */
-    async uploadThumbnailBuffer(buffer, filename, mimeType, options) {
-        const fs = require('fs').promises;
-        const path = require('path');
-        const os = require('os');
-        
-        // Create temporary file
-        const tempDir = os.tmpdir();
-        const tempFile = path.join(tempDir, `thumb_${Date.now()}_${filename}`);
-        
         try {
+
             // Write buffer to temporary file
-            await fs.writeFile(tempFile, buffer);
+            fs.writeFileSync(tempFile.name, buffer);
             
             // Upload using the original upload method
-            const result = await this.uploadOriginalFile(tempFile, filename, mimeType, {
-                ...options,
-                skipDuplicates: false // Don't skip duplicates for thumbnails
-            });
-            
-            return result;
-            
-        } finally {
-            // Clean up temporary file
-            try {
-                await fs.unlink(tempFile);
-            } catch (cleanupError) {
-                console.warn('Failed to cleanup temporary file:', cleanupError);
-            }
-        }
-    }
-
-    /**
-     * Upload a metadata JSON buffer
-     * Uses a temporary file approach to work with existing upload infrastructure
-     * @param {Buffer} buffer - JSON buffer
-     * @param {string} filename - Target filename
-     * @param {string} mimeType - MIME type
-     * @param {Object} options - Upload options
-     * @returns {Promise<Object>} Upload result
-     */
-    async uploadMetadataBuffer(buffer, filename, mimeType, options) {
-        const fs = require('fs').promises;
-        const path = require('path');
-        const os = require('os');
-        
-        // Create temporary file
-        const tempDir = os.tmpdir();
-        const tempFile = path.join(tempDir, `metadata_${Date.now()}_${filename}`);
-        
-        try {
-            // Write buffer to temporary file
-            await fs.writeFile(tempFile, buffer);
-            
-            // Upload using the original upload method
-            const result = await this.uploadOriginalFile(tempFile, filename, mimeType, {
+            const result = await this.uploadOriginalFile(tempFile.name, remoteFilePath, mimeType, {
                 ...options,
                 skipDuplicates: false // Don't skip duplicates for metadata
             });
@@ -392,38 +273,17 @@ class StorageServiceBase extends UploadServiceBase {
             return result;
             
         } finally {
+
             // Clean up temporary file
             try {
-                await fs.unlink(tempFile);
+
+                fs.unlinkSync(tempFile.name);
+
             } catch (cleanupError) {
                 console.warn('Failed to cleanup temporary metadata file:', cleanupError);
             }
-        }
-    }
 
-    /**
-     * Get list of additional files that will be uploaded
-     * @param {string} remoteName - Original remote name
-     * @param {Object} preferences - Upload preferences
-     * @returns {Array<string>} List of additional filenames
-     */
-    getAdditionalFilesList(remoteName, preferences) {
-        const additionalFiles = [];
-        
-        if (preferences.createPreviews) {
-            additionalFiles.push(
-                this.thumbnailService.generateThumbnailFilename(remoteName),
-                this.thumbnailService.generatePreviewFilename(remoteName)
-            );
         }
-        
-        if (preferences.extractMetadata) {
-            additionalFiles.push(
-                this.metadataService.generateMetadataFilename(remoteName)
-            );
-        }
-        
-        return additionalFiles;
     }
 
     async checkIfDuplicate(remoteName, expectedSize) {
@@ -464,6 +324,19 @@ class StorageServiceBase extends UploadServiceBase {
         }
         
         return uniqueName;
+    }
+
+    /**
+     * Abstract method that child classes must implement
+     * This is the original uploadFile logic
+     * @param {string} filePath - Local file path
+     * @param {string} remoteName - Remote file name/path
+     * @param {string} mimeType - MIME type of the file
+     * @param {Object} options - Additional upload options
+     * @returns {Promise<Object>} Upload result
+     */
+    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
+        throw new Error('uploadOriginalFile() must be implemented by subclass');
     }
 }
 

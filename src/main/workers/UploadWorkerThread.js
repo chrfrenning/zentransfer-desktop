@@ -143,6 +143,10 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
         appName: globals.appName,
         appVersion: globals.appVersion
       },
+      processingOptions: {
+        createPreviews: true,
+        extractMetadata: true
+      },
       configurationData,
       globals,
       session : uploadSession
