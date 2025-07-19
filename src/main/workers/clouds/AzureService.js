@@ -5,6 +5,10 @@
 
 const { StorageServiceBase } = require('./StorageServiceBase.js');
 const { BlobServiceClient } = require('@azure/storage-blob');
+const fs = require('fs');
+
+const AZURE_UPLOAD_BUFFER_SIZE = 4 * 1024 * 1024;
+const MAX_AZURE_CONCURRENCY = 5;
 
 class AzureService extends StorageServiceBase {
     constructor(settings = {}) {
@@ -191,7 +195,7 @@ class AzureService extends StorageServiceBase {
 
             // Read file content
             this._emitProgress(1, fileInfo.size);
-            const fileContent = await this._readFile(filePath);
+            const readStream = fs.createReadStream(filePath);
 
             const blobServiceClient = BlobServiceClient.fromConnectionString(this.settings.connectionString);
             const containerClient = blobServiceClient.getContainerClient(this.settings.containerName);
@@ -205,10 +209,18 @@ class AzureService extends StorageServiceBase {
 
             const metadata = options.metadata || {};
 
-            const uploadResponse = await blockBlobClient.upload(fileContent, fileContent.length, {
-                blobHTTPHeaders,
-                metadata
-            });
+            const uploadResponse = await blockBlobClient.uploadStream(
+                readStream,
+                AZURE_UPLOAD_BUFFER_SIZE,
+                MAX_AZURE_CONCURRENCY,
+                {
+                    blobHTTPHeaders,
+                    metadata,
+                    onProgress: (progress) => {
+                        this._emitProgress(progress.loadedBytes, fileInfo.size);
+                    }
+                }
+            );
 
             this._log('info', 'Azure Blob Storage upload completed', uploadResponse);
             this._emitProgress(fileInfo.size, fileInfo.size);
