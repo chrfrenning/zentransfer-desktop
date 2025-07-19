@@ -145,7 +145,11 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
       },
       processingOptions: {
         createPreviews: true,
-        extractMetadata: true
+        extractMetadata: true,
+        thumbnailSize: 400,
+        thumbnailQuality: 90,
+        previewSize: 1920,
+        previewQuality: 90
       },
       configurationData,
       globals,

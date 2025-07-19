@@ -23,21 +23,25 @@ class ZenTransferService extends UploadServiceBase {
             errors.push('Authentication token is required');
         }
         
-        if (!this.settings.serverBaseUrl) {
+        if (!this.settings.globals.serverBaseUrl) {
             errors.push('API base URL is required');
         }
 
         // ZenTransfer specific required settings
-        if (!this.settings.appName) {
+        if (!this.settings.globals.appName) {
             errors.push('App name is required');
         }
 
-        if (!this.settings.appVersion) {
+        if (!this.settings.globals.appVersion) {
             errors.push('App version is required');
         }
 
-        if (!this.settings.clientId) {
+        if (!this.settings.globals.clientId) {
             errors.push('Client ID is required');
+        }
+
+        if ( errors.length > 0 ) {
+            console.log('!!! ZenTransfer Config Errors:', errors);
         }
 
         return {
@@ -102,6 +106,9 @@ class ZenTransferService extends UploadServiceBase {
         
         // Generate upload ID early so it's available in error handling
         const uploadId = this._generateUploadId();
+
+        // Copy the last received settings
+        this.settings = options;
         
         try {
             // Validate configuration

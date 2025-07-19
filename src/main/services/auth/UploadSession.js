@@ -44,6 +44,7 @@ class UploadSession {
         this.session = {
             parentId: data.parent_id,
             uploadUrl: data.upload_url,
+            token: data.token,
             expiresAt: new Date(data.expires_at)
         };
 
