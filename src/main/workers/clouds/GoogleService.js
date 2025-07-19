@@ -4,16 +4,15 @@
  */
 
 const { StorageServiceBase } = require('./StorageServiceBase.js');
+const { Storage } = require('@google-cloud/storage');
 
 class GoogleService extends StorageServiceBase {
     constructor(settings = {}) {
         super(settings);
-        this.activeUploads = new Map();
-        this.serviceAccountData = null;
     }
 
     getServiceName() {
-        return 'GCP Cloud Storage';
+        return 'GCP Cloud Bucket';
     }
 
     validateConfiguration() {
@@ -97,11 +96,8 @@ class GoogleService extends StorageServiceBase {
         try {
             const validation = this.validateConfiguration();
             if (!validation.valid) {
-                const result = {
-                    success: false,
-                    message: `Configuration invalid: ${validation.errors.join(', ')}`
-                };
-                return result;
+                this._log('error', 'Connection test failed, invalid configuration');
+                return false;
             }
 
             // Ensure service account data is parsed
@@ -115,9 +111,6 @@ class GoogleService extends StorageServiceBase {
                 bucketName: this.settings.bucketName
             });
 
-            // Import Google Cloud Storage SDK
-            const { Storage } = require('@google-cloud/storage');
-
             // Create storage client with service account credentials
             const storage = new Storage({
                 credentials: this.serviceAccountData,
@@ -125,73 +118,45 @@ class GoogleService extends StorageServiceBase {
             });
 
             // Get bucket reference
-            console.log(this.settings.bucketName);
+            this._log('info', 'Getting bucket reference', { bucketName: this.settings.bucketName });
             const bucket = storage.bucket(this.settings.bucketName);
 
             // Test bucket access by listing objects (this verifies both connectivity and permissions)
             let objectCount = 0;
-            let hasListPermission = true;
             
             try {
                 const [files] = await bucket.getFiles({ maxResults: 10 }); // Limit to 10 files for testing
                 objectCount = files.length;
+
                 this._log('info', 'Successfully listed bucket objects', { 
                     objectCount,
                     sampleFiles: files.slice(0, 3).map(f => f.name)
                 });
+
             } catch (listError) {
                 // If we can't list objects, the bucket might not exist or we don't have permission
-                hasListPermission = false;
                 this._log('warn', 'Could not list bucket objects', { error: listError.message });
-                
-                // Return more specific error message
-                const result = {
-                    success: false,
-                    message: `Cannot access bucket '${this.settings.bucketName}': ${listError.message}`,
-                    details: {
-                        projectId: this.serviceAccountData.project_id,
-                        bucketName: this.settings.bucketName,
-                        serviceAccount: this.serviceAccountData.client_email,
-                        error: listError.message
-                    }
-                };
-                return result;
+                return false;
             }
 
             // Try to get bucket metadata for additional info (optional)
             let metadata = null;
             try {
+
                 [metadata] = await bucket.getMetadata();
+
             } catch (metadataError) {
                 this._log('warn', 'Could not get bucket metadata, but can list objects', { error: metadataError.message });
             }
 
-            const result = {
-                success: true,
-                message: `GCP Cloud Storage connection successful - found ${objectCount} objects in bucket`,
-                details: {
-                    projectId: this.serviceAccountData.project_id,
-                    bucketName: this.settings.bucketName,
-                    serviceAccount: this.serviceAccountData.client_email,
-                    location: metadata?.location || 'unknown',
-                    storageClass: metadata?.storageClass || 'unknown',
-                    objectCount: objectCount,
-                    hasListPermission: hasListPermission
-                }
-            };
-            
             this._log('info', 'GCP Cloud Storage connection test completed');
-            return result;
+            return true;
 
         } catch (error) {
-            const result = {
-                success: false,
-                message: `GCP Cloud Storage connection failed: ${error.message}`,
-                details: { error: error.message }
-            };
-            
+
             this._log('error', 'GCP Cloud Storage connection test failed', { error: error.message });
-            return result;
+            return false;
+
         }
     }
 
@@ -203,13 +168,6 @@ class GoogleService extends StorageServiceBase {
      */
     async checkIfDuplicate(remoteName, expectedSize) {
         try {
-            // Ensure service account data is parsed
-            if (!this.serviceAccountData) {
-                this.serviceAccountData = JSON.parse(this.settings.serviceAccountKey);
-            }
-
-            // Import Google Cloud Storage SDK
-            const { Storage } = require('@google-cloud/storage');
 
             // Create storage client with service account credentials
             const storage = new Storage({
@@ -237,79 +195,26 @@ class GoogleService extends StorageServiceBase {
                     expectedSize, 
                     actualSize: parseInt(metadata.size) 
                 });
+
                 return true;
             }
             
             return false;
         } catch (error) {
+
             // Any errors (permissions, network, etc.) - assume not duplicate to be safe
             this._log('warn', 'Error checking GCP duplicate', { error: error.message, remoteName });
             return false;
-        }
-    }
 
-    /**
-     * Generate a unique filename if the original already exists
-     * @param {string} originalRemoteName - Original remote file name
-     * @param {number} fileSize - File size for duplicate comparison
-     * @returns {Promise<string>} Unique remote name
-     */
-    async generateUniqueRemoteName(originalRemoteName, fileSize) {
-        // Parse the original name to extract base name and extension
-        const lastDotIndex = originalRemoteName.lastIndexOf('.');
-        let baseName, extension;
-        
-        if (lastDotIndex === -1) {
-            // No extension
-            baseName = originalRemoteName;
-            extension = '';
-        } else {
-            baseName = originalRemoteName.substring(0, lastDotIndex);
-            extension = originalRemoteName.substring(lastDotIndex);
         }
-        
-        // Check if original name is available
-        const originalExists = await this.checkIfDuplicate(originalRemoteName, fileSize);
-        if (!originalExists) {
-            return originalRemoteName;
-        }
-        
-        // Find a unique name with counter
-        let counter = 1;
-        let uniqueName;
-        
-        do {
-            uniqueName = `${baseName} (${counter})${extension}`;
-            const exists = await this.checkIfDuplicate(uniqueName, fileSize);
-            if (!exists) {
-                break;
-            }
-            counter++;
-        } while (counter < 1000); // Safety limit to prevent infinite loop
-        
-        if (counter >= 1000) {
-            // Fallback: use timestamp
-            const timestamp = Date.now();
-            uniqueName = `${baseName}_${timestamp}${extension}`;
-        }
-        
-        this._log('info', 'Generated unique filename for GCP upload', { 
-            original: originalRemoteName, 
-            unique: uniqueName 
-        });
-        
-        return uniqueName;
     }
 
     async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
         this._log('info', 'Starting GCP Cloud Storage upload', { remoteName, mimeType });
         
-        // Generate upload ID early so it's available in error handling
-        const uploadId = this._generateUploadId();
-        
         try {
             // Validate configuration
-            if (!this.validateConfiguration()) {
+            if (!this.validateConfiguration().valid) {
                 throw new Error('Service not properly configured');
             }
 
@@ -318,65 +223,28 @@ class GoogleService extends StorageServiceBase {
             if (!fileInfo.exists || !fileInfo.isFile) {
                 throw new Error(`File not found or not accessible: ${filePath}`);
             }
-
-            const skipDuplicates = options.skipDuplicates !== undefined ? options.skipDuplicates : true;
-            let finalRemoteName = remoteName;
+            this._emitProgress(0, fileInfo.size);
             
-            if (skipDuplicates) {
+            // Check for duplicates and possibly change filename
+            this._emitProgress(1, fileInfo.size);
+            let finalRemoteName = remoteName;
+            if (options.skipDuplicates) {
                 // Original behavior: check for duplicates and skip if found
-                this._updateProgress(uploadId, 5, 'Checking for duplicates...');
-                const isDuplicate = await this.checkIfDuplicate(remoteName, fileInfo.size);
-                if (isDuplicate) {
+                const dupeCheck = await this.checkIfDuplicate(remoteName, fileInfo.size);
+                if ( dupeCheck.isDuplicate ) {
                     this._log('info', 'Skipping duplicate file upload to GCP', { remoteName, size: fileInfo.size });
                     
-                    // Update upload status to skipped
-                    this.activeUploads.set(uploadId, {
-                        status: 'skipped',
-                        progress: 100,
-                        startTime: Date.now(),
-                        endTime: Date.now()
-                    });
-
                     return {
                         success: true,
-                        skipped: true,
-                        message: 'File skipped - duplicate already exists in GCP Cloud Storage',
-                        details: {
-                            uploadId,
-                            remoteName,
-                            reason: 'duplicate'
-                        }
+                        url: `${this.getEndpointUrl()}/${remoteName}`,
+                        skipped: true
                     };
                 }
             } else {
-                // New behavior: generate unique filename if original exists
-                this._updateProgress(uploadId, 5, 'Checking for unique filename...');
-                finalRemoteName = await this.generateUniqueRemoteName(remoteName, fileInfo.size);
                 
-                if (finalRemoteName !== remoteName) {
-                    this._log('info', 'Using unique filename for GCP upload', { 
-                        original: remoteName, 
-                        unique: finalRemoteName 
-                    });
-                }
+                finalRemoteName = await this.generateUniqueRemoteName(remoteName);
+
             }
-
-            // Track upload
-            this.activeUploads.set(uploadId, {
-                status: 'uploading',
-                progress: 0,
-                startTime: Date.now()
-            });
-
-            this._updateProgress(uploadId, 10, 'Initializing GCP upload...');
-
-            // Ensure service account data is parsed
-            if (!this.serviceAccountData) {
-                this.serviceAccountData = JSON.parse(this.settings.serviceAccountKey);
-            }
-
-            // Import Google Cloud Storage SDK
-            const { Storage } = require('@google-cloud/storage');
 
             // Create storage client with service account credentials
             const storage = new Storage({
@@ -388,12 +256,13 @@ class GoogleService extends StorageServiceBase {
             const bucket = storage.bucket(this.settings.bucketName);
             const file = bucket.file(finalRemoteName);
 
-            this._updateProgress(uploadId, 20, 'Uploading to GCP...');
 
             // Read file content
+            this._emitProgress(2, fileInfo.size);
             const fileContent = await this._readFile(filePath);
 
             // Set upload options
+            this._emitProgress(3, fileInfo.size);
             const uploadOptions = {
                 metadata: {
                     contentType: mimeType,
@@ -405,64 +274,24 @@ class GoogleService extends StorageServiceBase {
 
             // Upload the file
             await file.save(fileContent, uploadOptions);
-
-            this._updateProgress(uploadId, 90, 'Upload completed');
-
-            // Make the file publicly accessible if needed (optional)
-            // await file.makePublic();
+            this._emitProgress(fileInfo.size, fileInfo.size);
 
             // Construct the GCS URL with final remote name
             const gcsUrl = `https://storage.googleapis.com/${this.settings.bucketName}/${finalRemoteName}`;
-            
-            // Update upload status
-            this.activeUploads.set(uploadId, {
-                status: 'completed',
-                progress: 100,
-                startTime: this.activeUploads.get(uploadId).startTime,
-                endTime: Date.now()
-            });
 
-            const uploadResult = {
+            return {
                 success: true,
-                url: gcsUrl,
-                message: 'File uploaded successfully to GCP Cloud Storage',
-                details: {
-                    uploadId,
-                    size: fileInfo.size,
-                    remoteName: finalRemoteName, // Use final name in response
-                    originalRemoteName: remoteName, // Include original name for reference
-                    mimeType,
-                    bucketName: this.settings.bucketName,
-                    projectId: this.serviceAccountData.project_id,
-                    generation: file.metadata?.generation,
-                    etag: file.metadata?.etag,
-                    wasRenamed: finalRemoteName !== remoteName
-                }
+                url: gcsUrl
             };
-
-            this._log('info', 'GCP Cloud Storage upload completed', uploadResult.details);
-            return uploadResult;
 
         } catch (error) {
-            // Update upload status to failed
-            if (this.activeUploads.has(uploadId)) {
-                this.activeUploads.set(uploadId, {
-                    ...this.activeUploads.get(uploadId),
-                    status: 'failed',
-                    progress: 0,
-                    endTime: Date.now(),
-                    error: error.message
-                });
-            }
 
-            const uploadResult = {
+            this._log('error', 'GCP Cloud Storage upload failed', error);
+
+            return {
                 success: false,
-                message: `GCP Cloud Storage upload failed: ${error.message}`,
-                details: { error: error.message, filePath, remoteName }
+                message: `GCP Cloud Storage upload failed: ${error.message}`
             };
-
-            this._log('error', 'GCP Cloud Storage upload failed', uploadResult.details);
-            return uploadResult;
         }
     }
 
