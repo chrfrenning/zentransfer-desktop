@@ -10,6 +10,10 @@ const { UUIDGenerator } = require('../utils/UUIDGenerator.js');
  */
 class ConfigurationData {
     constructor() {
+        this.meta = {
+            version: '1'
+        };
+
         // User preferences
         this.preferences = {
             skipExisting: true,
@@ -86,9 +90,15 @@ class ConfigurationData {
         // Upload settings (for upload screen preferences)
         this.uploadSettings = {
             lastSelectedService: 'zentransfer', // Default to ZenTransfer
-            uploadBackoff: {
-                initialInterval: 1000,    // 1 second
+            fileBackoff: { // Backoff for individual files to avoid retrying same over and over again and blocking others
+                initialInterval: 5000,    // 5 seconds
                 maxInterval: 300000,      // 5 minutes
+                multiplier: 2.0,          // Double each time
+                resetOnSuccess: true
+            },
+            serviceBackoff: { // Backoff for services to avoid rate limiting or excessive errors when svc is down
+                initialInterval: 1000,    // 1 seconds
+                maxInterval: 1800000,     // 30 minutes
                 multiplier: 2.0,          // Double each time
                 resetOnSuccess: true
             },
@@ -155,6 +165,7 @@ class ConfigurationData {
         }
 
         return {
+            meta: this.meta,
             preferences: this.preferences,
             downloadSettings: this.downloadSettings,
             authToken: this.authToken,
@@ -177,53 +188,16 @@ class ConfigurationData {
      * @param {Object} config - Configuration object
      */
     fromConfig(config) {
+        this.meta = { ...this.meta, ...(config.meta || {}) };
         this.preferences = { ...this.preferences, ...(config.preferences || {}) };
-        
-        // Load download settings (with migration from old format)
-        if (config.downloadSettings) {
-            this.downloadSettings = { ...this.downloadSettings, ...config.downloadSettings };
-        } else {
-            // Migration: handle old format
-            this.downloadSettings.downloadPath = config.downloadPath || '';
-            this.downloadSettings.lastSyncTime = config.lastSyncTime || null;
-        }
+        this.downloadSettings = { ...this.downloadSettings, ...config.downloadSettings };
         
         this.authToken = config.authToken || '';
         this.email = config.email || '';
         this.deviceId = config.deviceId || this.deviceId || UUIDGenerator.generateGUID();
 
-        // Load import settings with migration support
-        let importSettings = { ...this.importSettings };
-        
-        // If importSettings exists in config, use it
-        if (config.importSettings) {
-            importSettings = { ...importSettings, ...config.importSettings };
-        }
-        
-        // Migration: Check for old root-level import settings and move them
-        if (config.importPath !== undefined) {
-            importSettings.importPath = config.importPath;
-            console.log('Migrating importPath from root level to importSettings');
-        }
-        if (config.importDestinationPath !== undefined) {
-            importSettings.importDestinationPath = config.importDestinationPath;
-            console.log('Migrating importDestinationPath from root level to importSettings');
-        }
-        if (config.importBackupPath !== undefined) {
-            importSettings.importBackupPath = config.importBackupPath;
-            console.log('Migrating importBackupPath from root level to importSettings');
-        }
-        if (config.importBackupEnabled !== undefined) {
-            importSettings.importBackupEnabled = config.importBackupEnabled;
-            console.log('Migrating importBackupEnabled from root level to importSettings');
-        }
-        
-        this.importSettings = importSettings;
-
-        // Load upload settings
-        if (config.uploadSettings) {
-            this.uploadSettings = { ...this.uploadSettings, ...config.uploadSettings };
-        }
+        this.importSettings = { ...this.importSettings, ...config.importSettings };
+        this.uploadSettings = { ...this.uploadSettings, ...config.uploadSettings };
 
         // Load cloud services
         if (config.cloudServices) {
@@ -234,30 +208,11 @@ class ConfigurationData {
             }
         }
 
-        // Load autoSort settings
-        if (config.autoSort) {
-            this.autoSort = { ...this.autoSort, ...config.autoSort };
-        }
-
-        // Load signWithCertificate settings
-        if (config.signWithCertificate) {
-            this.signWithCertificate = { ...this.signWithCertificate, ...config.signWithCertificate };
-        }
-
-        // Load signWithPGP settings
-        if (config.signWithPGP) {   
-            this.signWithPGP = { ...this.signWithPGP, ...config.signWithPGP };
-        }
-
-        // Load ledger settings
-        if (config.ledger) {
-            this.ledger = { ...this.ledger, ...config.ledger };
-        }
-
-        // Load last used folders
-        if (config.lastUsedFolders) {
-            this.lastUsedFolders = { ...this.lastUsedFolders, ...config.lastUsedFolders };
-        }
+        this.autoSort = { ...this.autoSort, ...config.autoSort };
+        this.signWithCertificate = { ...this.signWithCertificate, ...config.signWithCertificate };
+        this.signWithPGP = { ...this.signWithPGP, ...config.signWithPGP };
+        this.ledger = { ...this.ledger, ...config.ledger };
+        this.lastUsedFolders = { ...this.lastUsedFolders, ...config.lastUsedFolders };
     }
 
     /**

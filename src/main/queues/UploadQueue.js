@@ -103,7 +103,7 @@ class UploadQueue {
                 checksum_md5 TEXT,
                 checksum_sha256 TEXT,
                 checksum_sha512 TEXT,
-                tiny_thumbnail BLOB,
+                tiny_thumb BLOB,
                 thumbnail BLOB,
                 preview BLOB,
                 exif TEXT
@@ -239,7 +239,7 @@ class UploadQueue {
                     checksum_md5,
                     checksum_sha256,
                     checksum_sha512,
-                    tiny_thumbnail,
+                    tiny_thumb,
                     thumbnail,
                     preview,
                     exif

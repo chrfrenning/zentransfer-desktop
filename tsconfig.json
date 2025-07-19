@@ -50,7 +50,8 @@
     }
   },
   "include": [
-    "src/renderer/src/**/*"
+    "src/renderer/src/**/*",
+    "types.d.ts"
   ],
   "exclude": [
     "node_modules",

@@ -10,6 +10,7 @@ const { UploadQueue } = require('../queues/UploadQueue.js');
 const { BackOffManager } = require('../services/BackOffManager.js');
 const { CloudFactory } = require('../services/CloudFactory.js');
 const { MimeTypesService } = require('../services/MimeTypesService.js');
+const { DateFormatter } = require('../utils/DateFormatter.js');
 
 const fs = require('fs');
 const path = require('path');
@@ -27,9 +28,18 @@ class UploadWorkerPool {
     // Reset any stuck "processing" files to "queued" on startup
     this.uploadQueue.resetProcessingFiles();
 
+    // File backoff strategy
+    this.fileBackoffManager = new BackOffManager(
+      app.configurationManager.get('uploadSettings.fileBackoff.initialInterval'),
+      app.configurationManager.get('uploadSettings.fileBackoff.maxInterval'),
+      app.configurationManager.get('uploadSettings.fileBackoff.multiplier'),
+      app.configurationManager.get('uploadSettings.fileBackoff.resetOnSuccess')
+    );
+    logger.info(`File backoff: ${this.fileBackoffManager.backoffConfig.initialInterval}, max: ${this.fileBackoffManager.backoffConfig.maxInterval}, multiplier: ${this.fileBackoffManager.backoffConfig.multiplier}`);
+
     // Some help with exponential backoffs when stuff go awry
     this.backOffManagers = new Map();
-    const backoffConfig = app.configurationManager.get('uploadSettings.uploadBackoff');
+    const backoffConfig = app.configurationManager.get('uploadSettings.serviceBackoff');
     for (const serviceType of CloudFactory.listCloudServices()) {
       
       this.backOffManagers.set(serviceType, new BackOffManager(
@@ -38,6 +48,7 @@ class UploadWorkerPool {
         backoffConfig.multiplier, 
         backoffConfig.resetOnSuccess));
     }
+    logger.info(`Service backoff: ${backoffConfig.initialInterval}, max: ${backoffConfig.maxInterval}, multiplier: ${backoffConfig.multiplier}, reset on success: ${backoffConfig.resetOnSuccess}`);
     
     // Queue processing timer
     this.queueProcessingInterval = null;
@@ -118,7 +129,13 @@ class UploadWorkerPool {
 
         if ( fileRecord.status === 'completed' ) {
           this.uploadQueue.completeUpload(fileRecord.id, fileRecord.final_url);
-          this.getBackOffManager(fileRecord.serviceType).onSuccess();
+
+          const backoffManager = this.getBackOffManager(fileRecord.service_type);
+          if ( backoffManager ) {
+            backoffManager.onSuccess();
+          } else {
+            logger.error(`!!! Backoff manager not found for service type: ${fileRecord.service_type}`);
+          }
 
           // TBD: Add to index_queue, ledger_queue, dedupe, registry
 
@@ -134,7 +151,7 @@ class UploadWorkerPool {
           if ( fileRecord.retry_count < app.configurationManager.get('uploadSettings.maxRetries') ) {
 
             this.uploadQueue.retryUpload(fileRecord.id);
-            this.getBackOffManager(fileRecord.serviceType).onFailure();
+            this.getBackOffManager(fileRecord.service_type).onFailure();
 
             this.sendMessageToRendererWindows('upload-update', { ...fileRecord, status: 'retry' });
 
@@ -203,9 +220,23 @@ class UploadWorkerPool {
   findFileToProcess(readyFiles) {
 
     for (const file of readyFiles) {
+
+      // First check if we're backing off from this specific service
       if (!this.getBackOffManager(file.service_type).isInBackoff()) {
         return file;
       }
+
+      // Now check if it is time to retry this file (we have default much longer backoff for individual files)
+      if ( file.retry_count > 0 ) {
+        const backoffTime = BackOffManager.calculate(file.retry_count, this.fileBackoffManager.backoffConfig);
+        const lastRetryTime = new Date(file.last_retry_at);
+        if ( lastRetryTime.getTime() + backoffTime < Date.now() ) {
+          return file;
+        }
+      }
+
+      return file;
+
     }
 
     return null;
@@ -242,6 +273,18 @@ class UploadWorkerPool {
 
     // Update database to mark as processing
     this.uploadQueue.startUpload(file.id);
+
+    // Do we need to create or refresh the session?
+    if ( file.service_type == 'zentransfer' ) {
+      if ( app.uploadSession.isSessionExpired() ) {
+        await app.uploadSession.createUploadSession();
+      }
+    }
+
+    // Prepare the current configuration
+    const configuration = app.configurationManager.exportConfig();
+    configuration.uploadSession = app.uploadSession.session;
+    console.log("Exported configuration:", configuration);
     
     // Mark worker as busy
     workerInfo.currentJob = file;
@@ -250,7 +293,8 @@ class UploadWorkerPool {
     workerInfo.worker.postMessage({
       type: 'upload-file',
       fileRecord: file,
-      configuration: app.configurationManager.toConfig()
+      configuration: configuration,
+      globals: app.globals
     });
     
     logger.info(`Started upload: ${file.file_name} (fileId: ${file.id})`);
@@ -318,6 +362,9 @@ class UploadWorkerPool {
     return inputRecords;
   }
 
+
+  // create the record for the queue
+
   createFileRecord(sourcePath, fileStats, serviceType) {
 
     const record = {
@@ -330,6 +377,7 @@ class UploadWorkerPool {
     };
 
     return record;
+
   }
 
   cancelJob(jobId) {

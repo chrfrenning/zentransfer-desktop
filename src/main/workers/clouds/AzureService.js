@@ -245,7 +245,7 @@ class AzureService extends StorageServiceBase {
         
         try {
             // Validate configuration
-            if (!this.isServiceConfigured()) {
+            if (!this.validateConfiguration()) {
                 throw new Error('Service not properly configured');
             }
 
@@ -455,7 +455,7 @@ class AzureService extends StorageServiceBase {
         
         try {
             // Validate configuration
-            if (!this.isServiceConfigured()) {
+            if (!this.validateConfiguration()) {
                 throw new Error('Service not properly configured');
             }
 
@@ -520,7 +520,7 @@ class AzureService extends StorageServiceBase {
         
         try {
             // Validate configuration
-            if (!this.isServiceConfigured()) {
+            if (!this.validateConfiguration()) {
                 throw new Error('Service not properly configured');
             }
 
@@ -581,7 +581,7 @@ class AzureService extends StorageServiceBase {
         
         try {
             // Validate configuration
-            if (!this.isServiceConfigured()) {
+            if (!this.validateConfiguration()) {
                 throw new Error('Service not properly configured');
             }
 

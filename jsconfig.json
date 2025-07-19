@@ -4,8 +4,8 @@
       "target": "ESNext",
       "module": "commonjs",
       "moduleResolution": "node",
-      "baseUrl": "."
+      "baseUrl": ".",
     },
-    "include": ["src/**/*.js"],
+    "include": ["src/**/*.js", "types.d.ts"],
     "exclude": ["node_modules"]
   }

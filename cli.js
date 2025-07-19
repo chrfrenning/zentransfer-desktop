@@ -71,9 +71,9 @@ function startCommandLineInterface(hiddenWindow) {
         console.log(`Downloading files to ${downloadPath}`);
         app.downloadWorkerPool.startMonitoring();
     } else if (true || checkCommandLineArgument('upload')) {
-        console.log('Uploading files simulation...');
         const uploadPath = "D:\\ZenTransfer Test\\ZT Source"
-        app.uploadWorkerPool.addFiles([uploadPath], 'zentransfer');
+        //console.log('Uploading files simulation...');
+        //app.uploadWorkerPool.addFiles([uploadPath], 'zentransfer');
     }
 
     // ask user for input

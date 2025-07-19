@@ -28,11 +28,7 @@ class BackOffManager {
         this.lastFailureTime = Date.now();
         
         // Calculate new backoff interval with exponential increase
-        this.currentBackoffInterval = Math.min(
-            this.backoffConfig.initialInterval * Math.pow(this.backoffConfig.multiplier, this.consecutiveFailures - 1),
-            this.backoffConfig.maxInterval
-        );
-        
+        this.currentBackoffInterval = BackOffManager.calculateBackoffTime(this.backoffConfig.initialInterval, this.backoffConfig.maxInterval, this.backoffConfig.multiplier, this.consecutiveFailures);
         logger.warn(`Backoff increase to #${this.consecutiveFailures}, backoff time now: ${this.currentBackoffInterval}ms`);
     }
     
@@ -63,6 +59,20 @@ class BackOffManager {
         this.currentBackoffInterval = this.backoffConfig.initialInterval;
         
         logger.info('Upload backoff reset');
+    }
+
+    static calculateBackoffTime(initialInterval, maxInterval, multiplier, consecutiveFailures) {
+        return Math.min(
+            initialInterval * Math.pow(multiplier, consecutiveFailures - 1),
+            maxInterval
+        );
+    }
+
+    static calculate(consecutiveFailures, backoffConfig) {
+        return Math.min(
+            backoffConfig.initialInterval * Math.pow(backoffConfig.multiplier, consecutiveFailures - 1),
+            backoffConfig.maxInterval
+        );
     }
     
     /**

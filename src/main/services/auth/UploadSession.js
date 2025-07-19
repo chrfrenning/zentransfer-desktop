@@ -15,23 +15,22 @@ class UploadSession {
         logger.info('Creating ZenTransfer upload session');
 
         const postData = JSON.stringify({
-            app_name: this.settings.appName,
-            app_version: this.settings.appVersion,
-            client_id: this.settings.clientId
+            app_name: this.appName,
+            app_version: this.appVersion,
+            client_id: this.clientId
         });
+
+        const token = await app.tokenManager.getToken();
         
         if ( app.tokenManager.isTokenExpired(token) ) {
             await app.tokenManager.performTokenRefresh();
         }
 
-        const token = await app.tokenManager.getToken();
-
-        const response = await this._fetch(`${this.serverUrl}/api/upload/startsession`, {
+        const response = await fetch(`${this.serverUrl}/api/upload/startsession`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`,
-                'Content-Length': Buffer.byteLength(postData)
             },
             body: postData
         });
@@ -48,13 +47,20 @@ class UploadSession {
             expiresAt: new Date(data.expires_at)
         };
 
-        logger.info('ZenTransfer upload session created', { parentId: session.parentId });
+        logger.info('ZenTransfer upload session created', { parentId: this.session.parentId });
         return this.session;
     }
 
     async isSessionExpired(session) {
         if (this.session) {
-            if ( this.session.expiresAt < Date.now() ) {
+
+            const now = Date.now();
+            const safetyMarginMinutes = 60;
+            const safetyMargin = safetyMarginMinutes * 60 * 1000;
+            const expiresAt = this.session.expiresAt.getTime();
+            const expiresAtWithSafetyMargin = expiresAt - safetyMargin;
+
+            if ( expiresAtWithSafetyMargin < now ) {
                 return true;
             }
         }

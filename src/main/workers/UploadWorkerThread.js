@@ -10,6 +10,8 @@ logger.info(`Upload worker ${workerId} started`);
 
 // Configuration
 const { ConfigurationData } = require('../configuration/ConfigurationData.js');
+const { CloudFactory } = require('../services/CloudFactory.js');
+const { DateFormatter } = require('../utils/DateFormatter.js');
 
 // Stuff we need
 const { MimeTypesService } = require('../services/MimeTypesService.js');
@@ -25,9 +27,15 @@ const { MinioService } = require('./clouds/MinioService.js');
 // Message handling
 parentPort.on('message', async (message) => {
 
-  const { type, fileRecord, configuration } = message;
+  const { type, fileRecord, configuration, globals } = message;
+
+  console.log("Received configuration:", configuration);
+  console.log("XX-UploadSession:", configuration.uploadSession);
+
   const configurationData = new ConfigurationData();
   configurationData.fromConfig(configuration);
+
+  console.log("ConfigurationData:", configurationData);
 
   try {
 
@@ -35,8 +43,32 @@ parentPort.on('message', async (message) => {
 
       case 'upload-file':
         console.log(`Uploading file: ${fileRecord.file_name}`);
-        const result = await uploadFile(fileRecord, configurationData);
-        parentPort.postMessage({ type: 'completed', fileRecord: fileRecord });
+        const result = await uploadFile(fileRecord, configurationData, globals, configuration.uploadSession);
+
+        if ( result.success ) {
+
+          parentPort.postMessage({ 
+            type: 'completed', 
+            fileRecord: { 
+              ...fileRecord, 
+              status: 'completed',  
+              final_url: result.url
+            } 
+          });
+
+        } else {
+
+          parentPort.postMessage({ 
+            type: 'completed', 
+            fileRecord: { 
+              ...fileRecord, 
+              status: 'failed',  
+              error_message: result.message
+            } 
+          });
+
+        }
+
         break;
 
       default:
@@ -53,127 +85,82 @@ parentPort.on('message', async (message) => {
 });
 
 // Upload a single file using the specified service
-async function uploadFile(fileRecord, configurationData) {
-  const { id, source_path, file_name, file_size, file_date, mime_type, service_type } = fileRecord;
-  
+async function uploadFile(fileRecord, configurationData, globals, uploadSession) {
+
   try {
 
-    // Send initial progress
-    let bytes_transferred = 0;
-    fileRecord.status = 'uploading';
-    sendUploadTransferProgress(fileRecord, bytes_transferred);
-    
-    // Determine which service to use based on file's service type or selected service
-    const cloudService = CloudFactory.getCloudService(targetService, configurationData.getCloudService(fileRecord.service_type));
-    logger.info(`Worker ${workerId}: Using ${cloudService.getServiceName()} for upload of ${fileName}`);
-    
-   // Generate remote name with folder organization if needed
-   //remoteName = generateRemoteName(fileData.filePath, importSettings);
-   let remoteName = file_name.replaceAll('\\', '/');
-   if (importSettings.destinationPath && importSettings.destinationPath.length > 0)
-    remoteName = fileData.filePath.substr(importSettings.destinationPath.length+1).replaceAll('\\', '/');
-      
-      // Extract skipDuplicates setting from importSettings
-      const skipDuplicates = importSettings ? importSettings.skipDuplicates : false;
-      
-      // Set up progress monitoring
-      const originalUpdateProgress = uploadService._updateProgress;
-      uploadService._updateProgress = (uploadId, progress, status) => {
-        // Check for cancellation during upload
-        if (cancelledJobs.has(jobId)) {
-          throw new Error('Upload cancelled by user');
-        }
-        
-        sendProgress(fileId, progress, status);
-        
-        // Call original method
-        if (originalUpdateProgress) {
-          originalUpdateProgress.call(uploadService, uploadId, progress, status);
-        }
-      };
-      
-      // Call upload service
-      const uploadResult = await uploadService.uploadFile(
-        tempFilePath, 
-        remoteName, 
-        correctMimeType,
-        { 
-          metadata: { 
-            originalName: fileName, 
-            uploadedBy: clientId,
-            appName,
-            appVersion
-          },
-          skipDuplicates: skipDuplicates, // Pass skipDuplicates setting to service
-          metadataOptions: {
-            createPreviews: servicePreferences.createPreviews || false,
-            extractMetadata: servicePreferences.extractMetadata || false,
-            thumbnailSize: servicePreferences.thumbnailSize || 400,
-            thumbnailQuality: servicePreferences.thumbnailQuality || 90,
-            previewSize: servicePreferences.previewSize || 1920,
-            previewQuality: servicePreferences.previewQuality || 90
-          }
-        }
-      );
-      // Restore original progress method
-      uploadService._updateProgress = originalUpdateProgress;
-      
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.message);
-      }
-      
-      sendProgress(fileId, 100, 'Upload completed');
-      
-      // Extract upload ID based on service type
-      let extractedUploadId;
-      if (targetService === 'zentransfer') {
-        extractedUploadId = uploadResult.details?.zentransferUploadId;
-      } else {
-        // For other services (AWS S3, Azure, GCP, MinIO), use the generic uploadId
-        extractedUploadId = uploadResult.details?.uploadId;
-      }
-      
-      return {
-        fileId,
-        status: 'completed',
-        uploadId: extractedUploadId,
-        finalUrl: uploadResult.url
-      };
-      
-    } finally {
-      // Clean up temporary file only if we created it
-      logger.info(`Worker ${workerId}: === CLEANUP PHASE ===`);
-      logger.info(`Worker ${workerId}: Is temporary file: ${isTemporary}`);
-      logger.info(`Worker ${workerId}: File path: ${tempFilePath}`);
-      
-      if (isTemporary) {
-        try {
-          if (fs.existsSync(tempFilePath)) {
-            logger.info(`Worker ${workerId}: 🗑️ Removing temporary file: ${tempFilePath}`);
-            const statsBefore = fs.statSync(tempFilePath);
-            logger.info(`Worker ${workerId}: Temporary file size: ${statsBefore.size} bytes`);
-            
-            fs.unlinkSync(tempFilePath);
-            logger.info(`Worker ${workerId}: ✓ Temporary file successfully removed`);
-            logger.info(`Worker ${workerId}: This frees up ${statsBefore.size} bytes of disk space`);
-          } else {
-            logger.info(`Worker ${workerId}: Temporary file no longer exists: ${tempFilePath}`);
-          }
-        } catch (cleanupError) {
-          console.warn(`Worker ${workerId}: ❌ Failed to clean up temp file: ${cleanupError.message}`);
-        }
-      } else {
-        logger.info(`Worker ${workerId}: ✓ Skipping cleanup for local file (no temporary file created)`);
-        logger.info(`Worker ${workerId}: Local file remains at: ${tempFilePath}`);
-      }
-      
-      logger.info(`Worker ${workerId}: === END CLEANUP ===`);
-    }
-    
+    return await uploadFile2(fileRecord, configurationData, globals, uploadSession);
+
   } catch (error) {
-    sendProgress(fileId, 0, `Upload failed: ${error.message}`);
-    throw error;
+
+    logger.error(`Worker failed in uploadFile2: ${error.message}`);
+    return {
+      success: false,
+      message: error.message
+    }
+
   }
+}
+
+// Just to keep indentation free of those long try-catch blocks
+async function uploadFile2(fileRecord, configurationData, globals, uploadSession) {
+  const { id, source_path, file_name, file_size, file_date, mime_type, service_type } = fileRecord;
+
+
+  // Send initial progress
+  let bytes_transferred = 0;
+  fileRecord.status = 'uploading';
+  sendUploadTransferProgress(fileRecord, bytes_transferred);
+
+
+  // Determine which service to use based on file's service type or selected service
+  console.log("UploadSession:", uploadSession);
+  const svcConfiguration = configurationData.getCloudService(service_type) || {};
+  svcConfiguration.session = uploadSession;
+  console.log("svcConfiguration", JSON.stringify(svcConfiguration));
+  const cloudService = CloudFactory.getCloudService(service_type, svcConfiguration);
+  logger.info(`Using ${cloudService.getServiceName()} for upload of ${file_name}`);
+
+
+  // Set up progress monitoring
+  cloudService.on('progress', (progress) => {
+    console.log('--- Progress received:', progress);
+    const bytesTransferred = progress.bytesTransferred;
+    sendUploadTransferProgress(fileRecord, bytesTransferred);
+  });
+
+
+  // Call upload service
+  // filePath, remoteName, mimeType, options
+  const uploadResult = await cloudService.uploadFile(
+    source_path,
+    file_name,
+    mime_type,
+    {
+      metadata: {
+        originalName: path.basename(source_path),
+        uploadedBy: globals.clientId,
+        appName: globals.appName,
+        appVersion: globals.appVersion
+      },
+      configurationData,
+      globals,
+      session : uploadSession
+    }
+  );
+
+  if (!uploadResult.success) {
+    throw new Error(uploadResult.message);
+  }
+
+  // We're done, return the url to the object
+
+  return {
+    success: true,
+    url: uploadResult.url
+  };
+
+
 }
 
 /**

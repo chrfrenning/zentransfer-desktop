@@ -3,14 +3,13 @@
  * Handles uploads to the ZenTransfer platform
  */
 
-const { StorageServiceBase } = require('./StorageServiceBase.js');
+const { UploadServiceBase } = require('./UploadServiceBase.js');
 
-class ZenTransferService extends StorageServiceBase {
-    constructor(settings = {}) {
+class ZenTransferService extends UploadServiceBase {
+    constructor(settings) {
         super(settings);
-        this.apiBaseUrl = settings.apiBaseUrl || 'https://api.zentransfer.io';
-        this.activeUploads = new Map();
-        this.currentSession = null;
+
+        console.log("ZenTransferService constructor", JSON.stringify(settings));
     }
 
     getServiceName() {
@@ -20,11 +19,11 @@ class ZenTransferService extends StorageServiceBase {
     validateConfiguration() {
         const errors = [];
         
-        if (!this.settings.token) {
+        if (!this.settings.session.token) {
             errors.push('Authentication token is required');
         }
         
-        if (!this.settings.apiBaseUrl && !this.apiBaseUrl) {
+        if (!this.settings.serverBaseUrl) {
             errors.push('API base URL is required');
         }
 
@@ -51,56 +50,65 @@ class ZenTransferService extends StorageServiceBase {
         this._log('info', 'Testing ZenTransfer connection');
         
         try {
+
             const validation = this.validateConfiguration();
             if (!validation.valid) {
-                const result = {
-                    success: false,
-                    message: `Configuration invalid: ${validation.errors.join(', ')}`
-                };
-                return result;
+                this._log('error', 'ZenTransfer connection test failed; invalid configuration', { error: validation.errors.join(', ') });
+                return false;
             }
 
             // Test by creating an upload session
-            const session = await this._createUploadSession();
-            
-            const result = {
-                success: true,
-                message: 'ZenTransfer connection successful',
-                details: {
-                    parentId: session.parentId,
-                    expiresAt: new Date(session.expiresAt).toISOString()
-                }
-            };
-            
-            // Store the session for future uploads
-            this.currentSession = session;
-            
-            this._log('info', 'ZenTransfer connection test successful');
+            const result = await this.verifySessionToken(this.settings.session.token);
+            if ( result ) {
+                this._log('info', 'ZenTransfer connection test successful');
+            } else {
+                this._log('error', 'ZenTransfer connection test failed');
+            }
+
             return result;
 
         } catch (error) {
-            const result = {
-                success: false,
-                message: `ZenTransfer connection failed: ${error.message}`,
-                details: { error: error.message }
-            };
-            
             this._log('error', 'ZenTransfer connection test failed', { error: error.message });
-            return result;
+            return false;
         }
     }
 
-    async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
-        this._log('info', 'Starting ZenTransfer upload', { remoteName, mimeType });
+    async verifySessionToken(token) {
+        try {
+
+            const response = await this._fetch(`${this.settings.serverBaseUrl}/api/upload/verifysession?token=${token}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if ( response.ok ) {
+                const data = await response.json();
+                if ( data.valid ) {
+                    this._log('info', 'Server reports token is valid');
+                    return true;
+                }
+            }
+
+        } catch (error) {}
+
+        this._log('error', 'Unable to communicate with server or token is invalid');
+        return false;
+    }
+
+    async uploadFile(filePath, remoteName, mimeType, options = {}) {
+        this._log('info', `Starting ZenTransfer upload for ${remoteName}/${mimeType}`);
         
         // Generate upload ID early so it's available in error handling
         const uploadId = this._generateUploadId();
         
         try {
             // Validate configuration
-            if (!this.isServiceConfigured()) {
+            if (!this.validateConfiguration()) {
                 throw new Error('Service not properly configured');
             }
+
 
             // Validate file
             const fileInfo = await this._validateFilePath(filePath);
@@ -108,113 +116,74 @@ class ZenTransferService extends StorageServiceBase {
                 throw new Error(`File not found or not accessible: ${filePath}`);
             }
             
+
             // Read file content
+            this._emitProgress(0, fileInfo.size); // tell we're reading the file
             const fileContent = await this._readFile(filePath);
-            
-            // Track upload
-            this.activeUploads.set(uploadId, {
-                status: 'uploading',
-                progress: 0,
-                startTime: Date.now()
-            });
 
-            // Create upload session if needed
-            let session = this.currentSession;
-            if (!session || this._isSessionExpired(session)) {
-                this._updateProgress(uploadId, 5, 'Creating upload session...');
-                session = await this._createUploadSession();
-                this.currentSession = session;
-            }
+            this._emitProgress(1, fileInfo.size); // just to trigger that we're starting
 
-            this._updateProgress(uploadId, 10, 'Initializing upload...');
 
             // Step 1: Initialize file upload
             const initResponse = await this._initializeFileUpload(
                 remoteName, 
                 fileInfo.size, 
                 mimeType, 
-                session
+                this.settings.session
             );
 
-            this._updateProgress(uploadId, 20, 'Upload initialized');
+            this._emitProgress(2, fileInfo.size); // let them know we have a ticket
+
 
             // Step 2: Upload to blob storage
+            // This is where the real progress updates happen as we transfer bytes
             await this._uploadFileToBlob(
                 initResponse.blob_url, 
                 fileContent, 
                 mimeType,
                 (progress) => {
-                    // Map blob upload progress to 20-90% of total progress
-                    const totalProgress = 20 + Math.round(progress * 0.7);
-                    this._updateProgress(uploadId, totalProgress, 'Uploading...');
+                    const transformedProgress = Math.min(progress, fileInfo.size - 100);
+                    this._emitProgress(transformedProgress, fileInfo.size);
                 }
             );
 
-            this._updateProgress(uploadId, 90, 'Finalizing upload...');
 
             // Step 3: Finalize upload
             const finalResult = await this._finalizeFileUpload(
                 initResponse.id, 
-                initResponse.finalize_url
+                initResponse.finalize_url,
+                this.settings.session
             );
 
-            // Update upload status
-            this.activeUploads.set(uploadId, {
-                status: 'completed',
-                progress: 100,
-                startTime: this.activeUploads.get(uploadId).startTime,
-                endTime: Date.now()
-            });
+            this._emitProgress(fileInfo.size, fileInfo.size); // let them know we're done
+
+
+            // Return the result
 
             const uploadResult = {
                 success: true,
                 url: finalResult.url,
-                message: 'File uploaded successfully to ZenTransfer',
-                details: {
-                    uploadId,
-                    fileId: finalResult.id,
-                    size: fileInfo.size,
-                    remoteName,
-                    mimeType,
-                    zentransferUploadId: initResponse.id
-                }
             };
 
-            this._log('info', 'ZenTransfer upload successful', uploadResult.details);
+            this._log('info', 'ZenTransfer upload successful');
             return uploadResult;
 
         } catch (error) {
-            // Update upload status to failed
-            if (this.activeUploads.has(uploadId)) {
-                this.activeUploads.set(uploadId, {
-                    ...this.activeUploads.get(uploadId),
-                    status: 'failed',
-                    progress: 0,
-                    endTime: Date.now(),
-                    error: error.message
-                });
-            }
 
             const uploadResult = {
                 success: false,
-                message: `ZenTransfer upload failed: ${error.message}`,
-                details: { error: error.message, filePath, remoteName }
+                message: `ZenTransfer upload failed: ${error.message}`
             };
 
-            this._log('error', 'ZenTransfer upload failed', uploadResult.details);
+            this._log('error', `ZenTransfer upload failed: ${error.message}`);
             return uploadResult;
         }
     }
 
-    /**
-     * Initialize file upload - Step 1
-     * @param {string} fileName - File name
-     * @param {number} fileSize - File size in bytes
-     * @param {string} mimeType - MIME type
-     * @param {Object} session - Upload session
-     * @returns {Promise<Object>} Initialize response
-     * @private
-     */
+
+
+    /* Internal methods */
+
     async _initializeFileUpload(fileName, fileSize, mimeType, session) {
         const postData = JSON.stringify({
             parent_id: session.parentId,
@@ -228,7 +197,7 @@ class ZenTransferService extends StorageServiceBase {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/vnd.volt.attachment-upload-request+json',
-                'Authorization': `Bearer ${this.settings.token}`,
+                'Authorization': `Bearer ${session.token}`,
                 'Content-Length': Buffer.byteLength(postData)
             },
             body: postData
@@ -247,15 +216,6 @@ class ZenTransferService extends StorageServiceBase {
         return data;
     }
 
-    /**
-     * Upload file to blob storage - Step 2
-     * @param {string} blobUrl - Blob storage URL
-     * @param {Buffer} fileContent - File content
-     * @param {string} mimeType - MIME type
-     * @param {Function} onProgress - Progress callback
-     * @returns {Promise<void>}
-     * @private
-     */
     async _uploadFileToBlob(blobUrl, fileContent, mimeType, onProgress) {
         const response = await this._fetch(blobUrl, {
             method: 'PUT',
@@ -277,14 +237,7 @@ class ZenTransferService extends StorageServiceBase {
         }
     }
 
-    /**
-     * Finalize file upload - Step 3
-     * @param {string} uploadId - Upload ID from step 1
-     * @param {string} finalizeUrl - Finalize URL from step 1
-     * @returns {Promise<Object>} Final result
-     * @private
-     */
-    async _finalizeFileUpload(uploadId, finalizeUrl) {
+    async _finalizeFileUpload(uploadId, finalizeUrl, session) {
         const postData = JSON.stringify({
             id: uploadId
         });
@@ -293,7 +246,7 @@ class ZenTransferService extends StorageServiceBase {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/vnd.volt.attachment-finalize-upload-request+json',
-                'Authorization': `Bearer ${this.settings.token}`,
+                'Authorization': `Bearer ${session.token}`,
                 'Content-Length': Buffer.byteLength(postData)
             },
             body: postData
@@ -310,24 +263,6 @@ class ZenTransferService extends StorageServiceBase {
         }
 
         return data;
-    }
-
-    /**
-     * Update upload progress
-     * @param {string} uploadId - Upload ID
-     * @param {number} progress - Progress percentage (0-100)
-     * @param {string} status - Status message
-     * @private
-     */
-    _updateProgress(uploadId, progress, status) {
-        if (this.activeUploads.has(uploadId)) {
-            const upload = this.activeUploads.get(uploadId);
-            this.activeUploads.set(uploadId, {
-                ...upload,
-                progress,
-                status
-            });
-        }
     }
 }
 

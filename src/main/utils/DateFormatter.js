@@ -37,8 +37,16 @@ class DateFormatter {
             'MM-DD',
 
             'DD',
+            'DD/tod',
+            'DD (tod)',
+
             'dn',
-            'ldn'
+            'dn/tod',
+            'dn (tod)',
+
+            'ldn',
+            'ldn/tod',
+            'ldn (tod)'
         ];
     }
 
@@ -60,6 +68,7 @@ class DateFormatter {
         const lmmm = date.toLocaleDateString(undefined, { month: 'short' });
         const dn = date.toLocaleDateString('en-US', { weekday: 'long' });
         const ldn = date.toLocaleDateString(undefined, { weekday: 'long' });
+        const tod = DateFormatter.getTimeOfDay(date);
         
         // Perform string replacement
         let formattedDate = dateFormat
@@ -73,9 +82,21 @@ class DateFormatter {
             .replace(/lmmm/g, lmmm)
             .replace(/mmmm/g, mmmm)
             .replace(/mmm/g, mmm)
-            .replace(/dd/g, dd);
+            .replace(/dd/g, dd)
+            .replace(/tod/g, tod);
             
         return formattedDate;
+    }
+
+    static getTimeOfDay(datetime) {
+        // returns a string like "morning", "afternoon", "evening", "night"
+        // based on the date converted to local time and splitting the day into 4 parts
+
+        const hours = datetime.getHours(); // already in local time
+        if (hours < 12) return 'morning';
+        if (hours < 18) return 'afternoon';
+        if (hours < 23) return 'evening';
+        return 'night';
     }
 
     static test() {
