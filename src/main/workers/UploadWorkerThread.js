@@ -29,13 +29,13 @@ parentPort.on('message', async (message) => {
 
   const { type, fileRecord, configuration, globals } = message;
 
-  console.log("Received configuration:", configuration);
-  console.log("XX-UploadSession:", configuration.uploadSession);
+  //console.log("Received configuration:", configuration);
+  //console.log("XX-UploadSession:", configuration.uploadSession);
 
   const configurationData = new ConfigurationData();
   configurationData.fromConfig(configuration);
 
-  console.log("ConfigurationData:", configurationData);
+  //console.log("ConfigurationData:", configurationData);
 
   try {
 

@@ -8,6 +8,8 @@ const { UploadServiceBase } = require('./UploadServiceBase.js');
 const { ThumbnailService } = require('../../services/ThumbnailService.js');
 const { MetadataService } = require('../../services/MetadataService.js');
 
+const MAX_UNIQUE_FILENAME_GENERATIONS = 100;
+
 class StorageServiceBase extends UploadServiceBase {
     constructor(settings = {}) {
         super(settings);
@@ -422,6 +424,46 @@ class StorageServiceBase extends UploadServiceBase {
         }
         
         return additionalFiles;
+    }
+
+    async checkIfDuplicate(remoteName, expectedSize) {
+        throw new Error('checkIfDuplicate() must be implemented by subclass');
+
+        return {
+            exists: false,
+            isDuplicate: false
+        }
+    }
+    
+    async generateUniqueRemoteName(originalRemoteName) {
+        let counter = 1;
+        let uniqueName = originalRemoteName;
+        
+        while (true) {
+            const duplicateCheck = await this.checkIfDuplicate(uniqueName, 0);
+            if (!duplicateCheck.exists) {
+                break;
+            }
+
+            const lastDotIndex = originalRemoteName.lastIndexOf('.');
+            if (lastDotIndex === -1) {
+                uniqueName = `${originalRemoteName} [${counter}]`;
+            } else {
+                const baseName = originalRemoteName.substring(0, lastDotIndex);
+                const extension = originalRemoteName.substring(lastDotIndex);
+                uniqueName = `${baseName} [${counter}]${extension}`;
+            }
+            counter++;
+            
+            // Safety check to prevent infinite loops
+            if (counter > MAX_UNIQUE_FILENAME_GENERATIONS) {
+                this._log('warn', 'Unique name generation exceeded limit', { originalRemoteName });
+                throw new Error('Unique name generation exceeded limit');
+            }
+
+        }
+        
+        return uniqueName;
     }
 }
 

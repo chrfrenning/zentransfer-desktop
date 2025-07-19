@@ -105,7 +105,7 @@ class ZenTransferService extends UploadServiceBase {
         
         try {
             // Validate configuration
-            if (!this.validateConfiguration()) {
+            if (!this.validateConfiguration().valid) {
                 throw new Error('Service not properly configured');
             }
 
