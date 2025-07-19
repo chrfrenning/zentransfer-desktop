@@ -29,10 +29,23 @@ class ThumbnailService {
     
     isSupported(filePath, mimeType) {
         const ext = path.extname(filePath).toLowerCase().substring(1);
+        //console.log("isSupported", filePath, ext, this.supportedFormats.includes(ext));
         return this.supportedFormats.includes(ext);
+        
     }
     
     async generatePreview(filePath, options = {}) {
+
+        // Make sure we support the file type
+        if ( !this.isSupported(filePath, null) ) {
+            console.log("Unsupported file type for generatePreview:", filePath);
+
+            return {
+                success: false,
+                error: 'Unsupported file type'
+            };
+        }
+
         // Make sure we're initialized
         if ( !this.sharp ) {
             this.initialize();

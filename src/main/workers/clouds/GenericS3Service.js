@@ -226,12 +226,12 @@ class GenericS3Service extends StorageServiceBase {
             const existingSize = response.ContentLength;
             const isDuplicate = existingSize === expectedSize;
             
-            this._log('info', 'Duplicate check completed', {
+            /* this._log('info', 'Duplicate check completed', {
                 remoteName,
                 expectedSize,
                 existingSize,
                 isDuplicate
-            });
+            }); */
             
             return {
                 exists: existingSize > 0,
@@ -249,8 +249,7 @@ class GenericS3Service extends StorageServiceBase {
     }
 
     async uploadOriginalFile(filePath, remoteName, mimeType, options = {}) {
-        this._log('info', 'Starting upload', { filePath, remoteName, mimeType });
-        console.log(`[GenericS3] Starting upload: ${filePath} -> ${remoteName} (${mimeType})`);
+        this._log('info', `Starting upload of ${filePath} to ${remoteName} (${mimeType})`);
 
         try {
             // Validate configuration
@@ -321,16 +320,11 @@ class GenericS3Service extends StorageServiceBase {
             // Generate public URL
             const publicUrl = `${this.getEndpoint()}/${this.settings.bucket}/${finalRemoteName}`;
 
-            this._log('info', 'GenericS3 upload completed', {
-                finalRemoteName,
-                fileSize: fileInfo.size,
-                uploadTime,
-                etag: response.ETag
-            });
+            this._log('info', `GenericS3 upload completed of ${finalRemoteName} (${fileInfo.size} bytes, ${uploadTime}ms)`);
 
-            console.log(`[GenericS3] Upload completed successfully: ${finalRemoteName} (${fileInfo.size} bytes, ${uploadTime}ms)`);
-            console.log(`[GenericS3] File URL: ${publicUrl}`);
-            console.log(`[GenericS3] ETag: ${response.ETag}`);
+            //console.log(`[GenericS3] Upload completed successfully: ${finalRemoteName} (${fileInfo.size} bytes, ${uploadTime}ms)`);
+            //console.log(`[GenericS3] File URL: ${publicUrl}`);
+            //console.log(`[GenericS3] ETag: ${response.ETag}`);
 
             return {
                 success: true,

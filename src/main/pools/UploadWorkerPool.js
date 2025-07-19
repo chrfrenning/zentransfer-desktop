@@ -17,6 +17,8 @@ const path = require('path');
 const logger = require('../utils/Logger.js');
 const mimeTypes = new MimeTypesService();
 
+const USE_DEDUPE_CHECK = false;
+
 class UploadWorkerPool {
   constructor(poolSize) {
     this.workers = [];
@@ -262,13 +264,15 @@ class UploadWorkerPool {
       }
 
       // Is this a dupe?
-      const sourceBaseName = path.basename(file.source_path);
-      if ( this.uploadQueue.checkForDupeWithService(sourceBaseName, file.file_size, file.file_date, file.service_type) ) {
+      if ( USE_DEDUPE_CHECK ) {
+        const sourceBaseName = path.basename(file.source_path);
+        if ( this.uploadQueue.checkForDupeWithService(sourceBaseName, file.file_size, file.file_date, file.service_type) ) {
 
-        this.uploadQueue.markAsDupe(file.id);
-        this.sendMessageToRendererWindows('upload-update', { ...file, status: 'dupe' });
+          this.uploadQueue.markAsDupe(file.id);
+          this.sendMessageToRendererWindows('upload-update', { ...file, status: 'dupe' });
 
-        continue;
+          continue;
+        }
       }
 
       // Now check if it is time to retry this file (we have default much longer backoff for individual files)
@@ -393,17 +397,17 @@ class UploadWorkerPool {
 
     const fileStats = fs.statSync(directoryName);
     if ( fileStats.isDirectory() ) {
-      console.log("IsDirectory:", directoryName);
+      console.log(`IsDirectory: ${directoryName}, traversing...`);
       fs.readdirSync(directoryName).forEach(file => {
         const filePath = path.join(directoryName, file);
         inputRecords = inputRecords.concat(this.recursivelyAddFiles(filePath, serviceType));
       });
     } else if ( fileStats.isFile() ) {
-      console.log("IsFile:", directoryName);
+      //console.log("IsFile:", directoryName);
       inputRecords.push(this.createFileRecord(directoryName, fileStats, serviceType));
     }
 
-    console.log("Returning inputRecords:", inputRecords.length);
+    //console.log("Returning inputRecords:", inputRecords.length);
     return inputRecords;
   }
 

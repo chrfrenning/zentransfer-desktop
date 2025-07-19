@@ -16,7 +16,7 @@ const os = require('os');
 const MAX_UNIQUE_FILENAME_GENERATIONS = 100;
 const POST_TO_INFO_CACHE = true;
 const EMIT_INFO = true;
-const CREATE_TINY_THUMB = true;
+const CREATE_TINY_THUMB = false;
 const CALCULATE_CHECKSUMS = true;
 const POST_THUMBNAIL = false;
 const POST_PREVIEW = false;
@@ -44,7 +44,7 @@ class StorageServiceBase extends UploadServiceBase {
 
         // Get preferences from options or load defaults
         const preferences = await this.getUploadPreferences(options);
-        console.log('Processing options:', options);
+        //console.log('Processing options:', options);
 
         if (!preferences.createPreviews && !preferences.extractMetadata) {
             return await this.uploadOriginalFile(filePath, remoteName, mimeType, options);
@@ -53,7 +53,9 @@ class StorageServiceBase extends UploadServiceBase {
         console.log('Going into file processing for metadata and previews');
 
         const thumbnailService = new ThumbnailService();
+
         const metadataService = new MetadataService();
+        metadataService.initialize();
 
         let extractedPreviews = null;
 
@@ -171,6 +173,7 @@ class StorageServiceBase extends UploadServiceBase {
 
                 } else if ( extractedPreviews && extractedPreviews.preview ) {
 
+                    // NOTE: THIS IS NOT A WEBP, IT IS A JPG
                     const previewUpload = await this.uploadOriginalFile(extractedPreviews.preview, previewRemoteName, 'image/webp', {
                         skipDuplicates: false
                     });
@@ -215,6 +218,7 @@ class StorageServiceBase extends UploadServiceBase {
 
                 } else if ( extractedPreviews && extractedPreviews.thumbnail ) {
 
+                    // NOTE: THIS IS NOT A WEBP, IT IS A JPG
                     const thumbnailUpload = await this.uploadOriginalFile(extractedPreviews.thumbnail, thumbnailRemoteName, 'image/webp', {
                         skipDuplicates: false
                     });
@@ -273,6 +277,8 @@ class StorageServiceBase extends UploadServiceBase {
             if ( POST_TO_INFO_CACHE ) {
 
                 const { parentPort, workerData } = require('worker_threads');
+
+                //console.log("!!! tinythumb", tinyThumb);
 
                 parentPort.postMessage({
                     type: 'update-info-cache',
@@ -345,7 +351,7 @@ class StorageServiceBase extends UploadServiceBase {
         } finally {
 
             // Close the metadata service
-            metadataService.cleanup();
+            await metadataService.cleanup();
 
             // Clean up temporary files
             try {
@@ -372,7 +378,7 @@ class StorageServiceBase extends UploadServiceBase {
     async processMetadataUpload(remoteFilePath, metadata) {
         try {
 
-            const remoteMetaDataPath = metadataService.generateMetadataFilename(remoteFilePath);
+            const remoteMetaDataPath = MetadataService.generateMetadataFilename(remoteFilePath);
             
             // Upload metadata JSON
             const uploadResult = await this.uploadFromBuffer(

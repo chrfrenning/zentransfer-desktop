@@ -6,6 +6,8 @@
 const path = require('path');
 const tmp = require('tmp');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+const { ExifTool } = require('exiftool-vendored');
 
 class MetadataService {
     constructor() {
@@ -13,8 +15,7 @@ class MetadataService {
     }
 
     initialize() {
-        const { exiftool } = require('exiftool-vendored');
-        this.exiftool = exiftool;
+        this.exiftool = new ExifTool();
     }
     
     isSupported(filePath, mimeType) {
@@ -71,7 +72,10 @@ class MetadataService {
                 this.initialize();
             }
 
-            let thumbnailTempFileName  = tmp.tmpNameSync({ prefix: 'ztth-' });
+            const uuid = uuidv4();
+
+            //let thumbnailTempFileName  = tmp.tmpNameSync({ prefix: 'ztth-', postfix: '.jpg' });
+            let thumbnailTempFileName = `/tmp/ztth-${uuid}.jpg`;
             await this.exiftool.extractThumbnail(filePath, thumbnailTempFileName);
             const thumbnailSize = fs.statSync(thumbnailTempFileName).size;
             if ( !thumbnailSize ) {
@@ -79,7 +83,8 @@ class MetadataService {
                 thumbnailTempFileName = null;
             }
 
-            let previewTempFileName = tmp.tmpNameSync({ prefix: 'ztpv-' });
+            //let previewTempFileName = tmp.tmpNameSync({ prefix: 'ztpv-', postfix: '.jpg' });
+            let previewTempFileName = `/tmp/ztpv-${uuid}.jpg`;
             await this.exiftool.extractPreview(filePath, previewTempFileName);
             const previewSize = fs.statSync(previewTempFileName).size;
             if ( !previewSize ) {
@@ -149,7 +154,7 @@ class MetadataService {
         return cleaned;
     }
     
-    generateMetadataFilename(originalFilename) {
+    static generateMetadataFilename(originalFilename) {
         const ext = path.extname(originalFilename);
         const nameWithoutExt = path.basename(originalFilename, ext);
         const dirname = path.dirname(originalFilename);

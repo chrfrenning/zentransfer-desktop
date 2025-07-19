@@ -42,7 +42,7 @@ parentPort.on('message', async (message) => {
     switch (type) {
 
       case 'upload-file':
-        console.log(`Uploading file: ${fileRecord.file_name}`);
+        console.log(`Uploading file: ${fileRecord.source_path}`);
         const result = await uploadFile(fileRecord, configurationData, globals, configuration.uploadSession);
 
         if ( result.success ) {
@@ -117,7 +117,7 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
   console.log("UploadSession:", uploadSession);
   const svcConfiguration = configurationData.getCloudService(service_type) || {};
   svcConfiguration.session = uploadSession;
-  console.log("svcConfiguration", JSON.stringify(svcConfiguration));
+  //console.log("svcConfiguration", JSON.stringify(svcConfiguration));
   const cloudService = CloudFactory.getCloudService(service_type, svcConfiguration);
   logger.info(`Using ${cloudService.getServiceName()} for upload of ${source_path} to ${remote_path}`);
 

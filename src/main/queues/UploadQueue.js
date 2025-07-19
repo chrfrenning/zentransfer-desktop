@@ -335,7 +335,7 @@ class UploadQueue {
                         mime_type,
                         service_type
                     */
-                    console.log("Adding file to queue:", file);
+                    console.log(`Adding file to queue: ${file.source_path}`);
 
                     const result = this.statements.addFile.run(
                         file.source_path,
