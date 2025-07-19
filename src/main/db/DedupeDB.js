@@ -4,6 +4,8 @@
  * Maintains a list of files that have been uploaded, and are now pending
  * to have their pointers appended to the cloud index.
  * 
+ * DEPRECATING THIS: MOVING TO UPLOAD_QUEUE
+ * 
  */
 
 const { app } = require('electron');

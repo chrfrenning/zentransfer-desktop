@@ -13,8 +13,8 @@ const logger = require('../utils/Logger.js');
 
 
     0	id	                INTEGER	    0		  1	Unique identifier for the file
-    1	file_path	        TEXT	    1		  0
-    2	filename	        TEXT	    1		  0
+    1	source_path	        TEXT	    1		  0
+    2	remote_path	        TEXT	    1		  0
     3	file_size	        INTEGER	    1		  0
     4	mime_type	        TEXT	    0		  0
     5	service_type	    TEXT	    1		  0
@@ -58,6 +58,7 @@ class UploadQueue {
             
             // Create tables
             this.createTables();
+            this.createDedupeTables();
             
             // Prepare statements
             this.prepareStatements();
@@ -85,7 +86,7 @@ class UploadQueue {
             CREATE TABLE IF NOT EXISTS upload_queue (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 source_path TEXT NOT NULL,
-                file_name TEXT NOT NULL,
+                remote_path TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
                 file_date DATETIME NOT NULL,
                 mime_type TEXT,
@@ -97,9 +98,15 @@ class UploadQueue {
                 error_message TEXT DEFAULT NULL,
                 final_url TEXT DEFAULT NULL
             );
+        `;
+        
+        this.db.exec(createTableSQL);
 
-            CREATE TABLE IF NOT EXISTS info_cache (
+        const createCacheTableSQL = `
+            CREATE TABLE IF NOT EXISTS cache (
                 source_path TEXT PRIMARY KEY,
+                file_size INTEGER NOT NULL,
+                file_date DATETIME NOT NULL,
                 checksum_md5 TEXT,
                 checksum_sha256 TEXT,
                 checksum_sha512 TEXT,
@@ -110,10 +117,34 @@ class UploadQueue {
             );
         `;
         
+        this.db.exec(createCacheTableSQL);
+        
         const createIndexesSQL = [
             'CREATE INDEX IF NOT EXISTS idx_uq_status ON upload_queue(status);',
             'CREATE INDEX IF NOT EXISTS idx_uq_source_path ON upload_queue(source_path);',
-            'CREATE INDEX IF NOT EXISTS idx_ic_source_path ON info_cache(source_path);',
+            'CREATE INDEX IF NOT EXISTS idx_ic_source_path ON cache(source_path);',
+        ];
+        createIndexesSQL.forEach(sql => this.db.exec(sql));
+    }
+
+    createDedupeTables() {
+        const createTableSQL = `
+            CREATE TABLE IF NOT EXISTS dedupe (
+                file_name TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                file_date DATETIME NOT NULL,
+                service_type TEXT NOT NULL,
+                md5_checksum TEXT,
+                unique_id TEXT,
+                feat_algo INTEGER,
+                feat_vector BLOB,
+                PRIMARY KEY (file_name, file_size, file_date)
+            );
+        `;
+        
+        const createIndexesSQL = [
+            'CREATE INDEX IF NOT EXISTS idx_md5_checksum ON dedupe(md5_checksum);',
+            'CREATE INDEX IF NOT EXISTS idx_unique_id ON dedupe(unique_id);',
         ];
         
         this.db.exec(createTableSQL);
@@ -128,7 +159,7 @@ class UploadQueue {
             addFile: this.db.prepare(`
                 INSERT INTO upload_queue (
                     source_path,
-                    file_name,
+                    remote_path,
                     file_size,
                     file_date,
                     mime_type,
@@ -234,8 +265,10 @@ class UploadQueue {
             /* Info cache */
 
             addToCache: this.db.prepare(`
-                INSERT INTO info_cache (
+                INSERT INTO cache (
                     source_path,
+                    file_size,
+                    file_date,
                     checksum_md5,
                     checksum_sha256,
                     checksum_sha512,
@@ -244,11 +277,40 @@ class UploadQueue {
                     preview,
                     exif
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `),
 
             getFromCache: this.db.prepare(`
-                SELECT * FROM info_cache WHERE source_path = ?
+                SELECT * FROM cache WHERE source_path = ?
+            `),
+
+
+            /* Dedupe */
+
+            addToDedupe: this.db.prepare(`
+                INSERT INTO dedupe 
+                (file_name, file_size, file_date, unique_id, md5_checksum, service_type)
+                VALUES (?, ?, ?, ?, ?, ?)
+            `),
+
+            checkDedupe: this.db.prepare(`
+                SELECT * FROM dedupe
+                WHERE file_name = ? AND file_size = ? AND file_date = ?
+            `),
+
+            checkDedupeWithService: this.db.prepare(`
+                SELECT * FROM dedupe
+                WHERE file_name = ? AND file_size = ? AND file_date = ? AND service_type = ?
+            `),
+
+            checkDedupeId: this.db.prepare(`
+                SELECT * FROM dedupe
+                WHERE unique_id = ?
+            `),
+
+            checkDedupeMd5: this.db.prepare(`
+                SELECT * FROM dedupe
+                WHERE md5_checksum = ?
             `)
         };
     }
@@ -267,7 +329,7 @@ class UploadQueue {
                 try {
                     /*
                         source_path,
-                        file_name,
+                        remote_path,
                         file_size,
                         file_date,
                         mime_type,
@@ -277,7 +339,7 @@ class UploadQueue {
 
                     const result = this.statements.addFile.run(
                         file.source_path,
-                        file.file_name,
+                        file.remote_path,
                         file.file_size,
                         file.file_date.toISOString(),
                         file.mime_type,
@@ -323,6 +385,11 @@ class UploadQueue {
     cancelUpload(fileId) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         return this.statements.cancelJob.run(fileId);
+    }
+
+    markAsDupe(fileId) {
+        if (!this.isInitialized) throw new Error('Queue manager not initialized');
+        return this.statements.updateFileStatus.run('dupe', fileId);
     }
 
 
@@ -412,10 +479,21 @@ class UploadQueue {
 
     /* Cache */
 
-    addToCache(source_path, checksumMD5, checksumSHA256, checksumSHA512, tiny_thumbnail, thumbnail, preview, exif) {
+    addToCache(source_path, file_size, file_date, checksumMD5, checksumSHA256, checksumSHA512, tiny_thumbnail, thumbnail, preview, exif) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         try {
-            this.statements.addToCache.run(source_path, checksumMD5, checksumSHA256, checksumSHA512, tiny_thumbnail, thumbnail, preview, exif);
+            this.statements.addToCache.run(
+                source_path,
+                file_size,
+                file_date,
+                checksumMD5,
+                checksumSHA256,
+                checksumSHA512,
+                tiny_thumbnail,
+                thumbnail,
+                preview,
+                exif
+            );
         } catch (error) {
             console.warn('Failed to add file to cache:', error);
         }
@@ -433,6 +511,42 @@ class UploadQueue {
         this.db.pragma('wal_checkpoint(TRUNCATE)');
         this.db.exec('VACUUM');
     }
+
+
+
+    /* Dedupe */
+
+    
+
+    addDupe(fileName, fileSize, fileDate, uniqueId, md5, serviceType) {
+        try {
+            this.statements.addToDedupe.run(fileName, fileSize, fileDate, uniqueId, md5, serviceType);
+        } catch (error) {
+            console.warn('Failed to add file to dedupe:', error);
+        }
+     }
+ 
+     checkForDupe(fileName, fileSize, fileDate) {
+         return !!this.statements.checkDedupe.get(fileName, fileSize, fileDate);
+     }
+
+     checkForDupeWithService(fileName, fileSize, fileDate, serviceType) {
+        return !!this.statements.checkDedupeWithService.get(fileName, fileSize, fileDate, serviceType);
+     }
+
+     checkForDupeId(uniqueId) {
+        return !!this.statements.checkDedupeId.get(uniqueId);
+     }
+
+     checkForDupeMd5(md5) {
+        return !!this.statements.checkDedupeMd5.get(md5);
+     }
+ 
+     clearDupes() {
+         this.db.exec('DELETE FROM dedupe');
+         this.db.pragma('wal_checkpoint(TRUNCATE)');
+         this.db.exec('VACUUM');
+     }
 
 
 

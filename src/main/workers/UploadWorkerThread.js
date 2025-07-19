@@ -104,7 +104,7 @@ async function uploadFile(fileRecord, configurationData, globals, uploadSession)
 
 // Just to keep indentation free of those long try-catch blocks
 async function uploadFile2(fileRecord, configurationData, globals, uploadSession) {
-  const { id, source_path, file_name, file_size, file_date, mime_type, service_type } = fileRecord;
+  const { id, source_path, remote_path, file_size, file_date, mime_type, service_type } = fileRecord;
 
 
   // Send initial progress
@@ -119,7 +119,7 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
   svcConfiguration.session = uploadSession;
   console.log("svcConfiguration", JSON.stringify(svcConfiguration));
   const cloudService = CloudFactory.getCloudService(service_type, svcConfiguration);
-  logger.info(`Using ${cloudService.getServiceName()} for upload of ${file_name}`);
+  logger.info(`Using ${cloudService.getServiceName()} for upload of ${source_path} to ${remote_path}`);
 
 
   // Set up progress monitoring
@@ -134,7 +134,7 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
   // filePath, remoteName, mimeType, options
   const uploadResult = await cloudService.uploadFile(
     source_path,
-    file_name,
+    remote_path,
     mime_type,
     {
       metadata: {

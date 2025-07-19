@@ -14,7 +14,7 @@ const path = require('path');
 const os = require('os');
 
 const MAX_UNIQUE_FILENAME_GENERATIONS = 100;
-
+const POST_TO_INFO_CACHE = true;
 
 
 class StorageServiceBase extends UploadServiceBase {
@@ -109,6 +109,22 @@ class StorageServiceBase extends UploadServiceBase {
              * 3. Create thumbnail and preview from the original file
              *
             */
+
+            let tinyThumb = null;
+            if ( extractedPreviews && extractedPreviews.thumbnail ) {
+                tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.tinyThumb, {
+                    size: 80,
+                    quality: 60
+                });
+            } else if ( extractedPreviews && extractedPreviews.preview ) {
+                tinyThumb = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
+                    size: 80,
+                    quality: 60
+                });
+            }
+
+            let thumbnail = null;
+            let preview = null;
             
             if ( preferences.createPreviews ) {
 
@@ -131,6 +147,9 @@ class StorageServiceBase extends UploadServiceBase {
                     if ( previewUpload.success ) {
                         additionalFiles.preview = previewUpload.url;
                     }
+
+                    preview = previewResult.buffer;
+
                 } else if ( extractedPreviews && extractedPreviews.preview ) {
 
                     const previewUpload = await this.uploadOriginalFile(extractedPreviews.preview, previewRemoteName, 'image/webp', {
@@ -140,6 +159,8 @@ class StorageServiceBase extends UploadServiceBase {
                     if ( previewUpload.success ) {
                         additionalFiles.preview = previewUpload.url;
                     }
+
+                    preview = fs.readFileSync(extractedPreviews.preview);
                 }
 
 
@@ -161,6 +182,9 @@ class StorageServiceBase extends UploadServiceBase {
                     if ( thumbnailUpload.success ) {
                         additionalFiles.thumbnail = thumbnailUpload.url;
                     }
+
+                    thumbnail = thumbnailResult.buffer;
+
                 } else if ( extractedPreviews && extractedPreviews.thumbnail ) {
 
                     const thumbnailUpload = await this.uploadOriginalFile(extractedPreviews.thumbnail, thumbnailRemoteName, 'image/webp', {
@@ -170,6 +194,9 @@ class StorageServiceBase extends UploadServiceBase {
                     if ( thumbnailUpload.success ) {
                         additionalFiles.thumbnail = thumbnailUpload.url;
                     }
+
+                    thumbnail = fs.readFileSync(extractedPreviews.thumbnail);
+
                 } else if ( extractedPreviews && extractedPreviews.preview ) {
 
                     const thumbnailResult = await this.thumbnailService.generatePreview(extractedPreviews.preview, {
@@ -184,7 +211,42 @@ class StorageServiceBase extends UploadServiceBase {
                     if ( thumbnailUpload.success ) {
                         additionalFiles.thumbnail = thumbnailUpload.url;
                     }
+
+                    thumbnail = thumbnailResult.buffer;
                 }
+            }
+
+
+            /*
+             *
+             * Post this to the parent for caching, in case we upload to multiple services
+             * 
+             */
+
+            if ( POST_TO_INFO_CACHE ) {
+
+                const { parentPort, workerData } = require('worker_threads');
+                const { calculateFileHashes } = require('../../utils/Checksums.js');
+
+                const fileInfo = fs.statSync(filePath);
+                const fileHashes = await calculateFileHashes(filePath);
+                console.log("!!! File hashes:", fileHashes);
+
+                parentPort.postMessage({
+                    type: 'update-info-cache',
+                    fileRecord: {
+                        source_path: filePath,
+                        file_size: fileInfo.size,
+                        file_date: fileInfo.mtime.toISOString(),
+                        checksumMd5: fileHashes.md5,
+                        checksumSHA256: fileHashes.sha256,
+                        checksumSHA512: fileHashes.sha512,
+                        tiny_thumb: tinyThumb,
+                        thumbnail: thumbnail,
+                        preview: preview,
+                        exif: JSON.stringify(metadataResult.metadata)
+                    }
+                });
             }
 
 

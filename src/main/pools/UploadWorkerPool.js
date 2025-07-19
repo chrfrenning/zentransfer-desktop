@@ -134,8 +134,12 @@ class UploadWorkerPool {
           if ( backoffManager ) {
             backoffManager.onSuccess();
           } else {
-            logger.error(`!!! Backoff manager not found for service type: ${fileRecord.service_type}`);
+            logger.error(`Backoff manager not found for service type: ${fileRecord.service_type}`);
           }
+
+          // Add to dedupe
+          const sourceBaseName = path.basename(fileRecord.source_path);
+          this.uploadQueue.addDupe(sourceBaseName, fileRecord.file_size, fileRecord.file_date, null, null, fileRecord.service_type);
 
           // TBD: Add to index_queue, ledger_queue, dedupe, registry
 
@@ -163,6 +167,37 @@ class UploadWorkerPool {
             
           }
         } 
+
+      } else if ( type === 'update-info-cache' ) {
+
+        const { source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512,tiny_thumb, thumbnail, preview, exif } = message.fileRecord;
+        console.log("!!! Updating info cache:", source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512, exif);
+
+        /*  type: 'update-info-cache',
+              fileRecord: {
+                  source_path: filePath,
+                  file_size: fs.statSync(filePath).size,
+                  checksumMd5: fileHashes.md5,
+                  checksumSHA256: fileHashes.sha256,
+                  checksumSHA512: fileHashes.sha512,
+                  tiny_thumb: tinyThumb,
+                  thumbnail: thumbnail,
+                  preview: preview,
+                  exif: JSON.stringify(metadataResult.metadata)
+              }
+        */
+
+        this.uploadQueue.addToCache(
+          source_path, 
+          file_size, 
+          file_date, 
+          checksumMd5, 
+          checksumSHA256, 
+          checksumSHA512, 
+          tiny_thumb, 
+          thumbnail, 
+          preview, 
+          exif)
 
       } else if ( type === 'log' ) {
 
@@ -222,21 +257,31 @@ class UploadWorkerPool {
     for (const file of readyFiles) {
 
       // First check if we're backing off from this specific service
-      if (!this.getBackOffManager(file.service_type).isInBackoff()) {
-        return file;
+      if (this.getBackOffManager(file.service_type).isInBackoff()) {
+        continue;
+      }
+
+      // Is this a dupe?
+      const sourceBaseName = path.basename(file.source_path);
+      if ( this.uploadQueue.checkForDupeWithService(sourceBaseName, file.file_size, file.file_date, file.service_type) ) {
+
+        this.uploadQueue.markAsDupe(file.id);
+        this.sendMessageToRendererWindows('upload-update', { ...file, status: 'dupe' });
+
+        continue;
       }
 
       // Now check if it is time to retry this file (we have default much longer backoff for individual files)
       if ( file.retry_count > 0 ) {
         const backoffTime = BackOffManager.calculate(file.retry_count, this.fileBackoffManager.backoffConfig);
         const lastRetryTime = new Date(file.last_retry_at);
-        if ( lastRetryTime.getTime() + backoffTime < Date.now() ) {
-          return file;
+        if ( lastRetryTime.getTime() + backoffTime > Date.now() ) {
+          continue;
         }
       }
 
+      // If we get here, it's not a dupe, so we can process it
       return file;
-
     }
 
     return null;
@@ -297,7 +342,7 @@ class UploadWorkerPool {
       globals: app.globals
     });
     
-    logger.info(`Started upload: ${file.file_name} (fileId: ${file.id})`);
+    logger.info(`Started upload: ${file.source_path} (fileId: ${file.id})`);
     
     // Send progress update to renderer
     this.sendMessageToRendererWindows('upload-update', file);
@@ -369,7 +414,7 @@ class UploadWorkerPool {
 
     const record = {
       source_path: sourcePath,
-      file_name: path.basename(sourcePath),
+      remote_path: path.basename(sourcePath),
       file_size: fileStats.size,
       file_date: fileStats.mtime,
       mime_type: mimeTypes.getMimeType(sourcePath),
