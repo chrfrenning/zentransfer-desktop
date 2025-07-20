@@ -11,6 +11,7 @@ const logger = require('../utils/Logger.js');
 
 const { UploadQueue } = require('../queues/UploadQueue.js');
 const { DirectoryScanner } = require('../utils/DirectoryScanner.js');
+const { HighWaterMark } = require('../utils/HighWaterMark.js');
 
 class ImportWorkerPool {
   constructor(poolSize) {
@@ -181,6 +182,20 @@ class ImportWorkerPool {
     const scanner = new DirectoryScanner();
     const files = await scanner.scan(settings.sourcePath, true, null);
     logger.info(`Found ${files.length} files to import`);
+
+    if ( !scanner.isCancelled ) {
+
+      const highestFileTime = files.reduce((max, file) => {
+        return Math.max(max, file.created);
+      }, HighWaterMark.beginningOfTime());
+
+      const hwm = new HighWaterMark();
+      await hwm.upsert(settings.sourcePath, highestFileTime);
+
+      logger.info(`Updated high water mark to ${highestFileTime}`);
+      
+    }
+
     //this.fileQueue = files;
   }
   
