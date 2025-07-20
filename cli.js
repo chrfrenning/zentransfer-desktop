@@ -75,7 +75,7 @@ function startCommandLineInterface(hiddenWindow) {
         console.log('Uploading files simulation...');
         app.uploadWorkerPool.addFiles([uploadPath], 'minio');
     } else if ( true || checkCommandLineArgument('import')) {
-        const importPath = "D:\\ZenTransfer Test"
+        const importPath = "D:\\ZenTransfer Test\\ZT Source"
         console.log('Importing files simulation...');
         app.importWorkerPool.startImport({
             sourcePath: importPath

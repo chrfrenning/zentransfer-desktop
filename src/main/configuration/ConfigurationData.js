@@ -28,6 +28,8 @@ class ConfigurationData {
             previewSize: 1920,                  // Preview size in pixels
             previewQuality: 85,                 // Preview quality (0-100)
             maintainRegistry: true,             // Maintain a registry of all uploaded files
+            flattenFolders: false,              // Flatten the folder structure
+            tryMetadataDate: true,              // Prefer the metadata date over the file date if it exists
         };
 
         // Download settings

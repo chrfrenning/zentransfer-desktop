@@ -4,7 +4,7 @@
  * Extracted from main.js for better modularity
  */
 
-const { BrowserWindow } = require('electron');
+const { BrowserWindow, app } = require('electron');
 const { Worker } = require('worker_threads');
 const path = require('path');
 const logger = require('../utils/Logger.js');
@@ -12,9 +12,14 @@ const logger = require('../utils/Logger.js');
 const { UploadQueue } = require('../queues/UploadQueue.js');
 const { DirectoryScanner } = require('../utils/DirectoryScanner.js');
 const { HighWaterMark } = require('../utils/HighWaterMark.js');
+const { MimeTypesService } = require('../services/MimeTypesService.js');
 
 class ImportWorkerPool {
   constructor(poolSize) {
+
+    // We need to understand mime types
+    this.allMimeTypes = new MimeTypesService();
+    this.rawFileMimeTypes = new MimeTypesService('rawfiles.types');
 
     // We need to interact with the upload subsystem
     // and also check for dupes
@@ -44,7 +49,7 @@ class ImportWorkerPool {
   startQueueProcessor() {
     this.queueProcessorInterval = setInterval(async() => {
       await this.processQueue();
-    }, 1000);
+    }, 250);
   }
 
   /* processQueue() {
@@ -73,6 +78,8 @@ class ImportWorkerPool {
       const worker = availableWorkers[i];
       await this.submitJobToWorkerThread(worker, this.fileQueue.pop());
     }
+
+    logger.info(`Files in queue: ${this.fileQueue.length}`);
 
   }
   
@@ -136,10 +143,32 @@ class ImportWorkerPool {
 
     logger.info('Import worker message:', type);
     
-    if (type === 'progress') {
+    if (type === 'completed') {
+
+      //console.log("!!!", message);
 
       // Forward progress and log updates to renderer
-      this.sendMessageToRendererWindows('import-update', message);
+      const { success, result, file } = message;
+
+      if ( success ) {
+
+        if ( result.operation === 'skipped' ) {
+
+          logger.info(`Import worker ${myWorker.id} skipped import of: ${file.name}`);
+
+        } else if ( result.operation === 'completed' ) {
+
+          logger.info(`Import worker ${myWorker.id} completed import of: ${file.name}`);
+
+          this.uploadQueue.addDupe(file.name, file.size, file.modified.toISOString(), null, null, 'import');
+
+        }
+
+        this.sendMessageToRendererWindows('import-update', file.name);
+      }
+
+      myWorker.currentJob = null;
+      this.processQueue();
 
     } else if ( type === 'log' ) {
 
@@ -172,16 +201,113 @@ class ImportWorkerPool {
       dateFormat: 'ldn (tod)', // see DateFormatter.js for supported formats
       prefixFolderName: 'My Folder Name',
       postFixFolderName: null,
-      enableBackup: false,
+      enableBackup: true,
       backupPath: 'D:\\ZenTransfer Test\\ZT Backup',
       enabledServices: [ 'minio', 'zentransfer' ],
+      ignoreDupes: false,
       ...importJob
     }
 
     logger.info('Starting import...');
+
     const scanner = new DirectoryScanner();
     const files = await scanner.scan(settings.sourcePath, true, null);
     logger.info(`Found ${files.length} files to import`);
+
+    const stats = {
+      totalFiles: files.length,
+      filteredOut: 0,
+      duplicates: 0
+    };
+
+    // Submit these files to the worker pool
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const startOfYesterday = new Date();
+    startOfYesterday.setHours(0, 0, 0, 0);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+    const existingHighWateMark = await HighWaterMark.getHighWaterMarkDate(settings.sourcePath);
+
+    for (const file of files) {
+
+      // We're counting, 1..2..3..
+      stats.totalFiles++;
+
+
+      // Check if the file time
+
+      if ( settings.importTimeFilter === 'today' ) {
+
+        if ( file.created < startOfToday ) {
+          stats.filteredOut++;
+          continue;
+        }
+
+      } else if ( settings.importTimeFilter === 'yesterday' ) {
+
+        if ( file.created < startOfYesterday ) {
+          stats.filteredOut++;
+          continue;
+        }
+
+      } else if ( settings.importTimeFilter === 'highWaterMark' ) {
+
+        if ( file.created < existingHighWateMark ) {
+          stats.filteredOut++;
+          continue;
+        }
+
+      }
+
+
+      // Check if it matches the import type filer
+
+      const mimeType = this.allMimeTypes.getMimeType(file.name);
+      if ( settings.importTypeFilter === 'imageFiles' ) {
+
+        if ( !mimeType.startsWith('image/') ) {
+          stats.filteredOut++;
+          continue;
+        }
+
+      } else if ( settings.importTypeFilter === 'jpegOnly' ) {
+
+        if ( !mimeType.startsWith('image/jpeg') ) {
+          stats.filteredOut++;
+          continue;
+        }
+
+      } else if ( settings.importTypeFilter === 'rawOnly' ) {
+
+        if ( !this.rawFileMimeTypes.isKnown(mimeType) ) {
+          stats.filteredOut++;
+          continue;
+        }
+
+      }
+
+      // If the file is a duplicate, skip it
+
+      if ( settings.ignoreDupes ) {
+
+        const isDupe = this.uploadQueue.checkForDupeWithService(file.name, file.size, file.modified.toISOString(), 'import');
+
+        if ( isDupe ) {
+          stats.duplicates++;
+          continue;
+        }
+
+      }
+
+      // We're good, the file will be worked on
+      this.fileQueue.push({file, settings});
+    }
+
+    // We cannot update the high water mark until we know if the job
+    // will be cancelled. Only if the job is allowed to complete we
+    // can know what the highest file time is...
 
     if ( !scanner.isCancelled ) {
 
@@ -193,10 +319,10 @@ class ImportWorkerPool {
       await hwm.upsert(settings.sourcePath, highestFileTime);
 
       logger.info(`Updated high water mark to ${highestFileTime}`);
-      
+
     }
 
-    //this.fileQueue = files;
+    logger.info(`Import stats: ${stats.totalFiles} files, ${stats.filteredOut} filtered out, ${stats.duplicates} duplicates`);
   }
   
   stopImport() {

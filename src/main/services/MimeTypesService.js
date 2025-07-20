@@ -7,23 +7,20 @@ const fs = require('fs');
 const path = require('path');
 
 class MimeTypesService {
-    constructor() {
+    constructor(fileName = 'mime.types') {
         this.mimeMap = new Map();
         this.extensionMap = new Map();
         this.loaded = false;
-        this.loadMimeTypes();
+        this.loadMimeTypes(fileName);
     }
-
-    /**
-     * Loads the mime.types file from resources
-     */
-    loadMimeTypes() {
+    
+    loadMimeTypes(fileName) {
         if (this.loaded) return;
         try {
 
             // Find the root directory relative to this file
             const rootDir = path.resolve(__dirname, '../../');
-            const mimeTypesPath = path.join(rootDir, 'resources', 'mime.types');
+            const mimeTypesPath = path.join(rootDir, 'resources', fileName);
             if (!fs.existsSync(mimeTypesPath)) {
                 console.warn(`MimeTypesService: mime.types file not found at ${mimeTypesPath}`);
                 return;
@@ -54,12 +51,7 @@ class MimeTypesService {
             console.error('MimeTypesService: Failed to load mime.types:', err);
         }
     }
-
-    /**
-     * Get MIME type for a given filename or extension
-     * @param {string} fileNameOrExt
-     * @returns {string} MIME type or 'application/octet-stream'
-     */
+    
     getMimeType(fileNameOrExt) {
         let ext = fileNameOrExt;
         if (fileNameOrExt.includes('.')) {
@@ -73,14 +65,13 @@ class MimeTypesService {
 
         return 'application/octet-stream';
     }
-
-    /**
-     * Get extensions for a given MIME type
-     * @param {string} mimeType
-     * @returns {Array<string>} Array of extensions or []
-     */
+    
     getExtensions(mimeType) {
         return this.mimeMap.get(mimeType) || [];
+    }
+
+    isKnown(mimetype) {
+        return this.mimeMap.has(mimetype);
     }
 }
 

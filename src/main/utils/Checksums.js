@@ -43,4 +43,4 @@ async function calculateFileHash(filename, algorithm) {
     }
 }
 
-module.exports = { calculateFileHashes };
+module.exports = { calculateFileHash, calculateFileHashes };

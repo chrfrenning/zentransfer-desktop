@@ -68,8 +68,9 @@ class HighWaterMark {
         }
     }
     
-    async getHighWaterMarkDate(directoryPath) {
-        const hwmData = await this.read(directoryPath);
+    static async getHighWaterMarkDate(directoryPath) {
+        const hwm = new HighWaterMark();
+        const hwmData = await hwm.read(directoryPath);
         return new Date(hwmData.highWaterMark);
     }
 
