@@ -19,6 +19,8 @@ class ThumbnailService {
         if (!this.sharp) {
             try {
                 this.sharp = require('sharp');
+                this.sharp.cache(false);
+                
                 console.log('Sharp library initialized successfully');
             } catch (error) {
                 console.error('Failed to initialize Sharp library:', error);
@@ -60,7 +62,7 @@ class ThumbnailService {
 
         // Try preview generation
         try {
-            console.log(`Generating thumbnail for ${filePath} (size: ${size}px, quality: ${quality})`);
+            console.log(`generatePreview for ${filePath} (size: ${size}px, quality: ${quality})`);
             
             const image = this.sharp(filePath);
             const buffer = await image
@@ -73,7 +75,7 @@ class ThumbnailService {
                 .toBuffer();
             image.destroy();
 
-            console.log(`Thumbnail generated successfully on ${filePath} (${buffer.length} bytes)`);
+            console.log(`generatePreview successful on ${filePath} (${buffer.length} bytes)`);
             
             return {
                 success: true,

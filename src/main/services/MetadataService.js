@@ -78,28 +78,62 @@ class MetadataService {
             //let thumbnailTempFileName  = tmp.tmpNameSync({ prefix: 'ztth-', postfix: '.jpg' });
             let thumbnailTempFileName = path.join(os.tmpdir(), `ztth-${uuid}.jpg`);
             //console.log('Thumbnail temp file name:', thumbnailTempFileName);
-            await this.exiftool.extractThumbnail(filePath, thumbnailTempFileName);
-            const thumbnailSize = fs.statSync(thumbnailTempFileName).size;
-            if ( !thumbnailSize ) {
-                fs.unlinkSync(thumbnailTempFileName);
+            try {
+                await this.exiftool.extractThumbnail(filePath, thumbnailTempFileName);
+                const thInfo = fs.statSync(thumbnailTempFileName);
+                const thumbnailSize = thInfo ? thInfo.size : null;
+                if ( !thInfo && thInfo.size ) {
+                    console.log(`Extracted thumbnail from RAW ${filePath}`);
+                } else {
+                    thumbnailTempFileName = null;
+                }
+            } catch (error) {
+                console.log(`Exception when trying to extract thumbnail from ${filePath}`);
                 thumbnailTempFileName = null;
             }
+            
 
             //let previewTempFileName = tmp.tmpNameSync({ prefix: 'ztpv-', postfix: '.jpg' });
             let previewTempFileName = path.join(os.tmpdir(), `ztpv-${uuid}.jpg`);
             //console.log('Preview temp file name:', previewTempFileName);
-            await this.exiftool.extractPreview(filePath, previewTempFileName);
-            const previewSize = fs.statSync(previewTempFileName).size;
-            if ( !previewSize ) {
-                fs.unlinkSync(previewTempFileName);
+            try {
+                await this.exiftool.extractJpgFromRaw(filePath, previewTempFileName);
+                let previewSize = fs.statSync(previewTempFileName);
+                if (previewSize && previewSize.size) {
+                    console.log(`Extracted JPEG from RAW file ${filePath}`);
+                } else {
+                    previewTempFileName = null;
+                }
+            } catch( error ) {
+                console.log(`No embedded JPEG in RAW, trying preview for ${filePath}`);
                 previewTempFileName = null;
             }
 
-            return {
+            // final attempt, try to extract the preview
+            if ( !previewTempFileName ) {
+                try {
+                    previewTempFileName = path.join(os.tmpdir(), `ztpv-${uuid}.jpg`);
+                    await this.exiftool.extractPreview(filePath, previewTempFileName);
+                    const previewSize = fs.statSync(previewTempFileName);
+                    if ( previewSize && previewSize.size ) {
+                        console.log(`Extracted preview from RAW file ${filePath}`);
+                    } else {
+                        previewTempFileName = null;
+                    }
+                } catch( error ) {
+                    console.log(`No embedded preview in RAW ${filePath}`);
+                    previewTempFileName = null;
+                }
+            }
+
+            const ret = {
                 success: true,
                 thumbnail: thumbnailTempFileName,
                 preview: previewTempFileName
             };
+
+            console.log(ret);
+            return ret;
 
         }
 

@@ -14,8 +14,12 @@ const { DirectoryScanner } = require('../utils/DirectoryScanner.js');
 const { HighWaterMark } = require('../utils/HighWaterMark.js');
 const { MimeTypesService } = require('../services/MimeTypesService.js');
 
+const MAX_POOL_SIZE = 1;
+
 class ImportWorkerPool {
   constructor(poolSize) {
+
+    poolSize = Math.min(poolSize, MAX_POOL_SIZE);
 
     // We need to understand mime types
     this.allMimeTypes = new MimeTypesService();
@@ -202,13 +206,13 @@ class ImportWorkerPool {
       importTypeFilter: 'allFiles', // allFiles|imageFiles|jpegOnly|rawOnly
       importTimeFilter: 'allTime', // allTime|today|yesterday|highWaterMark
       destinationPath: 'D:\\ZenTransfer Test\\ZT Import',
-      organizeIntoFolders: 'date', // date|custom
+      organizeIntoFolders: 'none', // none|date|custom, if custom use prefixFolderName
       dateFormat: 'YYYY/YYYY-MM-DD', // see DateFormatter.js for supported formats
-      prefixFolderName: 'My Folder Name',
+      prefixFolderName: null,
       postFixFolderName: null,
-      enableBackup: true,
+      enableBackup: false,
       backupPath: 'D:\\ZenTransfer Test\\ZT Backup',
-      enabledServices: [ 'minio', 'zentransfer' ],
+      enabledServices: [ /* 'minio', 'zentransfer' */ ],
       ignoreDupes: false,
       ...importJob
     }

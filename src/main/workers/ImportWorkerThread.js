@@ -13,6 +13,20 @@ const { ThumbnailService } = require('../services/ThumbnailService.js');
 const { DateFormatter } = require('../utils/DateFormatter.js');
 const { MimeTypesService } = require('../services/MimeTypesService.js');
 
+const sharp = require('sharp');
+sharp.cache(false);
+
+const exifOrientationToDegrees = {
+    1: 0,    // Normal
+    2: 0,    // Mirrored horizontally
+    3: 180,  // Rotated 180°
+    4: 180,  // Mirrored vertically
+    5: 90,   // Mirrored horizontally, then rotated 90° CCW
+    6: 90,   // Rotated 90° CW
+    7: -90,  // Mirrored horizontally, then rotated 90° CW
+    8: -90   // Rotated 90° CCW
+  };
+
 const workerId = workerData.workerId;
 let currentJob = null;
 let isProcessing = false;
@@ -28,6 +42,9 @@ const DATE_STYLE_BACKUP_ORGANIZATION = false; // mutex with MIRROR_STYLE_BACKUP_
 const LR_STYLE_BACKUP_ORGANIZATION = true; // mutex with DATE_STYLE_BACKUP_ORGANIZATION and MIRROR_STYLE_BACKUP_ORGANIZATION
 const VERIFY_WITH_HASH = true;
 const HASH_ALGORITHM = 'md5';
+const CREATE_ALTERNATIVE_IX_FORMATS = true;
+const CREATE_THUMBNAIL_FROM_HIGHRES = false;
+const ALWAYS_THUMB_FROM_PREVIEW = true;
 
 /*
  * Message handling, we're a worker thread, receiving
@@ -103,7 +120,7 @@ async function handleStartImport(fileWithSettings, configuration) {
 
 async function doImport(fileWithSettings, configuration, metadataService, thumbnailService) {
 
-    // This is the mother of all functions. Good luck reading it!!!
+    // This is the mother of all functions. Good luck reading it!
     
     logger.info(`Doing import of ${fileWithSettings.file.name}`);
 
@@ -167,7 +184,7 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
         destinationFolder = path.join(destinationFolder, settings.prefixFolderName);
     }
 
-    if ( true || (settings.organizeIntoFolders == 'date' && settings.dateFormat) ) {
+    if ( settings.organizeIntoFolders == 'date' && settings.dateFormat ) {
         const dateRelativePath = DateFormatter.formatDate(fileDateToUse, settings.dateFormat);
         destinationFolder = path.join(destinationFolder, ...dateRelativePath.split('/'));
     }
@@ -299,7 +316,7 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
     if ( configuration.preferences.extractMetaData ) {
         if ( !readMetadata ) {
             if ( !metadataFailure ) {
-                const { success, metadata : extractedMetadata } = await metadataService.extractMetadata(file.path);
+                const { success, metadata : extractedMetadata } = await metadataService.extractMetadata(destinationPath);
                 if ( success ) {
                     readMetadata = extractedMetadata;
                 }
@@ -327,10 +344,14 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
             quality: configuration.preferences.previewQuality
         };
 
-        const preview = await thumbnailService.generatePreview(file.path, options);
+        const preview = await thumbnailService.generatePreview(destinationPath, options);
         if ( preview.success ) {
+
+            logger.verbose(`Successfully created preview from ${destinationPath}.`)
+            
             const previewFilename = thumbnailService.generatePreviewFilename(destinationPath);
             await fs.promises.writeFile(previewFilename, preview.buffer);
+            logger.debug(`Preview saved in ${previewFilename}.`)
 
             // create the thumbnail from the preview
             const options = {
@@ -343,14 +364,19 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
             // file. While slower, we start from scratch from the original also for the thumb.
             const thumbnail = await thumbnailService.generatePreview(destinationPath/* previewFilename */, options);
             if ( thumbnail.success ) {
-                const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
+
+                const thumbnailSource = CREATE_THUMBNAIL_FROM_HIGHRES ? destinationPath : previewFilename;
+
+                const thumbnailFilename = thumbnailService.generateThumbnailFilename(thumbnailSource);
                 await fs.promises.writeFile(thumbnailFilename, thumbnail.buffer);
+
+                logger.debug(`Created thumbnail from ${thumbnailSource} saved in ${previewFilename}.`);
             }
 
             // create a pinkenail from the preview
             if ( configuration.preferences.createIndexFiles ) {
                 // Same as above Note! about locked previewFilename
-                pinkieNail = await thumbnailService.generatePreview(destinationPath/* previewFilename */, { size: 80, quality: 60});
+                pinkieNail = await thumbnailService.generatePreview(CREATE_THUMBNAIL_FROM_HIGHRES ? destinationPath : previewFilename, { size: 80, quality: 60});
             }
 
         } else {
@@ -358,41 +384,166 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
             // Try to extract from the file with exiftool
             if ( !metadataFailure ) {
 
-                const { success, thumbnail, preview } = await metadataService.extractThumbnailAndPreview(file.path);
+                const { success, thumbnail, preview } = await metadataService.extractThumbnailAndPreview(CREATE_THUMBNAIL_FROM_HIGHRES ? destinationPath : file.path);
 
                 if ( success && preview ) {
                     const previewFilename = thumbnailService.generatePreviewFilename(destinationPath);
-                    fs.copyFileSync(preview, previewFilename);
 
-                    if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
-                        pinkieNail = await thumbnailService.generatePreview(preview, { size: 80, quality: 60});
+                    let mustProcess = false;
+                    const { eWidth, eHeight } = await getImageDimensions(preview);
+                    logger.debug(`Dimensions of ${file.path} is ${eWidth}x${eHeight} px.`);
+                    if ( eWidth > configuration.preferences.previewSize || eHeight > configuration.preferences.previewSize ) {
+                        logger.debug(`Preview dimensions are larger than ${configuration.preferences.previewSize}, must process.`);
+                        mustProcess = true;
                     }
 
-                    fs.unlinkSync(preview);
+                    // This preview may not be rotated
+                    if ( readMetadata && readMetadata.metadata.Orientation ) {
+                        const rotation = exifOrientationToDegrees[readMetadata.metadata.Orientation] || 0;
+                        if ( rotation != 0 ) {
+                            logger.debug(`Rotation of ${rotation}def for ${file.path}, must process.`);
+                            mustProcess = true;
+                        }
+                    }
+
+                    if ( mustProcess ) {
+                        const rotation = exifOrientationToDegrees[readMetadata.metadata.Orientation] || 0;
+                        try {
+
+                            const image = sharp(preview);
+                            const rotated = await image.resize(
+                                configuration.preferences.previewSize, 
+                                configuration.preferences.previewSize, 
+                                {
+                                    fit: 'inside', // Fit within, preserving aspect ratio
+                                    withoutEnlargement: true // Do not upscale smaller images
+                                }
+                              )
+                              .rotate(rotation)
+                              .toBuffer();
+                            await fs.promises.writeFile(previewFilename, rotated);
+
+
+                            if ( ALWAYS_THUMB_FROM_PREVIEW ) {
+
+                                const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
+
+                                const thumbnail = await image.resize(
+                                    configuration.preferences.thumbnailSize, 
+                                    configuration.preferences.thumbnailSize, 
+                                    {
+                                        fit: 'inside', // Fit within, preserving aspect ratio
+                                        withoutEnlargement: true // Do not upscale smaller images
+                                    }
+                                  )
+                                  //.rotate(rotation)
+                                  .toBuffer();
+                                await fs.promises.writeFile(thumbnailFilename, thumbnail);
+                            }
+
+                            image.destroy();
+
+                        } catch (error ) {
+
+                            // Note: Same as below
+                            fs.copyFileSync(preview, previewFilename);
+                            
+                        }
+                    } else {
+
+                        fs.copyFileSync(preview, previewFilename);
+
+                    }
+
+                    if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
+                        pinkieNail = await thumbnailService.generatePreview(previewFilename, { size: 80, quality: 60});
+                    }
                 }
 
-                if ( success && thumbnail ) {
+                if ( success && thumbnail && !ALWAYS_THUMB_FROM_PREVIEW ) {
                     const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
-                    fs.copyFileSync(thumbnail, thumbnailFilename);
+                    
+                    // This thumbnail may not be rotated
+                    if ( readMetadata && readMetadata.metadata.Orientation ) {
 
-                    if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
-                        pinkieNail = await thumbnailService.generatePreview(thumbnail, { size: 80, quality: 60});
+                        const rotation = exifOrientationToDegrees[readMetadata.metadata.Orientation] || 0;
+
+                        if ( rotation != 0 ) {
+
+                            const rotation = readMetadata.metadata.Orientation == 6 ? 90 : -90;
+                            
+                            try {
+
+                                const image = sharp(thumbnail);
+                                const rotated = await image.rotate(rotation).toBuffer();
+                                await fs.promises.writeFile(thumbnailFilename, rotated);
+                                image.destroy();
+
+                            } catch ( error ) {
+
+                                // Note: same as below
+                                fs.copyFileSync(thumbnail, thumbnailFilename);
+
+                            }
+
+                        } else {
+
+                            // Note: same as below
+                            fs.copyFileSync(thumbnail, thumbnailFilename);
+                            
+                        }
+
+                    } else {
+
+                        fs.copyFileSync(thumbnail, thumbnailFilename);
+
                     }
 
-                    fs.unlinkSync(thumbnail);
+
+                    // If we don't have a preview, take what we have...
+
+                    if (!preview) {
+
+                        logger.warn(`Using thumbnail as fallback for preview for ${file.path}.`);
+                        const previewFilename = thumbnailService.generatePreviewFilename(destinationPath);
+                        fs.copyFileSync(thumbnailFilename, previewFilename);
+
+                    }
+
+                    // Create the pinkienail if we dont alrady have one
+
+                    if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
+                        pinkieNail = await thumbnailService.generatePreview(thumbnailFilename, { size: 80, quality: 60});
+                    }
+
+
+                    // Clean up the thumb, we're good
+
+                    try {
+                        fs.unlinkSync(thumbnail);
+                    } catch ( error ) {
+                        console.log(`Unable to delete tmp thumbnail file: ${preview}`);
+                    }
                 }
 
-                if ( success && preview && !thumbnail ) {
+                if ( success && preview && !thumbnail && !ALWAYS_THUMB_FROM_PREVIEW ) {
                     // create the thumbnail from the preview
                     const options = {
                         size: configuration.preferences.thumbnailSize,
                         quality: configuration.preferences.thumbnailQuality
                     };
-                    const thumbnail = await thumbnailService.generatePreview(preview.buffer, options);
+                    const previewFileNameToUse = thumbnailService.generatePreviewFilename(destinationPath);
+                    const thumbnail = await thumbnailService.generatePreview(previewFileNameToUse, options);
                     if ( thumbnail.success ) {
                         const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
                         await fs.promises.writeFile(thumbnailFilename, thumbnail.buffer);
                     }
+                }
+
+                try {
+                    fs.unlinkSync(preview);
+                } catch ( error ) {
+                    console.log(`Unable to delete tmp preview file: ${preview}`);
                 }
             }
         
@@ -412,6 +563,18 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
         const indexFilename = "ztindex.jsonl";
         const indexPath = path.join(destinationFolder, indexFilename);
 
+        let imageWidth = readMetadata ? readMetadata.metadata.ImageWidth : null;
+        let imageHeight = readMetadata ? readMetadata.metadata.ImageHeight : null;
+
+        if ( imageWidth && imageHeight && readMetadata.metadata.Orientation ) {
+            const rotation = exifOrientationToDegrees[readMetadata.metadata.Orientation] || 0;
+            if ( rotation == 90 || rotation == -90 ) {
+                const t = imageWidth;
+                imageWidth = imageHeight;
+                imageHeight = t;
+            }
+        }
+
         const record = {
             name: path.basename(destinationPath),
             path: destinationPath.substring(destinationFolder.length + 1),
@@ -422,13 +585,23 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
             type: mimeTypeService.getMimeType(file.path),
             extension: path.extname(file.path),
             thumbnail: pinkieNail ? pinkieNail.buffer.toString('base64') : null,
-            width: readMetadata ? readMetadata.metadata.ImageWidth : null,
-            height: readMetadata ? readMetadata.metadata.ImageHeight : null,
-            orientation: readMetadata ? readMetadata.metadata.Orientation : null,
+            width: imageWidth,
+            height: imageHeight,
+            orientation: imageWidth && imageHeight ? classifyDimensions(imageWidth, imageHeight) : null,
             latitude: readMetadata ? readMetadata.metadata.GPSLatitude : null,
             longitude: readMetadata ? readMetadata.metadata.GPSLongitude : null,
             altitude: readMetadata ? readMetadata.metadata.GPSAltitude : null,
-            camera: readMetadata ? readMetadata.metadata.CameraModelName : null,
+            camera_make: readMetadata ? (
+                readMetadata.metadata.CameraMake ||
+                readMetadata.metadata.Make ||
+                null
+            ) : null,
+            camera_model: readMetadata ? (
+                readMetadata.metadata.CameraModel ||
+                readMetadata.metadata.Model ||
+                readMetadata.metadata.CameraModelName ||
+                null
+            ) : null,
             lens: readMetadata ? (
                 readMetadata.metadata.LensModel ||
                 readMetadata.metadata.Lens ||
@@ -483,6 +656,12 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
         const stream = fs.createWriteStream(indexPath, { flags: 'a' });
         stream.write(JSON.stringify(record).replaceAll('\n','\\n') + '\n'); // Each object on a new line
         stream.end();
+
+        if ( CREATE_ALTERNATIVE_IX_FORMATS ) {
+            await createAlternativeIndexFormats(indexPath);
+        }
+
+        
     } else {
         logger.debug(`Index file not created because createIndexFiles is disabled`);
     }
@@ -544,4 +723,69 @@ function generateUniqueFilename(filePath) {
     } while (fs.existsSync(uniquePath));
     
     return uniquePath;
+}
+
+function classifyDimensions(width, height) {
+    if (!width || !height) return null;
+
+    // Tolerance to account for small metadata rounding errors
+    const tolerance = 0.05;
+    const aspectRatio = width / height;
+
+    if (Math.abs(aspectRatio - 1) <= tolerance) {
+        return "square";
+    } else if (aspectRatio >= 2) {
+        return "panorama"; // Very wide
+    } else if (aspectRatio <= 0.5) {
+        return "banner"; // Very tall (vertical panorama)
+    } else if (width > height) {
+        return "landscape";
+    } else {
+        return "portrait";
+    }
+}
+
+async function createAlternativeIndexFormats(inputFilePath) {
+
+    console.log(`Converting jsonl file ${inputFilePath}`);
+
+    const baseName = path.basename(inputFilePath, path.extname(inputFilePath));
+    const dirName = path.dirname(inputFilePath);
+
+    const jsonOutputPath = path.join(dirName, `${baseName}.json`);
+    const csvOutputPath = path.join(dirName, `${baseName}.csv`);
+
+    const lines = fs.readFileSync(inputFilePath, 'utf8')
+        .split(/\r?\n/)
+        .filter(line => line.trim() !== '');
+
+    // Parse all lines into JSON objects
+    const objects = lines.map(line => JSON.parse(line));
+
+    // Write JSON array
+    fs.writeFileSync(jsonOutputPath, JSON.stringify(objects, null, 2), 'utf8');
+
+    // Prepare CSV
+    const headers = Object.keys(objects[0]);
+    const csvLines = [headers.map(h => `"${h}"`).join(',')];
+
+    for (const obj of objects) {
+        const row = headers.map(h => {
+            const val = obj[h] !== undefined ? String(obj[h]).replace(/"/g, '""') : '';
+            return `"${val}"`;
+        }).join(',');
+        csvLines.push(row);
+    }
+
+    fs.writeFileSync(csvOutputPath, csvLines.join('\n'), 'utf8');
+
+    console.log(`Converted to: \n - ${jsonOutputPath}\n - ${csvOutputPath}`);
+}
+
+async function getImageDimensions(filePath) {
+    const metadata = await sharp(filePath).metadata();
+    return {
+        width: metadata.width,
+        height: metadata.height
+    };
 }
