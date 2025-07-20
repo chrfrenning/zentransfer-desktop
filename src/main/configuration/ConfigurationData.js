@@ -26,7 +26,8 @@ class ConfigurationData {
             thumbnailSize: 400,                 // Thumbnail size in pixels
             thumbnailQuality: 90,               // Thumbnail quality (0-100)
             previewSize: 1920,                  // Preview size in pixels
-            previewQuality: 90                  // Preview quality (0-100)
+            previewQuality: 85,                 // Preview quality (0-100)
+            maintainRegistry: true,             // Maintain a registry of all uploaded files
         };
 
         // Download settings
