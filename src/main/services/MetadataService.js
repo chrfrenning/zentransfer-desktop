@@ -158,10 +158,9 @@ class MetadataService {
     }
     
     static generateMetadataFilename(originalFilename) {
-        const ext = path.extname(originalFilename);
-        const nameWithoutExt = path.basename(originalFilename, ext);
+        const baseName = path.basename(originalFilename);
         const dirname = path.dirname(originalFilename);
-        return path.join(dirname, `${nameWithoutExt}.metadata.json`);
+        return path.join(dirname, `${baseName}.md.json`);
     }
 
     static createDateFromDateField(dateObj) {

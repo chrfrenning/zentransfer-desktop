@@ -62,7 +62,8 @@ class ThumbnailService {
         try {
             console.log(`Generating thumbnail for ${filePath} (size: ${size}px, quality: ${quality})`);
             
-            const buffer = await this.sharp(filePath)
+            const image = this.sharp(filePath);
+            const buffer = await image
                 .rotate() // Automatically handle EXIF orientation
                 .resize(size, size, {
                     fit: 'inside',
@@ -70,6 +71,7 @@ class ThumbnailService {
                 })
                 .webp({ quality })
                 .toBuffer();
+            image.destroy();
 
             console.log(`Thumbnail generated successfully on ${filePath} (${buffer.length} bytes)`);
             
@@ -101,10 +103,9 @@ class ThumbnailService {
     }
     
     generateRenditionFilename(originalFilename, renditionType = 'pv') {
-        const ext = path.extname(originalFilename);
-        const nameWithoutExt = path.basename(originalFilename, ext);
+        const basename = path.basename(originalFilename);
         const dirname = path.dirname(originalFilename);
-        return path.join(dirname, `${nameWithoutExt}.${renditionType}.webp`);
+        return path.join(dirname, `${basename}.${renditionType}.webp`);
     }
 }
 

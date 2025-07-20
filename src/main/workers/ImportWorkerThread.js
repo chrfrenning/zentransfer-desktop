@@ -11,6 +11,7 @@ const { calculateFileHash } = require('../utils/Checksums.js');
 const { MetadataService } = require('../services/MetadataService.js');
 const { ThumbnailService } = require('../services/ThumbnailService.js');
 const { DateFormatter } = require('../utils/DateFormatter.js');
+const { MimeTypesService } = require('../services/MimeTypesService.js');
 
 const workerId = workerData.workerId;
 let currentJob = null;
@@ -18,6 +19,8 @@ let isProcessing = false;
 let shouldCancel = false;
 
 logger.info(`Import worker ${workerId} started`);
+
+const mimeTypeService = new MimeTypesService();
 
 const MAKE_BACKUPS_FROM_SOURCE = false;
 const MIRROR_STYLE_BACKUP_ORGANIZATION = false; // mutex with DATE_STYLE_BACKUP_ORGANIZATION
@@ -99,6 +102,8 @@ async function handleStartImport(fileWithSettings, configuration) {
 }
 
 async function doImport(fileWithSettings, configuration, metadataService, thumbnailService) {
+
+    // This is the mother of all functions. Good luck reading it!!!
     
     logger.info(`Doing import of ${fileWithSettings.file.name}`);
 
@@ -120,6 +125,7 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
 
     let metadataFailure = false;
     let fileDateToUse = file.created;
+    let readMetadata = null;
     if ( configuration.preferences.tryMetadataDate || true ) {
 
         logger.verbose(`Trying to read metadata of the source file ${file.name} to use creation date`);
@@ -132,6 +138,8 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
 
                 logger.info(`Using metadata date for ${file.name}: ${fileDateToUse}`);
             }
+
+            readMetadata = extractedMetadata;
         } else {
             metadataFailure = true; // let rest of process know not to try again
         }
@@ -184,10 +192,15 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
     let destinationPath = path.join(destinationFolder, file.name);
 
     if (fs.existsSync(destinationPath)) {
+
         logger.debug(`File ${file.name} already exists at destination`);
+
         if ( configuration.preferences.skipExisting ) {
+
             return { operation: 'skipped' };
+
         } else {
+
             do {
                 destinationPath = generateUniqueFilename(destinationPath);
             } while (fs.existsSync(destinationPath));
@@ -275,12 +288,236 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
 
         }
     }
+    
 
 
-    // Proceed with more magic
+    /*  
+     *  Extract and save metadata
+     *  
+    */
+
+    if ( configuration.preferences.extractMetaData ) {
+        if ( !readMetadata ) {
+            if ( !metadataFailure ) {
+                const { success, metadata : extractedMetadata } = await metadataService.extractMetadata(file.path);
+                if ( success ) {
+                    readMetadata = extractedMetadata;
+                }
+            }
+        }
+
+        if ( readMetadata ) {
+            let metadataFilename = MetadataService.generateMetadataFilename(destinationPath);
+            await fs.promises.writeFile(metadataFilename, JSON.stringify(readMetadata, null, 2));
+        }
+    }
+    
 
 
-    // Add this to the dedupe database
+    /*  
+     *  Create thumbnail and preview
+     *  
+    */
+
+    let pinkieNail = null;
+
+    if ( configuration.preferences.createPreviews ) {
+        const options = {
+            size: configuration.preferences.previewSize,
+            quality: configuration.preferences.previewQuality
+        };
+
+        const preview = await thumbnailService.generatePreview(file.path, options);
+        if ( preview.success ) {
+            const previewFilename = thumbnailService.generatePreviewFilename(destinationPath);
+            await fs.promises.writeFile(previewFilename, preview.buffer);
+
+            // create the thumbnail from the preview
+            const options = {
+                size: configuration.preferences.thumbnailSize,
+                quality: configuration.preferences.thumbnailQuality
+            };
+
+            // Note! We have a strange bug here from time to time where previewFilename gets locked 
+            // until the process exits, that does not happen when we create the thumbnail from the original
+            // file. While slower, we start from scratch from the original also for the thumb.
+            const thumbnail = await thumbnailService.generatePreview(destinationPath/* previewFilename */, options);
+            if ( thumbnail.success ) {
+                const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
+                await fs.promises.writeFile(thumbnailFilename, thumbnail.buffer);
+            }
+
+            // create a pinkenail from the preview
+            if ( configuration.preferences.createIndexFiles ) {
+                // Same as above Note! about locked previewFilename
+                pinkieNail = await thumbnailService.generatePreview(destinationPath/* previewFilename */, { size: 80, quality: 60});
+            }
+
+        } else {
+
+            // Try to extract from the file with exiftool
+            if ( !metadataFailure ) {
+
+                const { success, thumbnail, preview } = await metadataService.extractThumbnailAndPreview(file.path);
+
+                if ( success && preview ) {
+                    const previewFilename = thumbnailService.generatePreviewFilename(destinationPath);
+                    fs.copyFileSync(preview, previewFilename);
+
+                    if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
+                        pinkieNail = await thumbnailService.generatePreview(preview, { size: 80, quality: 60});
+                    }
+
+                    fs.unlinkSync(preview);
+                }
+
+                if ( success && thumbnail ) {
+                    const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
+                    fs.copyFileSync(thumbnail, thumbnailFilename);
+
+                    if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
+                        pinkieNail = await thumbnailService.generatePreview(thumbnail, { size: 80, quality: 60});
+                    }
+
+                    fs.unlinkSync(thumbnail);
+                }
+
+                if ( success && preview && !thumbnail ) {
+                    // create the thumbnail from the preview
+                    const options = {
+                        size: configuration.preferences.thumbnailSize,
+                        quality: configuration.preferences.thumbnailQuality
+                    };
+                    const thumbnail = await thumbnailService.generatePreview(preview.buffer, options);
+                    if ( thumbnail.success ) {
+                        const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
+                        await fs.promises.writeFile(thumbnailFilename, thumbnail.buffer);
+                    }
+                }
+            }
+        
+        }
+    }
+
+
+    /*  
+     *  Append to the index file
+     *  
+    */
+
+    if ( configuration.preferences.createIndexFiles ) {
+
+        logger.info(`Writing record to index file ${destinationPath}`);
+
+        const indexFilename = "ztindex.jsonl";
+        const indexPath = path.join(destinationFolder, indexFilename);
+
+        const record = {
+            name: path.basename(destinationPath),
+            path: destinationPath.substring(destinationFolder.length + 1),
+            size: file.size,
+            date: file.created.toISOString(),
+            capture_date: fileDateToUse.toISOString(),
+            hash: sourceHash,
+            type: mimeTypeService.getMimeType(file.path),
+            extension: path.extname(file.path),
+            thumbnail: pinkieNail ? pinkieNail.buffer.toString('base64') : null,
+            width: readMetadata ? readMetadata.metadata.ImageWidth : null,
+            height: readMetadata ? readMetadata.metadata.ImageHeight : null,
+            orientation: readMetadata ? readMetadata.metadata.Orientation : null,
+            latitude: readMetadata ? readMetadata.metadata.GPSLatitude : null,
+            longitude: readMetadata ? readMetadata.metadata.GPSLongitude : null,
+            altitude: readMetadata ? readMetadata.metadata.GPSAltitude : null,
+            camera: readMetadata ? readMetadata.metadata.CameraModelName : null,
+            lens: readMetadata ? (
+                readMetadata.metadata.LensModel ||
+                readMetadata.metadata.Lens ||
+                readMetadata.metadata.LensSpecification ||
+                readMetadata.metadata.LensInfo ||
+                null
+            ) : null,
+            lens_make: readMetadata ? (
+                readMetadata.metadata.LensMake ||
+                null
+            ) : null,
+            focal_length: readMetadata ? (
+                readMetadata.metadata.FocalLength ||
+                null
+            ) : null,
+            focal_length_35mm: readMetadata ? (
+                readMetadata.metadata.FocalLengthIn35mmFormat ||
+                null
+            ) : null,
+            aperture: readMetadata ? (
+                readMetadata.metadata.FNumber ||
+                readMetadata.metadata.ApertureValue ||
+                null
+            ) : null,
+            shutter_speed: readMetadata ? (
+                readMetadata.metadata.ExposureTime ||
+                readMetadata.metadata.ShutterSpeedValue ||
+                null
+            ) : null,
+            iso: readMetadata ? (
+                readMetadata.metadata.ISO ||
+                null
+            ) : null,
+            exposure_compensation: readMetadata ? (
+                readMetadata.metadata.ExposureCompensation ||
+                null
+            ) : null,
+            flash: readMetadata ? (
+                readMetadata.metadata.Flash ||
+                null
+            ) : null,
+            white_balance: readMetadata ? (
+                readMetadata.metadata.WhiteBalance ||
+                null
+            ) : null,
+            metering_mode: readMetadata ? (
+                readMetadata.metadata.MeteringMode ||
+                null
+            ) : null,
+        }
+        
+        const stream = fs.createWriteStream(indexPath, { flags: 'a' });
+        stream.write(JSON.stringify(record).replaceAll('\n','\\n') + '\n'); // Each object on a new line
+        stream.end();
+    } else {
+        logger.debug(`Index file not created because createIndexFiles is disabled`);
+    }
+
+
+    /*  
+     *  Submit to the queue for upload services to handl3
+     *  
+    */
+
+    
+    for ( const service of settings.enabledServices ) {
+        console.log("!!!", service);
+         /*addFiles(files) {
+            if (!this.isInitialized) throw new Error('Queue manager not initialized');
+            
+            const transaction = this.db.transaction((files) => {
+                const results = [];
+    
+                for (const file of files) {
+                    try {
+                       
+                            source_path,
+                            remote_path,
+                            file_size,
+                            file_date,
+                            mime_type,
+                            service_type
+                        */
+    }
+
+
+
+
+    // Return the result to mother
 
     return { 
         operation: 'completed',
@@ -288,198 +525,6 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
     };
 }
 
-
-
-/**
- * Process files to destinations
- */
-async function processFiles(files, importSettings) {
-    const { destinationPath, backupEnabled, backupPath, organizeIntoFolders, folderOrganizationType, customFolderName, dateFormat, uploadToZenTransfer, skipDuplicates } = importSettings;
-    
-    logger.info(`Import worker ${workerId}: processFiles called with ${files.length} files, skipDuplicates: ${skipDuplicates}, isProcessing: ${isProcessing}`);
-    logger.info(`Import worker ${workerId}: Full importSettings:`, JSON.stringify(importSettings, null, 2));
-    
-    let successCount = 0;
-    let failCount = 0;
-    let skippedCount = 0; // Track skipped duplicates
-    let uploadQueueCount = 0; // Track total files queued for upload
-    
-    for (let i = 0; i < files.length; i++) {
-        logger.info(`Import worker ${workerId}: Processing file ${i + 1}/${files.length}, isProcessing: ${isProcessing}`);
-        if (shouldCancel) {
-            logger.info(`Import worker ${workerId}: Cancellation detected before processing file index ${i}`);
-            break;
-        }
-        
-        const file = files[i];
-        
-        try {
-            logger.info(`Import worker ${workerId}: Starting to process file: ${file.name}, isProcessing: ${isProcessing}`);
-            sendMessageToParent('log', { message: `Processing: ${file.name}` });
-            
-            // Determine destination folder
-            let finalDestinationPath = destinationPath;
-            let finalBackupPath = backupPath;
-            
-            if (organizeIntoFolders) {
-                const folderName = getFolderName(file, folderOrganizationType, customFolderName, dateFormat);
-                finalDestinationPath = path.join(destinationPath, folderName);
-                if (backupEnabled && backupPath) {
-                    finalBackupPath = path.join(backupPath, folderName);
-                }
-            }
-            
-            // Copy to destination
-            logger.info(`Import worker ${workerId}: About to copy file ${file.name}, isProcessing: ${isProcessing}`);
-            const destinationFilePath = await copyFileAsync(file, finalDestinationPath, skipDuplicates);
-            
-            let destinationSkipped = false;
-            
-            // Check if file was skipped in destination
-            if (destinationFilePath === null) {
-                // File was skipped as duplicate in destination
-                destinationSkipped = true;
-                skippedCount++;
-                logger.info(`Import worker ${workerId}: File skipped as duplicate in destination: ${file.name}, skippedCount: ${skippedCount}`);
-                sendMessageToParent('log', { message: `⚠ Skipped duplicate in destination: ${file.name}` });
-            } else {
-                logger.info(`Import worker ${workerId}: File copied successfully to destination: ${file.name}, isProcessing: ${isProcessing}`);
-                sendMessageToParent('log', { message: `✓ Copied to destination: ${file.name}` });
-            }
-            
-            // Check for cancellation after destination copying
-            if (!isProcessing) {
-                logger.info(`Import worker ${workerId}: Cancellation detected after copying ${file.name}`);
-                break;
-            }
-            
-            // Queue for upload to enabled cloud services (only if successfully copied to destination)
-            const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || importSettings.uploadToAzure || importSettings.uploadToGcp || importSettings.uploadToMinio;
-            if (hasAnyUploadEnabled && destinationFilePath) {
-                logger.info(`Import worker ${workerId}: About to queue for upload: ${file.name}, isProcessing: ${isProcessing}`);
-                sendMessageToParent('upload-ready', {
-                    filePaths: [destinationFilePath], // Single file array
-                    count: 1,
-                    fileName: file.name, // Include filename for logging
-                    importSettings: importSettings // Pass import settings to determine which services to use
-                });
-                uploadQueueCount++;
-                logger.info(`Import worker ${workerId}: File queued for upload: ${file.name}, uploadQueueCount: ${uploadQueueCount}`);
-                sendMessageToParent('log', { message: `✓ Queued for upload: ${file.name}` });
-            }
-            
-            // Check for cancellation after upload queuing
-            if (!isProcessing) {
-                logger.info(`Import worker ${workerId}: Cancellation detected after queuing upload for ${file.name}`);
-                break;
-            }
-            
-            // Copy to backup if enabled (check for duplicates in backup independently)
-            let backupSkipped = false;
-            if (backupEnabled && finalBackupPath) {
-                const backupFilePath = await copyFileAsync(file, finalBackupPath, skipDuplicates);
-                if (backupFilePath !== null) {
-                    sendMessageToParent('log', { message: `✓ Backed up: ${file.name}` });
-                } else {
-                    backupSkipped = true;
-                    sendMessageToParent('log', { message: `⚠ Backup skipped (duplicate): ${file.name}` });
-                }
-            }
-            
-            // Check for cancellation after backup
-            if (!isProcessing) {
-                logger.info(`Import worker ${workerId}: Cancellation detected after backup for ${file.name}`);
-                break;
-            }
-            
-            // Count as successful if copied to either destination or backup (or both)
-            if (!destinationSkipped || !backupSkipped) {
-                successCount++;
-                logger.info(`Import worker ${workerId}: File processing completed: ${file.name}, successCount: ${successCount}`);
-                sendMessageToParent('log', { message: `✓ Completed: ${file.name}` });
-            } else {
-                // Both destination and backup were skipped
-                logger.info(`Import worker ${workerId}: File skipped in both destination and backup: ${file.name}`);
-                sendMessageToParent('log', { message: `⚠ Skipped (duplicate in both locations): ${file.name}` });
-            }
-            
-        } catch (error) {
-            console.error(`Import worker ${workerId}: Failed to process file:`, file.name, error);
-            failCount++;
-            sendMessageToParent('log', { message: `✗ Failed: ${file.name} - ${error.message}` });
-        }
-        
-        // Send progress update after processing each file
-        sendMessageToParent('progress', {
-            totalFiles: files.length,
-            processedFiles: i + 1,
-            successfulFiles: successCount,
-            failedFiles: failCount,
-            skippedFiles: skippedCount,
-            uploadQueueCount: uploadQueueCount,
-            phase: 'copying'
-        });
-    }
-    
-    // Check if we were cancelled
-    const wasCancelled = !isProcessing;
-    
-    // Log final upload summary if any files were queued
-    const hasAnyUploadEnabled = uploadToZenTransfer || importSettings.uploadToAwsS3 || importSettings.uploadToAzure || importSettings.uploadToGcp || importSettings.uploadToMinio;
-    if (hasAnyUploadEnabled && uploadQueueCount > 0) {
-        sendMessageToParent('log', { message: `Total files queued for upload: ${uploadQueueCount}` });
-    }
-    
-    // Log summary including skipped files
-    if (skippedCount > 0) {
-        sendMessageToParent('log', { message: `${skippedCount} duplicate files were skipped` });
-    }
-    
-    if (wasCancelled) {
-        sendMessageToParent('log', { message: `Import stopped - processed ${successCount} of ${files.length} files (${skippedCount} skipped)` });
-    }
-    
-    return {
-        totalFiles: files.length,
-        successfulFiles: successCount,
-        failedFiles: failCount,
-        skippedFiles: skippedCount,
-        uploadQueueCount: uploadQueueCount,
-        phase: wasCancelled ? 'cancelled' : 'completed',
-        wasCancelled: wasCancelled
-    };
-}
-
-/**
- * Check if a file already exists and is a duplicate
- * @param {Object} sourceFile - Source file object with path, name, and size
- * @param {string} destinationPath - Destination file path to check
- * @returns {boolean} True if file exists and is a duplicate
- */
-function isDuplicateFile(sourceFile, destinationPath) {
-    if (!fs.existsSync(destinationPath)) {
-        return false; // File doesn't exist, not a duplicate
-    }
-    
-    try {
-        const destinationStats = fs.statSync(destinationPath);
-        
-        // Check if file sizes match (basic duplicate detection)
-        if (sourceFile.size === destinationStats.size) {
-            logger.info(`Import worker ${workerId}: Duplicate detected - ${sourceFile.name} (size: ${sourceFile.size} bytes)`);
-            return true;
-        }
-        
-        return false;
-    } catch (error) {
-        console.warn(`Import worker ${workerId}: Failed to check duplicate for ${destinationPath}:`, error);
-        return false; // If we can't check, assume not duplicate
-    }
-}
-
-/**
- * Generate unique filename if file already exists
- */
 function generateUniqueFilename(filePath) {
     const dir = path.dirname(filePath);
     const ext = path.extname(filePath);
@@ -494,17 +539,4 @@ function generateUniqueFilename(filePath) {
     } while (fs.existsSync(uniquePath));
     
     return uniquePath;
-}
-
-/**
- * Get folder name for file organization
- */
-function getFolderName(file, type, customName, dateFormat) {
-    if (type === 'custom') {
-        return customName || 'Imported Files';
-    } else {
-        // Use file creation date or current date
-        const date = file.created ? new Date(file.created) : new Date();
-        return formatDateForFolder(date, dateFormat);
-    }
 }
