@@ -16,7 +16,7 @@ const os = require('os');
 const MAX_UNIQUE_FILENAME_GENERATIONS = 100;
 const POST_TO_INFO_CACHE = true;
 const EMIT_INFO = true;
-const CREATE_TINY_THUMB = false;
+const CREATE_TINY_THUMB = true;
 const CALCULATE_CHECKSUMS = true;
 const POST_THUMBNAIL = false;
 const POST_PREVIEW = false;
@@ -284,6 +284,7 @@ class StorageServiceBase extends UploadServiceBase {
                     type: 'update-info-cache',
                     fileRecord: {
                         source_path: filePath,
+                        remote_name: remoteName,
                         file_size: fileInfo.size,
                         file_date: fileInfo.mtime.toISOString(),
                         checksumMd5: checksums.md5,
@@ -302,6 +303,7 @@ class StorageServiceBase extends UploadServiceBase {
                     type: 'update-info-cache',
                     fileRecord: {
                         source_path: filePath,
+                        remote_name: remoteName,
                         file_size: fileInfo.size,
                         file_date: fileInfo.mtime.toISOString(),
                         checksumMd5: checksums.md5,
@@ -331,14 +333,17 @@ class StorageServiceBase extends UploadServiceBase {
             // Optionally add metadata about additional uploads in details
             const result = {
                 success: true,
-                url: originalResult.url
+                url: originalResult.url,
+                remote_path: remoteName
             };
 
             if ( additionalFiles.metadata ) result.metadataUrl = additionalFiles.metadata;
             if ( additionalFiles.thumbnail ) result.thumbnailUrl = additionalFiles.thumbnail;
             if ( additionalFiles.preview ) result.previewUrl = additionalFiles.preview;
 
-            
+            if ( checksums ) result.checksums = checksums;
+            if ( metadataResult && metadataResult.metadata ) result.metadata = metadataResult.metadata;
+            if ( tinyThumb ) result.tiny_th = tinyThumb.buffer.toString('base64');
 
             return result;
 
@@ -455,6 +460,7 @@ class StorageServiceBase extends UploadServiceBase {
         let uniqueName = originalRemoteName;
         
         while (true) {
+
             const duplicateCheck = await this.checkIfDuplicate(uniqueName, 0);
             if (!duplicateCheck.exists) {
                 break;
@@ -477,7 +483,7 @@ class StorageServiceBase extends UploadServiceBase {
             }
 
         }
-        
+
         return uniqueName;
     }
 

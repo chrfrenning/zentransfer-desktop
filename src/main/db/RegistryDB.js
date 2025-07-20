@@ -44,6 +44,7 @@ class RegistryDB {
                 url TEXT NOT NULL,
                 th_url TEXT,
                 pv_url TEXT,
+                md_url TEXT,
                 exif_json TEXT,
                 doc_id TEXT,
                 feat_algo INTEGER,
@@ -87,16 +88,32 @@ class RegistryDB {
                     store_fn,
                     url,
                     th_url,
-                    pv_url, 
+                    pv_url,
+                    md_url,
                     exif_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `),
         };
     }
 
-    add(fileName, fileSize, fileDate, mimeType, md5, sha512, tinyThumbnail, sourceFolderName, serviceType, storePath, storeFileName, url, thumbnailUrl, previewUrl, exifJson) {
-        const newSystemUniqueId = randomUUID();
+    add(fileName,
+        fileSize,
+        fileDate,
+        mimeType,
+        uid,
+        md5,
+        sha512,
+        tinyThumbnail,
+        sourceFolderName,
+        serviceType,
+        storePath,
+        storeFileName,
+        url,
+        thumbnailUrl,
+        previewUrl,
+        metadataUrl,
+        exifJson) {
 
         const result = this.statements.add.run(
 
@@ -104,7 +121,7 @@ class RegistryDB {
             fileSize,
             fileDate,
             mimeType,
-            newSystemUniqueId,
+            uid,
             md5,
             sha512,
             tinyThumbnail,
@@ -115,6 +132,7 @@ class RegistryDB {
             url,
             thumbnailUrl,
             previewUrl,
+            metadataUrl,
             exifJson);
 
         return result.lastInsertRowid;

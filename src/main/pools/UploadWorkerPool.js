@@ -16,6 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/Logger.js');
 const mimeTypes = new MimeTypesService();
+const { v4: uuidv4 } = require('uuid');
 
 const STORE_DEDUPE_DB = true;
 const USE_DEDUPE_CHECK = false;
@@ -132,6 +133,15 @@ class UploadWorkerPool {
         this.sendMessageToRendererWindows('upload-update', fileRecord);
 
         if ( fileRecord.status === 'completed' ) {
+
+          //
+          //
+          // This is a really critical part of the application, when a file upload
+          // has completed. We want to avoid future duplicates, queue up for indexes and
+          // ledger, and keep track of the file in the registry.
+          //
+          //
+
           this.uploadQueue.completeUpload(fileRecord.id, fileRecord.final_url);
 
           const backoffManager = this.getBackOffManager(fileRecord.service_type);
@@ -147,7 +157,91 @@ class UploadWorkerPool {
             this.uploadQueue.addDupe(sourceBaseName, fileRecord.file_size, fileRecord.file_date, null, null, fileRecord.service_type);
           }
 
-          // TBD: Add to index_queue, ledger_queue, registry
+          // If we're uploading to zt.io, then we're done
+          if ( fileRecord.service_type === 'zentransfer' ) {
+            return;
+          }
+
+          /*
+            *
+            * TBD: Add to index_queue, ledger_queue, registry
+            * 
+          */
+
+          // Do we need ot maintain the registry? if any enabled...
+          let insertIntoRegistry = app.configurationManager.get('preferences.maintainRegistry');
+          if ( app.configurationManager.get('ledger.enabled') || app.configurationManager.get('preferences.createIndexfiles') ) {
+            insertIntoRegistry = true;
+          }
+
+          let registryFileId = null;
+          const fileSystemId = uuidv4();
+          if ( insertIntoRegistry ) {
+
+            // console.log("file record:", fileRecord);
+            /*
+              *
+              * This is coming in:
+              * 
+              * {
+                    id: 2,
+                    source_path: 'D:\\ZenTransfer Test\\ZT Source\\DSCF3116.JPG',
+                    remote_path: 'DSCF3116.JPG',
+                    file_size: 15728786,
+                    file_date: '2024-07-20T12:42:26.000Z',
+                    mime_type: 'image/jpeg',
+                    service_type: 'minio',
+                    status: 'completed',
+                    retry_count: 0,
+                    date_added: '2025-07-20 08:15:23',
+                    last_retry_at: null,
+                    error_message: null,¨
+                    tiny_th: <base64...>,
+                    final_url: 'http://127.0.0.1:9000/first-bucket/DSCF3116 [3].JPG',
+                    success: true,
+                    url: 'http://127.0.0.1:9000/first-bucket/DSCF3116 [3].JPG',
+                    remote_name: 'DSCF3116 [3].JPG',
+                    metadataUrl: 'http://127.0.0.1:9000/first-bucket/DSCF3116 [3].metadata.json',
+                    thumbnailUrl: 'http://127.0.0.1:9000/first-bucket/DSCF3116 [3].th.webp',
+                    previewUrl: 'http://127.0.0.1:9000/first-bucket/DSCF3116 [3].pv.webp',
+                    checksums: {
+                      md5: 'edb9c4e038eea9a8bfbf3f1d31cdba5b',
+                      sha256: 'fa8abe345c77563185e67416a1441f6d43f7d7c4aa9e443fb6899cdb5700034d',
+                      sha512: 'fd21178edf209979d7da753c102d51d0a47a2761de7d47bf799f0eb12f3e84bb2e5ef3d7a0bf444af573064fa8dd29021cd5df68ef203441a7ff470f4eaca0f4'
+                    },
+                    metadata: { ... }
+                  }
+              *
+            */
+
+            // Add to registry
+             registryFileId = app.registryDB.add(
+              path.basename(fileRecord.source_path),
+              fileRecord.file_size,
+              fileRecord.file_date,
+              fileRecord.mime_type,
+              fileSystemId,
+              fileRecord.checksums ? fileRecord.checksums.md5 : null,
+              fileRecord.checksums ? fileRecord.checksums.sha512 : null,
+              fileRecord.tiny_th,
+              fileRecord.source_path,
+              fileRecord.service_type,
+              path.dirname(fileRecord.remote_path),
+              path.basename(fileRecord.remote_path),
+              fileRecord.final_url,
+              fileRecord.thumbnailUrl,
+              fileRecord.previewUrl,
+              fileRecord.metadataUrl,
+              JSON.stringify(fileRecord.metadata));
+          }
+
+          if ( app.configurationManager.get('ledger.enabled') ) {
+            app.ledgerQueue.add(fileRecord.service_type, registryFileId);
+          }
+
+          if ( app.configurationManager.get('preferences.createIndexfiles') ) {
+            app.indexQueue.add(fileRecord.service_type, registryFileId);
+          }
 
           // We could poll the queue here and give to the worker if there is any
           // instead of waiting for the timer to run, will make sure we keep momentum

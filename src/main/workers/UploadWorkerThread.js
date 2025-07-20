@@ -51,6 +51,7 @@ parentPort.on('message', async (message) => {
             type: 'completed', 
             fileRecord: { 
               ...fileRecord, 
+              ...result,
               status: 'completed',  
               final_url: result.url
             } 
@@ -153,7 +154,7 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
         thumbnailSize: 400,
         thumbnailQuality: 90,
         previewSize: 1920,
-        previewQuality: 90
+        previewQuality: 85
       },
       configurationData,
       globals,
@@ -168,6 +169,7 @@ async function uploadFile2(fileRecord, configurationData, globals, uploadSession
   // We're done, return the url to the object
 
   return {
+    ...uploadResult,
     success: true,
     url: uploadResult.url
   };

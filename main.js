@@ -2,9 +2,9 @@ const { app, globalShortcut, BrowserWindow, Menu, systemPreferences } = require(
 const path = require('path');
 const { runInCommandLineMode } = require('./cli.js');
 
-const COMPACT_DATABASE_ON_STARTUP = true;
+const COMPACT_DATABASE_ON_STARTUP = false;
 const COMPACT_DATABASE_ON_QUIT = true;
-const PURGE_ALL_TMP_FILES_ON_STARTUP = true;
+const PURGE_ALL_TMP_FILES_ON_STARTUP = false;
 const TEMP_FILE_PREFIXES = ['ztth-', 'ztpv-', 'ztmp-'];
 
 /*
@@ -155,9 +155,13 @@ function houseKeepingOnStartup() {
 
         if ( file.startsWith(prefix) ) {
           try {
+
             fs.unlinkSync(path.join(tmpdir, file));
+
           } catch ( error ) {
+
             logger.warn('Failed to purge tmp file: ' + file, error);
+            
           }
         }
 

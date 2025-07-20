@@ -71,7 +71,7 @@ function startCommandLineInterface(hiddenWindow) {
         console.log(`Downloading files to ${downloadPath}`);
         app.downloadWorkerPool.startMonitoring();
     } else if (true || checkCommandLineArgument('upload')) {
-        const uploadPath = "D:\\ZenTransfer Test\\ZT Source"
+        const uploadPath = "D:\\ZenTransfer Test\\ZT Source\\DSCF3116.JPG"
         console.log('Uploading files simulation...');
         app.uploadWorkerPool.addFiles([uploadPath], 'minio');
     }

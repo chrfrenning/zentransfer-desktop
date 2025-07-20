@@ -6,6 +6,7 @@
 const path = require('path');
 const tmp = require('tmp');
 const fs = require('fs');
+const os = require('os');
 const { v4: uuidv4 } = require('uuid');
 const { ExifTool } = require('exiftool-vendored');
 
@@ -75,7 +76,8 @@ class MetadataService {
             const uuid = uuidv4();
 
             //let thumbnailTempFileName  = tmp.tmpNameSync({ prefix: 'ztth-', postfix: '.jpg' });
-            let thumbnailTempFileName = path.join(tmp.tmpdir, `ztth-${uuid}.jpg`);
+            let thumbnailTempFileName = path.join(os.tmpdir(), `ztth-${uuid}.jpg`);
+            //console.log('Thumbnail temp file name:', thumbnailTempFileName);
             await this.exiftool.extractThumbnail(filePath, thumbnailTempFileName);
             const thumbnailSize = fs.statSync(thumbnailTempFileName).size;
             if ( !thumbnailSize ) {
@@ -84,7 +86,8 @@ class MetadataService {
             }
 
             //let previewTempFileName = tmp.tmpNameSync({ prefix: 'ztpv-', postfix: '.jpg' });
-            let previewTempFileName = path.join(tmp.tmpdir, `ztpv-${uuid}.jpg`);
+            let previewTempFileName = path.join(os.tmpdir(), `ztpv-${uuid}.jpg`);
+            //console.log('Preview temp file name:', previewTempFileName);
             await this.exiftool.extractPreview(filePath, previewTempFileName);
             const previewSize = fs.statSync(previewTempFileName).size;
             if ( !previewSize ) {
