@@ -75,7 +75,7 @@ class MetadataService {
             const uuid = uuidv4();
 
             //let thumbnailTempFileName  = tmp.tmpNameSync({ prefix: 'ztth-', postfix: '.jpg' });
-            let thumbnailTempFileName = `/tmp/ztth-${uuid}.jpg`;
+            let thumbnailTempFileName = path.join(tmp.tmpdir, `ztth-${uuid}.jpg`);
             await this.exiftool.extractThumbnail(filePath, thumbnailTempFileName);
             const thumbnailSize = fs.statSync(thumbnailTempFileName).size;
             if ( !thumbnailSize ) {
@@ -84,7 +84,7 @@ class MetadataService {
             }
 
             //let previewTempFileName = tmp.tmpNameSync({ prefix: 'ztpv-', postfix: '.jpg' });
-            let previewTempFileName = `/tmp/ztpv-${uuid}.jpg`;
+            let previewTempFileName = path.join(tmp.tmpdir, `ztpv-${uuid}.jpg`);
             await this.exiftool.extractPreview(filePath, previewTempFileName);
             const previewSize = fs.statSync(previewTempFileName).size;
             if ( !previewSize ) {
