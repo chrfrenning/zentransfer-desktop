@@ -9,186 +9,184 @@ const { Worker } = require('worker_threads');
 const path = require('path');
 const logger = require('../utils/Logger.js');
 
+const { UploadQueue } = require('../queues/UploadQueue.js');
+const { DirectoryScanner } = require('../utils/DirectoryScanner.js');
+
 class ImportWorkerPool {
   constructor(poolSize) {
-    this.poolSize = poolSize;
-    this.worker = null;
-    this.isImporting = false;
-    this.currentResolve = null;
-    this.currentReject = null;
+
+    // We need to interact with the upload subsystem
+    // and also check for dupes
+    this.uploadQueue = new UploadQueue();
+
+    // Create the workers
+    this.workers = [];
+    this.activeJobs = new Map();
+
+    for (let i = 0; i < poolSize; i++) {
+      this.createWorker(i);
+    }
+
+    // Hmmm... do we want a queue for the individual files to be copied/processed?
+    // Use db, or just a simple array?
+    this.fileQueue = [];
+    this.queueProcessorInterval = null;
+    this.startQueueProcessor();
     
-    this.createWorker()
     logger.info('Import worker manager initialized');
   }
+
+  /**
+   * Queue management
+   */
   
-  createWorker() {
-    if (this.worker) {
-      logger.info('Import worker already exists');
+  startQueueProcessor() {
+    this.queueProcessorInterval = setInterval(async() => {
+      await this.processQueue();
+    }, 1000);
+  }
+
+  /* processQueue() {
+    if (this.fileQueue.length === 0) {
+      logger.info('No files to process');
+    }
+
+    logger.info(`Processing ${this.fileQueue.length} files`);
+  } */
+  
+  async processQueue() {
+
+    if ( this.fileQueue.length === 0 ) {
       return;
     }
     
-    logger.info('Creating import worker...');
+    // Get available workers and ready files
+    const availableWorkers = this.workers.filter(w => !w.currentJob);
+    if (availableWorkers.length === 0) return;
+    
+    logger.info(`Import queue: ${availableWorkers.length} available workers, ${this.fileQueue.length} files in queue.`);
+    
+    // Start uploads for available workers
+    for (let i = 0; i < Math.min(availableWorkers.length, this.fileQueue.length); i++) {
+
+      const worker = availableWorkers[i];
+      await this.submitJobToWorkerThread(worker, this.fileQueue.pop());
+    }
+
+  }
+  
+  async submitJobToWorkerThread(workerInfo, file) {
+
+    // Mark worker as busy
+    workerInfo.currentJob = file;
+    
+    // Send to worker
+    workerInfo.worker.postMessage({
+      type: 'import-file',
+      file: file,
+      configuration: app.configurationManager.exportConfig()
+    });
+    
+    logger.debug(`Started import of: ${file.sourcePath}`);
+    
+    // Send progress update to renderer
+    this.sendMessageToRendererWindows('import-update', file);
+
+  }
+
+  /**
+   * Worker management
+   */
+  
+  createWorker(id) {
+    logger.info(`Creating import worker ${id}...`);
     const workerPath = path.join(__dirname, '../workers', 'ImportWorkerThread.js');
     
-    this.worker = new Worker(workerPath, {
-      workerData: { workerId: 0 }
+    const worker = new Worker(workerPath, {
+      workerData: { workerId: id }
     });
     
-    this.worker.on('message', (message) => {
-      this.handleWorkerMessage(message);
+    worker.on('message', (message) => {
+      this.handleWorkerMessage(worker, message);
     });
     
-    this.worker.on('error', (error) => {
+    worker.on('error', (error) => {
       console.error('Import worker error:', error);
-      this.handleWorkerError(error);
     });
     
-    this.worker.on('exit', (code) => {
+    worker.on('exit', (code) => {
       logger.info(`Import worker exited with code ${code}`);
-      this.worker = null;
-      this.isImporting = false;
+    });
+
+    this.workers.push({
+      worker,
+      id,
+      currentJob: null
     });
     
     logger.info('Import worker created successfully');
   }
   
-  async startImport(importSettings) {
-    if (this.isImporting) {
-      throw new Error('Import already in progress');
+  handleWorkerMessage(worker, message) {
+    const { type } = message;
+    
+    // Look up my worker in the workers array
+    const myWorker = this.workers.find(w => w.worker === worker);
+
+    logger.info('Import worker message:', type);
+    
+    if (type === 'progress') {
+
+      // Forward progress and log updates to renderer
+      this.sendMessageToRendererWindows('import-update', message);
+
+    } else if ( type === 'log' ) {
+
+      //logger.info('Import worker log:', message);
+      const { level, args } = message;
+      logger[level](`[WORKER ${myWorker.id}] ${args[0]}`);
+
     }
-    
-    this.createWorker();
-    this.isImporting = true;
-    
-    return new Promise((resolve, reject) => {
-      this.currentResolve = resolve;
-      this.currentReject = reject;
-      
-      this.worker.postMessage({
-        type: 'start-import',
-        importSettings
-      });
+  }
+  
+  sendMessageToRendererWindows(message, data = null) {
+    // Send progress update to all renderer processes
+    BrowserWindow.getAllWindows().forEach(window => {
+      window.webContents.send(message, data);
     });
+  }
+
+  /**
+   * Import management
+   */
+  
+  async startImport(importJob) {
+    const settings = {
+      sourcePath: 'D:\\ZenTransfer Test\\ZT Source',
+      includeSubdirectories: true,
+      importTypeFilter: 'allFiles', // allFiles|imageFiles|jpegOnly|rawOnly
+      importTimeFilter: 'allTime', // allTime|today|yesterday|highWaterMark
+      destinationPath: 'D:\\ZenTransfer Test\\ZT Import',
+      organizeIntoFolders: 'date', // date|custom
+      dateFormat: 'ldn (tod)', // see DateFormatter.js for supported formats
+      prefixFolderName: 'My Folder Name',
+      postFixFolderName: null,
+      enableBackup: false,
+      backupPath: 'D:\\ZenTransfer Test\\ZT Backup',
+      enabledServices: [ 'minio', 'zentransfer' ],
+      ...importJob
+    }
+
+    logger.info('Starting import...');
+    const scanner = new DirectoryScanner();
+    const files = await scanner.scan(settings.sourcePath, true, null);
+    logger.info(`Found ${files.length} files to import`);
+    //this.fileQueue = files;
   }
   
   stopImport() {
-    logger.info(`Stopping import... isImporting: ${this.isImporting}, worker exists: ${!!this.worker}`);
-    
-    // Always send cancel message to worker if it exists, regardless of isImporting flag
-    if (this.worker) {
-      logger.info('Sending cancel-import message to worker');
-      this.worker.postMessage({
-        type: 'cancel-import'
-      });
-    } else {
-      logger.info('No worker to send cancel message to');
-    }
-    
-    // Don't set isImporting to false here - let the worker response handle it
-  }
-  
-  handleWorkerMessage(message) {
-    const { type } = message;
-    
-    logger.info('Import worker message:', type);
-    
-    if (type === 'progress' || type === 'log') {
-      // Forward progress and log updates to renderer
-      this.sendImportUpdate(message);
-      return;
-    }
-    
-    if (type === 'upload-ready') {
-      // Handle upload queue from import
-      this.handleUploadReady(message);
-      return;
-    }
-    
-    if (type === 'completed') {
-      this.isImporting = false;
-      this.sendImportUpdate(message);
-      if (this.currentResolve) {
-        this.currentResolve(message.result);
-        this.currentResolve = null;
-        this.currentReject = null;
-      }
-    }
-    
-    if (type === 'error') {
-      this.isImporting = false;
-      this.sendImportUpdate(message);
-      if (this.currentReject) {
-        this.currentReject(new Error(message.error));
-        this.currentResolve = null;
-        this.currentReject = null;
-      }
-    }
-    
-    if (type === 'cancelled') {
-      this.isImporting = false;
-      this.sendImportUpdate(message);
-      if (this.currentResolve) {
-        this.currentResolve({ status: 'cancelled' });
-        this.currentResolve = null;
-        this.currentReject = null;
-      }
-    }
-  }
-  
-  handleUploadReady(message) {
-    const { filePaths, count, importSettings } = message;
-    logger.info(`Import worker: ${count} files ready for upload`);
-    
-    // Determine which upload services are enabled
-    const uploadServices = [];
-    
-    if (importSettings?.uploadToZenTransfer) {
-      uploadServices.push({ type: 'zentransfer', name: 'ZenTransfer' });
-    }
-    
-    if (importSettings?.uploadToAwsS3) {
-      uploadServices.push({ type: 'aws-s3', name: 'AWS S3' });
-    }
-    
-    if (importSettings?.uploadToAzure) {
-      uploadServices.push({ type: 'azure-blob', name: 'Azure Blob Storage' });
-    }
-    
-    if (importSettings?.uploadToGcp) {
-      uploadServices.push({ type: 'gcp-storage', name: 'Google Cloud Storage' });
-    }
-    
-    if (importSettings?.uploadToMinio) {
-      uploadServices.push({ type: 'minio', name: 'MinIO' });
-    }
-    
-    logger.info(`Upload services enabled: ${uploadServices.map(s => s.name).join(', ')}`);
-    
-    // Forward to renderer for upload manager integration
-    this.sendImportUpdate({
-      type: 'upload-ready',
-      filePaths,
-      count,
-      uploadServices,
-      importSettings  // Pass import settings to renderer
-    });
-  }
-  
-  handleWorkerError(error) {
-    console.error('Import worker error:', error);
-    this.isImporting = false;
-    if (this.currentReject) {
-      this.currentReject(error);
-      this.currentResolve = null;
-      this.currentReject = null;
-    }
-  }
-  
-  sendImportUpdate(updateData) {
-    // Send import update to all renderer processes
-    BrowserWindow.getAllWindows().forEach(window => {
-      window.webContents.send('import-update', updateData);
-    });
+    logger.info("Stopping import...");
+    this.fileQueue = [];
   }
 }
 

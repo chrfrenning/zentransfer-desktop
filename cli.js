@@ -65,15 +65,21 @@ function startCommandLineInterface(hiddenWindow) {
     }, 1000);
 
     // start downloads
-    //console.log(process.argv);
+    console.log(process.argv);
     if (false && checkCommandLineArgument('download')) {
         const downloadPath = app.configurationManager.get('downloadSettings.downloadPath');
         console.log(`Downloading files to ${downloadPath}`);
         app.downloadWorkerPool.startMonitoring();
-    } else if (true || checkCommandLineArgument('upload')) {
+    } else if (false || checkCommandLineArgument('upload')) {
         const uploadPath = "D:\\ZenTransfer Test\\ZT Source\\DSCF3116.JPG"
         console.log('Uploading files simulation...');
         app.uploadWorkerPool.addFiles([uploadPath], 'minio');
+    } else if ( true || checkCommandLineArgument('import')) {
+        const importPath = "D:\\ZenTransfer Test"
+        console.log('Importing files simulation...');
+        app.importWorkerPool.startImport({
+            sourcePath: importPath
+        });
     }
 
     // ask user for input
