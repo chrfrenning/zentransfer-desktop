@@ -495,29 +495,34 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
 
     
     for ( const service of settings.enabledServices ) {
-        console.log("!!!", service);
-         /*addFiles(files) {
-            if (!this.isInitialized) throw new Error('Queue manager not initialized');
-            
-            const transaction = this.db.transaction((files) => {
-                const results = [];
-    
-                for (const file of files) {
-                    try {
-                       
-                            source_path,
-                            remote_path,
-                            file_size,
-                            file_date,
-                            mime_type,
-                            service_type
-                        */
+        
+        /* this.uploadQueue.addFiles([{
+            source_path: destinationPath,
+            remote_path: destinationPath.substring(destinationFolder.length + 1),
+            file_size: file.size,
+            file_date: file.created,
+            mime_type: mimeTypeService.getMimeType(file.path),
+            service_type: service
+        }]); */
+
+        logger.debug(`Posting ${destinationPath} to upload queue for ${service}.`)
+
+        sendMessageToParent(
+            'post-to-upload',
+            { 
+                filename: destinationPath,
+                service: service
+            }
+        );
+
     }
 
 
 
 
     // Return the result to mother
+
+    logger.info(`Successfully completed processing of ${file.path} -> ${destinationPath}.`)
 
     return { 
         operation: 'completed',

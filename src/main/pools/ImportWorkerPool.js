@@ -170,6 +170,11 @@ class ImportWorkerPool {
       myWorker.currentJob = null;
       this.processQueue();
 
+    } else if ( type === 'post-to-upload' ) {
+      
+      const { filename, service } = message;
+      app.uploadWorkerPool.addFiles([filename], service);
+
     } else if ( type === 'log' ) {
 
       //logger.info('Import worker log:', message);
