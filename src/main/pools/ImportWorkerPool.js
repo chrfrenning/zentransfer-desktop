@@ -198,7 +198,7 @@ class ImportWorkerPool {
       importTimeFilter: 'allTime', // allTime|today|yesterday|highWaterMark
       destinationPath: 'D:\\ZenTransfer Test\\ZT Import',
       organizeIntoFolders: 'date', // date|custom
-      dateFormat: 'ldn (tod)', // see DateFormatter.js for supported formats
+      dateFormat: 'YYYY/YYYY-MM-DD', // see DateFormatter.js for supported formats
       prefixFolderName: 'My Folder Name',
       postFixFolderName: null,
       enableBackup: true,

@@ -159,10 +159,9 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
         destinationFolder = path.join(destinationFolder, settings.prefixFolderName);
     }
 
-    if ( settings.organizeIntoFolders == 'date' && settings.dateFormat ) {
-
+    if ( true || (settings.organizeIntoFolders == 'date' && settings.dateFormat) ) {
         const dateRelativePath = DateFormatter.formatDate(fileDateToUse, settings.dateFormat);
-
+        destinationFolder = path.join(destinationFolder, ...dateRelativePath.split('/'));
     }
 
     if ( settings.postFixFolderName ) {
