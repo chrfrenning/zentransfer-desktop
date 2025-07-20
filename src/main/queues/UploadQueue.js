@@ -110,7 +110,7 @@ class UploadQueue {
                 checksum_md5 TEXT,
                 checksum_sha256 TEXT,
                 checksum_sha512 TEXT,
-                tiny_thumb BLOB,
+                tiny_th BLOB,
                 thumbnail BLOB,
                 preview BLOB,
                 exif TEXT
@@ -265,14 +265,14 @@ class UploadQueue {
             /* Info cache */
 
             addToCache: this.db.prepare(`
-                INSERT INTO cache (
+                INSERT OR IGNORE INTO cache (
                     source_path,
                     file_size,
                     file_date,
                     checksum_md5,
                     checksum_sha256,
                     checksum_sha512,
-                    tiny_thumb,
+                    tiny_th,
                     thumbnail,
                     preview,
                     exif
@@ -288,7 +288,7 @@ class UploadQueue {
             /* Dedupe */
 
             addToDedupe: this.db.prepare(`
-                INSERT INTO dedupe 
+                INSERT OR IGNORE INTO dedupe 
                 (file_name, file_size, file_date, unique_id, md5_checksum, service_type)
                 VALUES (?, ?, ?, ?, ?, ?)
             `),
@@ -479,7 +479,7 @@ class UploadQueue {
 
     /* Cache */
 
-    addToCache(source_path, file_size, file_date, checksumMD5, checksumSHA256, checksumSHA512, tiny_thumbnail, thumbnail, preview, exif) {
+    addToCache(source_path, file_size, file_date, checksumMD5, checksumSHA256, checksumSHA512, tiny_thnail, thumbnail, preview, exif) {
         if (!this.isInitialized) throw new Error('Queue manager not initialized');
         try {
             this.statements.addToCache.run(
@@ -489,7 +489,7 @@ class UploadQueue {
                 checksumMD5,
                 checksumSHA256,
                 checksumSHA512,
-                tiny_thumbnail,
+                tiny_thnail,
                 thumbnail,
                 preview,
                 exif

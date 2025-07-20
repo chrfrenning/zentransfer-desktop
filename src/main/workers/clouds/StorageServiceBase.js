@@ -289,7 +289,7 @@ class StorageServiceBase extends UploadServiceBase {
                         checksumMd5: checksums.md5,
                         checksumSHA256: checksums.sha256,
                         checksumSHA512: checksums.sha512,
-                        tiny_thumb: tinyThumb && CREATE_TINY_THUMB ? tinyThumb.buffer.toString('base64') : null,
+                        tiny_th: tinyThumb && CREATE_TINY_THUMB ? tinyThumb.buffer.toString('base64') : null,
                         thumbnail: thumbnail && POST_THUMBNAIL ? thumbnail.toString('base64') : null,
                         preview: preview && POST_PREVIEW ? preview.toString('base64') : null,
                         exif: JSON.stringify(metadataResult.metadata)
@@ -307,7 +307,7 @@ class StorageServiceBase extends UploadServiceBase {
                         checksumMd5: checksums.md5,
                         checksumSHA256: checksums.sha256,
                         checksumSHA512: checksums.sha512,
-                        tiny_thumb: tinyThumb && CREATE_TINY_THUMB ? tinyThumb.buffer.toString('base64') : null,
+                        tiny_th: tinyThumb && CREATE_TINY_THUMB ? tinyThumb.buffer.toString('base64') : null,
                         thumbnail: thumbnail && POST_THUMBNAIL ? thumbnail.toString('base64') : null,
                         preview: preview && POST_PREVIEW ? preview.toString('base64') : null,
                         exif: JSON.stringify(metadataResult.metadata)

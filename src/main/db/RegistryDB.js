@@ -15,7 +15,7 @@ const logger = require('../utils/Logger.js');
 
 class RegistryDB {
     constructor(ztDatabase) {
-        this.db = ztDatabase;
+        this.db = ztDatabase.db;
         
         // Initialize and prepare the database
         this.createTables();

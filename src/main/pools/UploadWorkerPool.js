@@ -17,7 +17,9 @@ const path = require('path');
 const logger = require('../utils/Logger.js');
 const mimeTypes = new MimeTypesService();
 
+const STORE_DEDUPE_DB = true;
 const USE_DEDUPE_CHECK = false;
+const ADD_TO_CACHE = true;
 
 class UploadWorkerPool {
   constructor(poolSize) {
@@ -140,8 +142,10 @@ class UploadWorkerPool {
           }
 
           // Add to dedupe
-          const sourceBaseName = path.basename(fileRecord.source_path);
-          this.uploadQueue.addDupe(sourceBaseName, fileRecord.file_size, fileRecord.file_date, null, null, fileRecord.service_type);
+          if ( STORE_DEDUPE_DB ) {
+            const sourceBaseName = path.basename(fileRecord.source_path);
+            this.uploadQueue.addDupe(sourceBaseName, fileRecord.file_size, fileRecord.file_date, null, null, fileRecord.service_type);
+          }
 
           // TBD: Add to index_queue, ledger_queue, registry
 
@@ -172,7 +176,7 @@ class UploadWorkerPool {
 
       } else if ( type === 'update-info-cache' ) {
 
-        const { source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512,tiny_thumb, thumbnail, preview, exif } = message.fileRecord;
+        const { source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512,tiny_th, thumbnail, preview, exif } = message.fileRecord;
         //console.log("Updating info cache:", source_path, file_size, file_date, checksumMd5, checksumSHA256, checksumSHA512, exif);
 
         /*  type: 'update-info-cache',
@@ -182,24 +186,26 @@ class UploadWorkerPool {
                   checksumMd5: fileHashes.md5,
                   checksumSHA256: fileHashes.sha256,
                   checksumSHA512: fileHashes.sha512,
-                  tiny_thumb: tinyThumb,
+                  tiny_th: tinyThumb,
                   thumbnail: thumbnail,
                   preview: preview,
                   exif: JSON.stringify(metadataResult.metadata)
               }
         */
 
-        this.uploadQueue.addToCache(
-          source_path, 
-          file_size, 
-          file_date, 
-          checksumMd5, 
-          checksumSHA256, 
-          checksumSHA512, 
-          tiny_thumb, 
-          thumbnail, 
-          preview, 
-          exif)
+        if ( ADD_TO_CACHE ) {
+          this.uploadQueue.addToCache(
+            source_path, 
+            file_size, 
+            file_date, 
+            checksumMd5, 
+            checksumSHA256, 
+            checksumSHA512, 
+            tiny_th, 
+            thumbnail, 
+            preview, 
+            exif);
+        }
 
       } else if ( type === 'log' ) {
 

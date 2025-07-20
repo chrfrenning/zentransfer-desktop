@@ -2,6 +2,11 @@ const { app, globalShortcut, BrowserWindow, Menu, systemPreferences } = require(
 const path = require('path');
 const { runInCommandLineMode } = require('./cli.js');
 
+const COMPACT_DATABASE_ON_STARTUP = true;
+const COMPACT_DATABASE_ON_QUIT = true;
+const PURGE_ALL_TMP_FILES_ON_STARTUP = true;
+const TEMP_FILE_PREFIXES = ['ztth-', 'ztpv-', 'ztmp-'];
+
 /*
   Determine runtime mode and configuration
 
@@ -118,16 +123,86 @@ function setupAuthenticationAndTokenRefresh() {
 
   logger.info('Authentication and Token handling is initialized');
 
-  setupWorkerPools();
+  houseKeepingOnStartup();
 }
 
 
 
 /*
  *
- * Stage 3 of startup: Setup worker pools
+ * Stage 3 of startup: Databases and setting up worker pools
  *
 */
+
+function houseKeepingOnStartup() {
+
+  if ( PURGE_ALL_TMP_FILES_ON_STARTUP ) {
+
+    logger.info('Purging all tmp files...');
+    const fs = require('fs');
+    const tmp = require('tmp');
+    const tmpdir = tmp.tmpdir;
+
+    for ( const prefix of TEMP_FILE_PREFIXES ) {
+      const files = fs.readdirSync(tmpdir);
+
+      for ( const file of files ) {
+
+        if ( file.startsWith(prefix) ) {
+          try {
+            fs.unlinkSync(path.join(tmpdir, file));
+          } catch ( error ) {
+            logger.warn('Failed to purge tmp file: ' + file, error);
+          }
+        }
+
+      }
+    }
+
+    logger.debug('Temp file housekeeping done.');
+  }
+
+  openDatabase();
+}
+
+function openDatabase() {
+
+  logger.info('Opening and compacting database...');
+
+  const { ZTDatabase } = require('./src/main/db/ZTDatabase.js');
+  app.ztDatabase = new ZTDatabase();
+
+  if ( COMPACT_DATABASE_ON_STARTUP ) {
+    app.ztDatabase.compact();
+  }
+  logger.debug('Database opened and compacted');
+
+
+  // Create our stores
+  logger.debug("Preparing the index queue...");
+  const { IndexQueue } = require('./src/main/db/IndexQueue.js');
+  app.indexQueue = new IndexQueue(app.ztDatabase);
+
+  logger.debug("Preparing the ledger queue...");
+  const { LedgerQueue } = require('./src/main/db/LedgerQueue.js');
+  app.ledgerQueue = new LedgerQueue(app.ztDatabase);
+
+  logger.debug("Preparing the ledger database...");
+  const { LedgerDB } = require('./src/main/db/LedgerDB.js');
+  app.ledgerDB = new LedgerDB(app.ztDatabase);
+
+  logger.debug("Preparing the registry...");
+  const { RegistryDB } = require('./src/main/db/RegistryDB.js');
+  app.registryDB = new RegistryDB(app.ztDatabase);
+
+
+  // Done, lets proceed
+
+  logger.debug("All stores prepared, proceeding to setup worker pools...");
+  setupWorkerPools();
+
+}
+
 
 function setupWorkerPools() {
   // Get pool sizes (or defaults) from config data
@@ -238,7 +313,22 @@ function createAndShowMainWindow() {
     logger.info('Application qutting, doing some housekeeping...');
 
       app.downloadWorkerPool.cleanup();
-      app.downloadWorkerPool.cleanup();
+      app.uploadWorkerPool.close();
+
+      // Close the database
+      if ( COMPACT_DATABASE_ON_QUIT ) {
+
+        logger.info('Closing and compacting the database...');
+        app.ztDatabase.close(false);
+        logger.debug('Database closed and compacted');
+
+      } else {
+
+        logger.info('Closing the database...');
+        app.ztDatabase.close(true);
+        logger.debug('Database closed');
+
+      }
 
     logger.info('Application autumn cleaning completed');
   });

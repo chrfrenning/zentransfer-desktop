@@ -14,7 +14,7 @@ const logger = require('../utils/Logger.js');
 
 class IndexQueue {
     constructor(ztDatabase) {
-        this.db = ztDatabase;
+        this.db = ztDatabase.db;
         
         // Initialize and prepare the database
         this.createTables();
@@ -27,12 +27,13 @@ class IndexQueue {
         const createTableSQL = `
             CREATE TABLE IF NOT EXISTS index_queue (
                 seq_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                file_id INTEGER NOT NULL,
+                service_type TEXT NOT NULL,
+                file_id INTEGER NOT NULL
             );
         `;
         
         const createIndexesSQL = [
-            //'CREATE INDEX IF NOT EXISTS idx_status ON index_queue(status);',
+            'CREATE INDEX IF NOT EXISTS idx_service_type ON index_queue(service_type);',
         ];
         
         this.db.exec(createTableSQL);
@@ -43,13 +44,8 @@ class IndexQueue {
         this.statements = {
             addFile: this.db.prepare(`
                 INSERT INTO index_queue 
-                (file_id)
-                VALUES (?)
-            `),
-            
-            deleteByFileId: this.db.prepare(`
-                DELETE FROM index_queue 
-                WHERE file_id = ?
+                (service_type, file_id)
+                VALUES (?, ?)
             `),
 
             deleteBySeqId: this.db.prepare(`
@@ -59,6 +55,7 @@ class IndexQueue {
             
             getQueue: this.db.prepare(`
                 SELECT seq_id, file_id FROM index_queue
+                WHERE service_type = ?
                 ORDER BY seq_id ASC
             `),
 
@@ -68,16 +65,16 @@ class IndexQueue {
         };
     }
 
-    add(fileId) {
-        this.statements.addFile.run(fileId);
+    add(serviceType, fileId) {
+        this.statements.addFile.run(serviceType, fileId);
     }
 
     delete(seqNo) {
         this.statements.deleteBySeqId.run(seqNo);
     }
 
-    getQueue() {
-        return this.statements.getQueue.all();
+    getQueue(serviceType) {
+        return this.statements.getQueue.all(serviceType);
     }
 
     clear() {
