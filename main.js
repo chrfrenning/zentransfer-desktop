@@ -28,6 +28,11 @@ function getIsDevelopment() {
 app.isDevelopmentMode = getIsDevelopment();
 console.log('ZenTransfer is running in ' + (app.isDevelopmentMode ? 'development' : 'production') + ' mode');
 
+// We need somewhat more event listeners than normal
+const PROCESS_MAX_EVENT_LISTENERS = 50;
+process.setMaxListeners(PROCESS_MAX_EVENT_LISTENERS);
+require('events').EventEmitter.defaultMaxListeners = PROCESS_MAX_EVENT_LISTENERS;
+
 // Set up global information
 const { ZenTransferGlobals } = require('./src/main/configuration/Globals.js');
 app.globals = new ZenTransferGlobals(app.isDevelopmentMode);
