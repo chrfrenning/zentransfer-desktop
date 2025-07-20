@@ -10,6 +10,7 @@ const logger = require('./WorkerLogger.js');
 const { calculateFileHash } = require('../utils/Checksums.js');
 const { MetadataService } = require('../services/MetadataService.js');
 const { ThumbnailService } = require('../services/ThumbnailService.js');
+const { DateFormatter } = require('../utils/DateFormatter.js');
 
 const workerId = workerData.workerId;
 let currentJob = null;
@@ -96,6 +97,7 @@ async function handleStartImport(fileWithSettings, configuration) {
 
     }
 }
+
 async function doImport(fileWithSettings, configuration, metadataService, thumbnailService) {
     
     logger.info(`Doing import of ${fileWithSettings.file.name}`);
@@ -116,8 +118,23 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
      *  
     */
 
-    if ( configuration.preferences.tryMetadataDate) {
-        // TBD
+    let metadataFailure = false;
+    let fileDateToUse = file.created;
+    if ( configuration.preferences.tryMetadataDate || true ) {
+
+        logger.verbose(`Trying to read metadata of the source file ${file.name} to use creation date`);
+
+        const { success, metadata : extractedMetadata } = await metadataService.extractMetadata(file.path);
+        if ( success ) {
+            const date = MetadataService.getBestDateFromMetadata(extractedMetadata.metadata);
+            if ( date ) {
+                fileDateToUse = date;
+
+                logger.info(`Using metadata date for ${file.name}: ${fileDateToUse}`);
+            }
+        } else {
+            metadataFailure = true; // let rest of process know not to try again
+        }
     }
 
 
@@ -142,7 +159,10 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
         destinationFolder = path.join(destinationFolder, settings.prefixFolderName);
     }
 
-    if ( settings.organizeIntoFolders == 'date' ) {
+    if ( settings.organizeIntoFolders == 'date' && settings.dateFormat ) {
+
+        const dateRelativePath = DateFormatter.formatDate(fileDateToUse, settings.dateFormat);
+
     }
 
     if ( settings.postFixFolderName ) {

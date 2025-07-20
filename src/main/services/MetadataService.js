@@ -164,6 +164,34 @@ class MetadataService {
         return path.join(dirname, `${nameWithoutExt}.metadata.json`);
     }
 
+    static createDateFromDateField(dateObj) {
+        return new Date(
+            dateObj.year,
+            dateObj.month,
+            dateObj.day,
+            dateObj.hour,
+            dateObj.minute,
+            dateObj.second
+        );
+    }
+
+    static getBestDateFromMetadata(metadata) {
+
+        if ( metadata.DateTimeOriginal ) {
+            return this.createDateFromDateField(metadata.DateTimeOriginal);
+        }
+        
+        if ( metadata.CreateDate ) {
+            return this.createDateFromDateField(metadata.CreateDate);
+        }
+
+        if ( metadata.FileCreateDate ) {
+            return this.createDateFromDateField(metadata.FileCreateDate);
+        }
+
+        return null;
+    }
+
     /**
      * IMPORTANT: Cleanup exiftool process (call when shutting down)
      */
@@ -173,7 +201,8 @@ class MetadataService {
                 await this.exiftool.end();
                 console.log('ExifTool process ended');
             } catch (error) {
-                console.warn('Failed to end ExifTool process:', error);
+                console.warn('Failed to end ExifTool process:',
+                    error);
             }
         }
     }
