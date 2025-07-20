@@ -76,6 +76,7 @@ class RegistryDB {
                     file_name,
                     file_size,
                     file_date,
+                    mime_type,
                     system_uid,
                     md5_checksum,
                     sha512_checksum,
@@ -89,12 +90,12 @@ class RegistryDB {
                     pv_url, 
                     exif_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `),
         };
     }
 
-    add(fileName, fileSize, fileDate, md5, sha512, tinyThumbnail, sourceFolderName, serviceType, storePath, storeFileName, url, thumbnailUrl, previewUrl, exifJson) {
+    add(fileName, fileSize, fileDate, mimeType, md5, sha512, tinyThumbnail, sourceFolderName, serviceType, storePath, storeFileName, url, thumbnailUrl, previewUrl, exifJson) {
         const newSystemUniqueId = randomUUID();
 
         const result = this.statements.add.run(
@@ -102,6 +103,7 @@ class RegistryDB {
             fileName,
             fileSize,
             fileDate,
+            mimeType,
             newSystemUniqueId,
             md5,
             sha512,
