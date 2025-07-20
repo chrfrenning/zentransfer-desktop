@@ -12,6 +12,8 @@ const { MetadataService } = require('../services/MetadataService.js');
 const { ThumbnailService } = require('../services/ThumbnailService.js');
 const { DateFormatter } = require('../utils/DateFormatter.js');
 const { MimeTypesService } = require('../services/MimeTypesService.js');
+const https = require('https');
+const { URL } = require('url');
 
 const sharp = require('sharp');
 sharp.cache(false);
@@ -367,7 +369,7 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
 
                 const thumbnailSource = CREATE_THUMBNAIL_FROM_HIGHRES ? destinationPath : previewFilename;
 
-                const thumbnailFilename = thumbnailService.generateThumbnailFilename(thumbnailSource);
+                const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
                 await fs.promises.writeFile(thumbnailFilename, thumbnail.buffer);
 
                 logger.debug(`Created thumbnail from ${thumbnailSource} saved in ${previewFilename}.`);
@@ -420,7 +422,9 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
                                 }
                               )
                               .rotate(rotation)
+                              .webp({ quality: configuration.preferences.previewQuality })
                               .toBuffer();
+
                             await fs.promises.writeFile(previewFilename, rotated);
 
 
@@ -437,7 +441,9 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
                                     }
                                   )
                                   //.rotate(rotation)
+                                  .webp({ quality: configuration.preferences.thumbnailQuality })
                                   .toBuffer();
+
                                 await fs.promises.writeFile(thumbnailFilename, thumbnail);
                             }
 
@@ -453,6 +459,18 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
 
                         fs.copyFileSync(preview, previewFilename);
 
+                    }
+
+                    const thumbnailFilename = thumbnailService.generateThumbnailFilename(destinationPath);
+                    if ( ALWAYS_THUMB_FROM_PREVIEW && !fs.existsSync(thumbnailFilename) ) {
+                        const thumbnail = await thumbnailService.generatePreview(
+                            previewFilename, 
+                            { 
+                                size: configuration.preferences.thumbnailSize, 
+                                quality: configuration.preferences.thumbnailQuality
+                            }
+                        );
+                        await fs.promises.writeFile(thumbnailFilename, thumbnail.buffer);
                     }
 
                     if ( !pinkieNail && configuration.preferences.createIndexFiles ) {
@@ -657,10 +675,18 @@ async function doImport(fileWithSettings, configuration, metadataService, thumbn
         stream.write(JSON.stringify(record).replaceAll('\n','\\n') + '\n'); // Each object on a new line
         stream.end();
 
-        if ( CREATE_ALTERNATIVE_IX_FORMATS ) {
-            await createAlternativeIndexFormats(indexPath);
-        }
+        stream.on('finish', () => {
+            if ( CREATE_ALTERNATIVE_IX_FORMATS ) {
+                createAlternativeIndexFormats(indexPath);
+            }
+        });
 
+        const portfolioIndexFileName = path.join(destinationFolder, 'index.html');
+        const portfolioStylesheetFileName = path.join(destinationFolder, 'index.css');
+        const portfolioScriptFileName = path.join(destinationFolder, 'index.js');
+        await downloadFile('https://ztapp.blob.core.windows.net/browser/index.html', portfolioIndexFileName);
+        await downloadFile('https://ztapp.blob.core.windows.net/browser/index.css', portfolioStylesheetFileName);
+        await downloadFile('https://ztapp.blob.core.windows.net/browser/index.js', portfolioScriptFileName);
         
     } else {
         logger.debug(`Index file not created because createIndexFiles is disabled`);
@@ -789,3 +815,36 @@ async function getImageDimensions(filePath) {
         height: metadata.height
     };
 }
+
+function downloadFile(fileUrl, destPath) {
+    return new Promise((resolve, reject) => {
+      const urlObj = new URL(fileUrl);
+      const protocol = urlObj.protocol === 'https:' ? https : http;
+  
+      const file = fs.createWriteStream(destPath);
+  
+      const request = protocol.get(fileUrl, response => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          // Handle redirects
+          return downloadFile(response.headers.location, destPath)
+            .then(resolve)
+            .catch(reject);
+        }
+  
+        if (response.statusCode !== 200) {
+          return reject(new Error(`Failed to get '${fileUrl}' (status: ${response.statusCode})`));
+        }
+  
+        response.pipe(file);
+        file.on('finish', () => file.close(resolve));
+      });
+  
+      request.on('error', err => {
+        fs.unlink(destPath, () => reject(err)); // Delete partial file on error
+      });
+  
+      file.on('error', err => {
+        fs.unlink(destPath, () => reject(err));
+      });
+    });
+  }
