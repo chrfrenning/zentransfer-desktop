@@ -108,12 +108,22 @@ export class DownloadScreen {
                         <span class="text-sm font-medium text-gray-700">Last Sync:</span>
                         <span id="lastSyncTime" class="text-sm text-gray-600">Never</span>
                     </div>
-                    <button 
-                        id="resetSyncBtn" 
-                        class="text-sm text-blue-600 hover:text-blue-800 underline"
-                    >
-                        Reset
-                    </button>
+                    <div class="flex items-center space-x-3">
+                        <button
+                            id="syncFromNowBtn"
+                            class="text-sm text-green-600 hover:text-green-800 underline"
+                            title="Only download files uploaded from this moment onwards"
+                        >
+                            Sync from now
+                        </button>
+                        <button
+                            id="resetSyncBtn"
+                            class="text-sm text-blue-600 hover:text-blue-800 underline"
+                            title="Re-download all files from the beginning"
+                        >
+                            Reset
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Start Button -->
@@ -193,6 +203,7 @@ export class DownloadScreen {
         this.elements.browsePathBtn = document.getElementById('browsePathBtn');
         this.elements.startMonitorBtn = document.getElementById('startMonitorBtn');
         this.elements.lastSyncTime = document.getElementById('lastSyncTime');
+        this.elements.syncFromNowBtn = document.getElementById('syncFromNowBtn');
         this.elements.resetSyncBtn = document.getElementById('resetSyncBtn');
         
         // Monitoring mode elements
@@ -264,6 +275,13 @@ export class DownloadScreen {
         if (this.elements.startMonitorBtn) {
             this.elements.startMonitorBtn.addEventListener('click', () => {
                 this.startMonitoring();
+            });
+        }
+
+        // Sync from now button
+        if (this.elements.syncFromNowBtn) {
+            this.elements.syncFromNowBtn.addEventListener('click', () => {
+                this.syncFromNow();
             });
         }
 
@@ -485,6 +503,27 @@ export class DownloadScreen {
             const hasPath = this.queueManager.downloadPath && this.queueManager.downloadPath.trim();
             this.elements.startMonitorBtn.disabled = !hasPath;
         }
+    }
+
+    /**
+     * Set sync time to the current moment so only future uploads are downloaded
+     */
+    async syncFromNow() {
+        const nowTime = new Date().toISOString();
+        StorageManager.setLastSyncTime(nowTime);
+        this.updateLastSyncDisplay(nowTime);
+
+        if (typeof require !== 'undefined') {
+            try {
+                const { ipcRenderer } = require('electron');
+                await ipcRenderer.invoke('reset-sync-time', nowTime);
+                console.log('Sync time set to now in main process:', nowTime);
+            } catch (error) {
+                console.error('Failed to update sync time in main process:', error);
+            }
+        }
+
+        UIComponents.Notification.show('Sync time set to now — only new uploads will be downloaded', 'success');
     }
 
     /**
