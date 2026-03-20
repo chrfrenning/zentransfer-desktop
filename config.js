@@ -47,7 +47,7 @@ function getIsDevelopment() {
 
 // Server configuration
 const SERVER_URLS = {
-    development: 'https://tmp.chph.dev',
+    development: 'https://zentransfer.io',
     production: 'https://zentransfer.io'
 };
 
