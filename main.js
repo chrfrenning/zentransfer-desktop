@@ -729,6 +729,7 @@ class DownloadWorkerManager {
         // Update latestDownloadedFileTime to the most recent file's created timestamp
         // from this batch. This prevents re-fetching the same files on subsequent polls
         // while downloads are still in progress.
+        const previousSyncTime = this.latestDownloadedFileTime;
         for (const file of files) {
           if (file.created) {
             if (!this.latestDownloadedFileTime || file.created > this.latestDownloadedFileTime) {
@@ -736,8 +737,13 @@ class DownloadWorkerManager {
             }
           }
         }
-        if (this.latestDownloadedFileTime) {
+        if (this.latestDownloadedFileTime && this.latestDownloadedFileTime !== previousSyncTime) {
           console.log(`Advanced sync time to: ${this.latestDownloadedFileTime}`);
+          // Persist to renderer so localStorage stays in sync with the in-memory value
+          this.sendDownloadUpdate({
+            type: 'sync-time-update',
+            syncTime: this.latestDownloadedFileTime
+          });
         }
       } else {
         console.log('No new files found');
@@ -988,6 +994,20 @@ function createWindow() {
   // Show window when ready to prevent visual flash
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+  });
+
+  // Persist the latest sync time before the window is destroyed (covers the X button path)
+  mainWindow.on('close', () => {
+    if (downloadWorkerPool && downloadWorkerPool.latestDownloadedFileTime) {
+      try {
+        mainWindow.webContents.send('download-update', {
+          type: 'sync-time-update',
+          syncTime: downloadWorkerPool.latestDownloadedFileTime
+        });
+      } catch (e) {
+        // Window may already be partially destroyed; ignore
+      }
+    }
   });
 
   // Open DevTools in development
@@ -1258,6 +1278,15 @@ function setupIpcHandlers() {
    ipcMain.handle('app-quit', async (event) => {
      try {
        console.log('Received app quit request from renderer');
+       
+       // Persist the latest sync time to the renderer's localStorage before shutting down.
+       // This prevents re-downloading files that were already fetched in the current session.
+       if (downloadWorkerPool && downloadWorkerPool.latestDownloadedFileTime) {
+         downloadWorkerPool.sendDownloadUpdate({
+           type: 'sync-time-update',
+           syncTime: downloadWorkerPool.latestDownloadedFileTime
+         });
+       }
        
        // Cancel all active operations
        if (uploadWorkerPool) {
