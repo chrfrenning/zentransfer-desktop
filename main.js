@@ -725,11 +725,24 @@ class DownloadWorkerManager {
       
       if (files.length > 0) {
         console.log(`Found ${files.length} new files from server`);
-        // Don't update sync time here - it will be updated when files are successfully downloaded
+
+        // Update latestDownloadedFileTime to the most recent file's created timestamp
+        // from this batch. This prevents re-fetching the same files on subsequent polls
+        // while downloads are still in progress.
+        for (const file of files) {
+          if (file.created) {
+            if (!this.latestDownloadedFileTime || file.created > this.latestDownloadedFileTime) {
+              this.latestDownloadedFileTime = file.created;
+            }
+          }
+        }
+        if (this.latestDownloadedFileTime) {
+          console.log(`Advanced sync time to: ${this.latestDownloadedFileTime}`);
+        }
       } else {
         console.log('No new files found');
       }
-      
+
       return { files, hasMoreItems };
       
     } catch (error) {
@@ -746,8 +759,28 @@ class DownloadWorkerManager {
   }
   
   addFileToQueue(fileInfo) {
+    const fileId = fileInfo.id;
+
+    // Deduplication: skip if already in the download queue
+    if (fileId && this.downloadQueue.some(f => f.id === fileId)) {
+      console.log(`Skipping duplicate file already in queue: ${fileInfo.name} (id: ${fileId})`);
+      return;
+    }
+
+    // Deduplication: skip if already completed
+    if (fileId && this.completedFiles.some(f => f.id === fileId)) {
+      console.log(`Skipping already completed file: ${fileInfo.name} (id: ${fileId})`);
+      return;
+    }
+
+    // Deduplication: skip if currently being downloaded (active job)
+    if (fileId && Array.from(this.activeJobs.values()).some(({ job }) => job.file.id === fileId)) {
+      console.log(`Skipping file already being downloaded: ${fileInfo.name} (id: ${fileId})`);
+      return;
+    }
+
     const file = {
-      id: fileInfo.id || Date.now() + Math.random(),
+      id: fileId || Date.now() + Math.random(),
       jobId: null, // Will be assigned when download starts
       name: fileInfo.name,
       size: fileInfo.size,
@@ -762,7 +795,7 @@ class DownloadWorkerManager {
       totalBytes: fileInfo.size || 0,
       error: null
     };
-    
+
     this.downloadQueue.push(file);
     console.log(`Added file to queue: ${file.name} (queue size: ${this.downloadQueue.length})`);
   }
