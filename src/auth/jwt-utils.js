@@ -27,12 +27,22 @@ export class JWTUtils {
     
     static getTokenExpiration(token) {
         const payload = this.decodeToken(token);
-        if (!payload || !payload.expires_at) {
+        if (!payload) {
             return null;
         }
-        
-        // Parse ISO date string to timestamp
-        return new Date(payload.expires_at).getTime();
+
+        // Handle standard JWT 'exp' field (Unix timestamp in seconds)
+        if (payload.exp) {
+            return payload.exp * 1000;
+        }
+
+        // Handle custom 'expires_at' field (ISO date string or ms timestamp)
+        if (payload.expires_at) {
+            const parsed = new Date(payload.expires_at).getTime();
+            return isNaN(parsed) ? null : parsed;
+        }
+
+        return null;
     }
     
     static isTokenExpired(token) {
