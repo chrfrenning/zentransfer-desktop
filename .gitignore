@@ -3,3 +3,5 @@ dist/
 node_modules/
 src/output.css
 .env
+dist-react/
+config.json

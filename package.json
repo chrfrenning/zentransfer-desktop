@@ -1,7 +1,12 @@
 {
   "name": "ZenTransfer",
-  "version": "0.1.25,
+  "version": "0.1.26",
   "description": "File transfer for professional photographers",
+  "homepage": "https://zentransfer.io",
+  "bugs": {
+    "url": "https://github.com/chrfrenning/zentransfer-desktop/issues",
+    "email": "hello@zentransfer.io"
+  },
   "main": "main.js",
   "scripts": {
     "start": "cross-env NODE_ENV=production electron .",
@@ -25,7 +30,11 @@
     "cloud",
     "file transfer"
   ],
-  "author": "Perceptron AS",
+  "author": "Christopher Frenning / Perceptron AS <hello@zentransfer.io> (https://zentransfer.io/)",
+  "funding": {
+    "type": "ko-fi",
+    "url": "https://ko-fi.com/chrfrenning"
+  },
   "license": "AGPL-3.0",
   "devDependencies": {
     "concurrently": "^8.2.2",
@@ -67,6 +76,24 @@
       "signingHashAlgorithms": [
         "sha256"
       ]
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "icon": "./icon.png"
     },
     "directories": {
       "buildResources": "build",
