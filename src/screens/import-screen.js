@@ -259,6 +259,17 @@ export class ImportScreen {
                         </div>
                         
                         <div id="cloudServicesContainer" class="hidden ml-7 space-y-3">
+                            <!-- Upload to ZenTransfer
+                            <div class="flex items-center space-x-3 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    id="uploadToZenTransferCheckbox" 
+                                    class="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                <label for="uploadToZenTransferCheckbox" class="text-sm font-medium text-gray-700 cursor-pointer">
+                                    🚀 Relay with ZenTransfer
+                                </label>
+                            </div> -->
                             
                             <!-- Upload to AWS S3 -->
                             <div class="flex items-center space-x-3 cursor-pointer">
